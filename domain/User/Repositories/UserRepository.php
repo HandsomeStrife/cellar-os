@@ -25,6 +25,11 @@ class UserRepository
         return User::where('email', $email)->first()?->getData();
     }
 
+    public function findByStripeId(string $stripeId): ?UserData
+    {
+        return User::where('stripe_id', $stripeId)->first()?->getData();
+    }
+
     /**
      * The currently authenticated user, or null when unauthenticated.
      *

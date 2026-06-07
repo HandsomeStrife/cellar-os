@@ -8,6 +8,7 @@ use App\Livewire\Auth\Register;
 use App\Livewire\Auth\ResetPassword;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Http\Controllers\Orders\DownloadOrderPdfController;
+use App\Livewire\Billing\Pricing;
 use App\Livewire\Catalogue\Index as CatalogueIndex;
 use App\Livewire\Dashboard;
 use App\Livewire\Import\Index as ImportIndex;
@@ -36,6 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/inventory/attachments/{id}/download', DownloadAttachmentController::class)->name('inventory.attachments.download');
     Route::get('/orders', OrderIndex::class)->name('orders');
     Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
+    Route::get('/pricing', Pricing::class)->name('pricing');
 
     Route::post('/logout', function (Request $request) {
         Auth::logout();
