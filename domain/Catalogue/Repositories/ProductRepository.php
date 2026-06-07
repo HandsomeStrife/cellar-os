@@ -29,17 +29,32 @@ class ProductRepository
             ->through(fn (Product $product) => $product->getData());
     }
 
+    /**
+     * Sortable columns, mapped to allow-list lookups (never trust raw input).
+     */
+    public const SORTABLE = ['wine_name', 'producer', 'country', 'vintage', 'unit_price', 'stock'];
+
     public function search(
         ?string $term = null,
         ?string $country = null,
         ?WineColour $colour = null,
+        string $sort = 'wine_name',
+        string $direction = 'asc',
         int $perPage = 24,
     ): LengthAwarePaginator {
+        $sort = in_array($sort, self::SORTABLE, true) ? $sort : 'wine_name';
+        $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
+
         return Product::query()
-            ->when($term !== null, fn ($query) => $query->where('wine_name', 'like', "%{$term}%"))
-            ->when($country !== null, fn ($query) => $query->where('country', $country))
+            ->when($term !== null && $term !== '', function ($query) use ($term) {
+                $query->where(function ($query) use ($term) {
+                    $query->where('wine_name', 'like', "%{$term}%")
+                        ->orWhere('producer', 'like', "%{$term}%");
+                });
+            })
+            ->when($country !== null && $country !== '', fn ($query) => $query->where('country', $country))
             ->when($colour !== null, fn ($query) => $query->where('colour', $colour->value))
-            ->orderBy('wine_name')
+            ->orderBy($sort, $direction)
             ->paginate($perPage)
             ->through(fn (Product $product) => $product->getData());
     }
@@ -47,6 +62,22 @@ class ProductRepository
     public function count(): int
     {
         return Product::count();
+    }
+
+    /**
+     * Distinct, non-empty country names for filter dropdowns.
+     *
+     * @return array<int, string>
+     */
+    public function countries(): array
+    {
+        return Product::query()
+            ->whereNotNull('country')
+            ->where('country', '!=', '')
+            ->distinct()
+            ->orderBy('country')
+            ->pluck('country')
+            ->all();
     }
 
     public function allForMap(): Collection

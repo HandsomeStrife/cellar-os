@@ -6,6 +6,7 @@ use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\Auth\ResetPassword;
+use App\Livewire\Catalogue\Index as CatalogueIndex;
 use App\Livewire\Dashboard;
 use App\Livewire\Suppliers\Index as SupplierIndex;
 use Illuminate\Http\Request;
@@ -24,6 +25,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/suppliers', SupplierIndex::class)->name('suppliers');
+    Route::get('/catalogue', CatalogueIndex::class)->name('catalogue');
 
     Route::post('/logout', function (Request $request) {
         Auth::logout();
