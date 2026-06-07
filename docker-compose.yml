@@ -1,0 +1,40 @@
+services:
+  laravel.test:
+    container_name: cellar-os-app
+    build:
+      context: ./vendor/laravel/sail/runtimes/8.5
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: '${WWWGROUP}'
+    image: sail-8.5/app
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '${VITE_PORT:-5196}:${VITE_PORT:-5196}'
+    environment:
+      WWWUSER: '${WWWUSER}'
+      LARAVEL_SAIL: 1
+    volumes:
+      - '.:/var/www/html'
+      - /srv/config/supervisord-vite.conf:/etc/supervisor/conf.d/supervisord.conf
+    networks:
+      - proxy
+    depends_on:
+      - redis
+  redis:
+    container_name: cellar-os-redis
+    image: 'redis:alpine'
+    volumes:
+      - 'sail-redis:/data'
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      retries: 3
+      timeout: 5s
+networks:
+  proxy:
+    external: true
+volumes:
+  sail-redis:
+    driver: local
