@@ -22,9 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature' => EnsureFeatureAccess::class,
         ]);
 
-        // Unauthenticated users → login; already-authenticated users hitting
-        // guest-only routes → dashboard.
-        $middleware->redirectGuestsTo(fn () => route('login'));
+        // Unauthenticated users → login (admin area → admin login);
+        // already-authenticated users hitting guest-only routes → dashboard.
+        $middleware->redirectGuestsTo(
+            fn (Request $request) => $request->is('admin') || $request->is('admin/*') ? route('admin.login') : route('login')
+        );
         $middleware->redirectUsersTo('/dashboard');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
