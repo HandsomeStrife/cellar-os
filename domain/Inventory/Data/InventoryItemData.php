@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Domain\Inventory\Data;
 
 use Carbon\CarbonImmutable;
+use Domain\Inventory\Models\InventoryAttachment;
 use Domain\Inventory\Models\InventoryItem;
 use Domain\Shared\Data\AbstractData;
 
 class InventoryItemData extends AbstractData
 {
+    /**
+     * @param  InventoryAttachmentData[]  $attachments
+     */
     public function __construct(
         public ?int $id,
         public ?string $uuid,
@@ -22,6 +26,7 @@ class InventoryItemData extends AbstractData
         public bool $is_archived,
         public ?CarbonImmutable $archived_at = null,
         public ?CarbonImmutable $created_at = null,
+        public array $attachments = [],
     ) {}
 
     public static function fromModel(InventoryItem $model): self
@@ -38,6 +43,9 @@ class InventoryItemData extends AbstractData
             is_archived: $model->is_archived,
             archived_at: $model->archived_at?->toImmutable(),
             created_at: $model->created_at?->toImmutable(),
+            attachments: $model->relationLoaded('attachments')
+                ? $model->attachments->map(fn (InventoryAttachment $a) => InventoryAttachmentData::fromModel($a))->all()
+                : [],
         );
     }
 

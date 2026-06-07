@@ -15,7 +15,7 @@ it('returns DTOs, never models, from the repository', function () {
         'colour' => WineColour::Red->value,
     ]);
 
-    $result = (new ProductRepository())->findByUuid($product->uuid);
+    $result = (new ProductRepository)->findByUuid($product->uuid);
 
     expect($result)->toBeInstanceOf(ProductData::class)
         ->and($result->colour)->toBe(WineColour::Red)
@@ -27,7 +27,7 @@ it('only returns geo-located products for the map', function () {
     Product::factory()->create(['supplier_id' => $supplier->id, 'latitude' => null, 'longitude' => null]);
     Product::factory()->create(['supplier_id' => $supplier->id, 'latitude' => '45.000000', 'longitude' => '2.000000']);
 
-    $mapped = (new ProductRepository())->allForMap();
+    $mapped = (new ProductRepository)->allForMap();
 
     expect($mapped)->toHaveCount(1)
         ->and($mapped->first())->toBeInstanceOf(ProductData::class);

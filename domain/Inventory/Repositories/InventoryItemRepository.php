@@ -22,17 +22,26 @@ class InventoryItemRepository
 
     public function forVenue(int $venueId): Collection
     {
-        return InventoryItem::active()
+        return InventoryItem::with('attachments')
+            ->active()
             ->where('venue_id', $venueId)
+            ->latest('last_received_at')
             ->get()
             ->map(fn (InventoryItem $item) => $item->getData());
     }
 
     public function archived(int $venueId): Collection
     {
-        return InventoryItem::where('is_archived', true)
+        return InventoryItem::with('attachments')
+            ->where('is_archived', true)
             ->where('venue_id', $venueId)
+            ->latest('archived_at')
             ->get()
             ->map(fn (InventoryItem $item) => $item->getData());
+    }
+
+    public function countForVenue(int $venueId): int
+    {
+        return InventoryItem::active()->where('venue_id', $venueId)->count();
     }
 }
