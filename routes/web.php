@@ -9,6 +9,7 @@ use App\Livewire\Auth\ResetPassword;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Livewire\Catalogue\Index as CatalogueIndex;
 use App\Livewire\Dashboard;
+use App\Livewire\Import\Index as ImportIndex;
 use App\Livewire\Inventory\Index as InventoryIndex;
 use App\Livewire\Suppliers\Index as SupplierIndex;
 use Illuminate\Http\Request;
@@ -28,6 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/suppliers', SupplierIndex::class)->name('suppliers');
     Route::get('/catalogue', CatalogueIndex::class)->name('catalogue');
+    Route::get('/import', ImportIndex::class)->name('import');
     Route::get('/inventory', InventoryIndex::class)->name('inventory');
     Route::get('/inventory/attachments/{id}/download', DownloadAttachmentController::class)->name('inventory.attachments.download');
 
