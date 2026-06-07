@@ -165,8 +165,8 @@
             <div class="mt-4 flex items-center justify-end gap-2">
                 <x-button wire:click="clearBasket" variant="ghost" size="sm" wire:confirm="Clear the basket?">Clear</x-button>
                 <x-button variant="outline" wire:click="$set('showBasket', false)">Keep browsing</x-button>
-                @if(\Illuminate\Support\Facades\Route::has('orders.create'))
-                    <x-button :href="route('orders.create')" wire:navigate>Create order</x-button>
+                @if(\Illuminate\Support\Facades\Route::has('orders'))
+                    <x-button :href="route('orders')" wire:navigate>Create order</x-button>
                 @else
                     <x-button wire:click="$dispatch('toast', { message: 'Purchase orders arrive with the Orders module — your basket is saved.' })">Create order</x-button>
                 @endif

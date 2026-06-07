@@ -7,10 +7,12 @@ use App\Livewire\Auth\Login;
 use App\Livewire\Auth\Register;
 use App\Livewire\Auth\ResetPassword;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
+use App\Http\Controllers\Orders\DownloadOrderPdfController;
 use App\Livewire\Catalogue\Index as CatalogueIndex;
 use App\Livewire\Dashboard;
 use App\Livewire\Import\Index as ImportIndex;
 use App\Livewire\Inventory\Index as InventoryIndex;
+use App\Livewire\Orders\Index as OrderIndex;
 use App\Livewire\Suppliers\Index as SupplierIndex;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -32,6 +34,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/import', ImportIndex::class)->name('import');
     Route::get('/inventory', InventoryIndex::class)->name('inventory');
     Route::get('/inventory/attachments/{id}/download', DownloadAttachmentController::class)->name('inventory.attachments.download');
+    Route::get('/orders', OrderIndex::class)->name('orders');
+    Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
 
     Route::post('/logout', function (Request $request) {
         Auth::logout();

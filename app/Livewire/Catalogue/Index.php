@@ -38,8 +38,9 @@ class Index extends Component
 
     public string $priceInput = '';
 
-    // Order basket: product_id => quantity (bottles). Persisted across requests.
-    #[Session]
+    // Order basket: product_id => quantity (bottles). Persisted across requests
+    // under a shared key so the Orders module can pick it up at checkout.
+    #[Session(key: 'order-basket')]
     public array $basket = [];
 
     public bool $showBasket = false;

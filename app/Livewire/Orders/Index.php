@@ -1,0 +1,278 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Livewire\Orders;
+
+use App\Mail\PurchaseOrderMail;
+use Domain\Billing\Enums\Feature;
+use Domain\Billing\Enums\Plan;
+use Domain\Catalogue\Repositories\ProductRepository;
+use Domain\Order\Actions\CreateOrderAction;
+use Domain\Order\Actions\DeleteOrderAction;
+use Domain\Order\Actions\UpdateOrderStatusAction;
+use Domain\Order\Data\OrderData;
+use Domain\Order\Data\OrderItemData;
+use Domain\Order\Enums\OrderStatus;
+use Domain\Order\Repositories\OrderRepository;
+use Domain\Order\Services\OrderPdfService;
+use Domain\Supplier\Repositories\SupplierRepository;
+use Domain\User\Repositories\UserRepository;
+use Domain\Venue\Repositories\VenueRepository;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
+use Livewire\Component;
+use Livewire\WithPagination;
+
+#[Layout('layouts.app')]
+#[Title('Orders')]
+class Index extends Component
+{
+    use WithPagination;
+
+    public string $statusFilter = '';
+
+    public bool $showCreate = false;
+
+    public ?int $viewingId = null;
+
+    // Create form
+    public ?int $supplierId = null;
+
+    public ?int $venueId = null;
+
+    public string $notes = '';
+
+    public string $productSearch = '';
+
+    /** @var array<int, array{product_id: int, wine_name: string, unit_price: string, quantity: int}> */
+    public array $lines = [];
+
+    private ?Plan $memoPlan = null;
+
+    private function plan(): Plan
+    {
+        return $this->memoPlan ??= ((new UserRepository)->getLoggedInUser()?->plan ?? Plan::Free);
+    }
+
+    private function entitled(): bool
+    {
+        return $this->plan()->can(Feature::CreatePurchaseOrders);
+    }
+
+    public function openCreate(): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        $this->reset(['supplierId', 'venueId', 'notes', 'productSearch', 'lines']);
+
+        // Pre-fill from the catalogue basket if present.
+        $basket = session('order-basket', []);
+
+        if (is_array($basket) && $basket !== []) {
+            $productRepo = new ProductRepository;
+
+            foreach ($basket as $productId => $qty) {
+                $product = $productRepo->find((int) $productId);
+
+                if ($product !== null) {
+                    $this->lines[] = [
+                        'product_id' => $product->id,
+                        'wine_name' => $product->wine_name,
+                        'unit_price' => $product->unit_price ?? '0.00',
+                        'quantity' => (int) $qty,
+                    ];
+                }
+            }
+        }
+
+        $this->showCreate = true;
+    }
+
+    public function addLine(int $productId): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        $product = (new ProductRepository)->find($productId);
+
+        if ($product === null) {
+            return;
+        }
+
+        foreach ($this->lines as $i => $line) {
+            if ($line['product_id'] === $productId) {
+                $this->lines[$i]['quantity']++;
+
+                return;
+            }
+        }
+
+        $this->lines[] = [
+            'product_id' => $product->id,
+            'wine_name' => $product->wine_name,
+            'unit_price' => $product->unit_price ?? '0.00',
+            'quantity' => 1,
+        ];
+    }
+
+    public function setLineQty(int $index, int $qty): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        if (! isset($this->lines[$index])) {
+            return;
+        }
+
+        if ($qty <= 0) {
+            unset($this->lines[$index]);
+            $this->lines = array_values($this->lines);
+
+            return;
+        }
+
+        $this->lines[$index]['quantity'] = $qty;
+    }
+
+    public function removeLine(int $index): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        unset($this->lines[$index]);
+        $this->lines = array_values($this->lines);
+    }
+
+    public function createOrder(): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        $userId = (new UserRepository)->getLoggedInUser()?->id;
+
+        $this->validate([
+            'supplierId' => 'required|integer|exists:suppliers,id',
+            // Venue (if any) must belong to the current user.
+            'venueId' => ['nullable', 'integer', Rule::exists('venues', 'id')->where('user_id', $userId)],
+            'lines' => 'required|array|min:1',
+            'lines.*.product_id' => 'required|integer|exists:products,id',
+            'lines.*.quantity' => 'required|integer|min:1',
+            'lines.*.unit_price' => 'required|numeric|min:0',
+        ], [], ['lines' => 'order lines']);
+
+        $items = array_map(fn ($line) => new OrderItemData(
+            id: null,
+            order_id: null,
+            product_id: $line['product_id'],
+            wine_name: $line['wine_name'],
+            quantity_units: (int) $line['quantity'],
+            unit_price_at_order: number_format((float) $line['unit_price'], 2, '.', ''),
+            currency_at_order: 'GBP',
+        ), $this->lines);
+
+        (new CreateOrderAction)->execute(new OrderData(
+            id: null,
+            uuid: null,
+            supplier_id: $this->supplierId,
+            venue_id: $this->venueId,
+            created_by: $userId,
+            status: OrderStatus::Draft,
+            total: null,
+            notes: $this->notes !== '' ? $this->notes : null,
+            items: $items,
+        ));
+
+        session()->forget('order-basket');
+        $this->reset(['showCreate', 'supplierId', 'venueId', 'notes', 'productSearch', 'lines']);
+        $this->resetPage();
+        $this->dispatch('toast', message: 'Order created.');
+    }
+
+    public function setStatus(int $id, string $status): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        $enum = OrderStatus::tryFrom($status);
+        abort_if($enum === null, 422);
+
+        (new UpdateOrderStatusAction)->execute($id, $enum);
+        $this->dispatch('toast', message: 'Status updated.');
+    }
+
+    public function deleteOrder(int $id): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        (new DeleteOrderAction)->execute($id);
+        $this->viewingId = null;
+        $this->dispatch('toast', message: 'Order deleted.');
+    }
+
+    public function sendEmail(int $id): void
+    {
+        abort_unless($this->plan()->can(Feature::SendPurchaseOrderEmail), 403);
+
+        $order = (new OrderRepository)->find($id);
+        abort_if($order === null, 404);
+
+        $supplier = $order->supplier_id ? (new SupplierRepository)->find($order->supplier_id) : null;
+
+        if ($supplier?->email === null) {
+            $this->dispatch('toast', message: 'That supplier has no email address.');
+
+            return;
+        }
+
+        $venue = $order->venue_id ? (new VenueRepository)->find($order->venue_id) : null;
+        $pdf = (new OrderPdfService)->generate($order, $supplier, $venue)->output();
+
+        Mail::to($supplier->email)->send(new PurchaseOrderMail($order, $pdf, $supplier->name));
+
+        // Only advance open orders to Sent; don't regress terminal states.
+        if (in_array($order->status, [OrderStatus::Draft, OrderStatus::Pending], true)) {
+            (new UpdateOrderStatusAction)->execute($id, OrderStatus::Sent);
+        }
+
+        $this->dispatch('toast', message: 'Order emailed to '.$supplier->email.'.');
+    }
+
+    public function render()
+    {
+        $entitled = $this->entitled();
+        $orders = null;
+        $viewing = null;
+
+        if ($entitled) {
+            $repo = new OrderRepository;
+            $status = OrderStatus::tryFrom($this->statusFilter);
+            $orders = $status !== null ? $repo->byStatus($status) : $repo->paginate();
+
+            if ($this->viewingId !== null) {
+                $viewing = $repo->find($this->viewingId);
+            }
+        }
+
+        $productOptions = [];
+
+        if ($entitled && $this->showCreate) {
+            $productOptions = (new ProductRepository)->search(term: $this->productSearch, perPage: 25)
+                ->getCollection()
+                ->mapWithKeys(fn ($p) => [$p->id => $p->wine_name.($p->vintage ? " ({$p->vintage})" : '')])
+                ->all();
+        }
+
+        $userId = (new UserRepository)->getLoggedInUser()?->id;
+        $venues = $userId !== null ? (new VenueRepository)->getForUser($userId) : collect();
+
+        return view('livewire.orders.index', [
+            'entitled' => $entitled,
+            'canEmail' => $this->plan()->can(Feature::SendPurchaseOrderEmail),
+            'orders' => $orders,
+            'viewing' => $viewing,
+            'statuses' => OrderStatus::cases(),
+            'suppliers' => (new SupplierRepository)->all(),
+            'venues' => $venues,
+            'productOptions' => $productOptions,
+            'linesTotal' => collect($this->lines)->sum(fn ($l) => $l['quantity'] * (float) $l['unit_price']),
+        ]);
+    }
+}
