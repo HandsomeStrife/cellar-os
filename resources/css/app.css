@@ -137,3 +137,8 @@
         font-family: var(--font-serif);
     }
 }
+
+/* Hide Alpine-cloaked elements until Alpine initialises (prevents flash). */
+[x-cloak] {
+    display: none !important;
+}

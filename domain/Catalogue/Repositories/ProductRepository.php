@@ -44,6 +44,11 @@ class ProductRepository
             ->through(fn (Product $product) => $product->getData());
     }
 
+    public function count(): int
+    {
+        return Product::count();
+    }
+
     public function allForMap(): Collection
     {
         return Product::whereNotNull('latitude')

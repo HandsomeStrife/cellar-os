@@ -32,4 +32,9 @@ class SupplierRepository
             ->get()
             ->map(fn (Supplier $supplier) => $supplier->getData());
     }
+
+    public function count(): int
+    {
+        return Supplier::count();
+    }
 }

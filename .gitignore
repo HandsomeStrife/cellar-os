@@ -25,6 +25,7 @@
 /tests/e2e/.auth
 /test-results
 /playwright-report
+/.playwright-mcp
 _ide_helper.php
 Homestead.json
 Homestead.yaml

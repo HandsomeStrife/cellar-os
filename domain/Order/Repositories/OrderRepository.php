@@ -37,4 +37,18 @@ class OrderRepository
             ->paginate($perPage)
             ->through(fn (Order $order) => $order->getData());
     }
+
+    public function count(): int
+    {
+        return Order::count();
+    }
+
+    public function countOpen(): int
+    {
+        return Order::whereIn('status', [
+            OrderStatus::Draft->value,
+            OrderStatus::Pending->value,
+            OrderStatus::Sent->value,
+        ])->count();
+    }
 }

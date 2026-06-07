@@ -257,6 +257,37 @@ if ($plan->can(Feature::CreatePurchaseOrders)) { /* ... */ }
 
 ---
 
+## UI & component library
+
+Build pages from reusable Blade components — views should read as component trees, not walls of utility classes. Styling comes only from the theme tokens (`bg-primary`, `text-foreground`, `border-border`, `bg-sidebar`, …) defined in `resources/css/app.css`.
+
+**Form inputs are components, never raw `<input>`.** They're "thin": only `label`/`hint` (and select's `options`/`placeholder`) are declared props — every real HTML attribute (`name`, `type`, `placeholder`, `required`, `value`, `wire:model`, …) flows through `$attributes`. `name` is read from the attribute bag to drive label/`id` association and inline `$errors` display.
+
+```blade
+<x-input.text name="wine_name" label="Wine name" wire:model="wine_name" required />
+<x-input.email name="email" label="Email" wire:model="email" />
+<x-input.password name="password" label="Password" wire:model="password" />   {{-- has show/hide toggle --}}
+<x-input.textarea name="notes" label="Notes" wire:model="notes" rows="5" />
+<x-input.select name="status" label="Status" :options="['Active' => 'Active', 'Inactive' => 'Inactive']" wire:model="status" />
+<x-input.checkbox name="remember" label="Remember me" wire:model="remember" />
+```
+
+| Component | Notes |
+|-----------|-------|
+| `x-input.{text,email,password,textarea,select,checkbox}` | Thin field wrappers (label + control + inline error). |
+| `x-input.label`, `x-input.error` | Lower-level helpers used by the field components. |
+| `x-button` | `variant` (primary/secondary/outline/ghost/danger), `size` (sm/md/lg), `href` to render as `<a>`. |
+| `x-card` | `title`/`subtitle` props or `<x-slot:header>` / `<x-slot:footer>`. |
+| `x-badge` | `color` (gray/amber/blue/green/emerald/red/wine) — maps to `OrderStatus::getColour()`. |
+| `x-alert` | `variant` (success/error/warning/info). |
+| `x-stat` | KPI tile: `label`, `value`, `icon`. |
+| `x-app-logo` | Brand lockup; `href`, `showText`. |
+| `x-icon.*` | Lucide icons in `resources/views/components/icon/` (stroke, `currentColor`, size via `class="size-5"`). Add more from the lucide-icons skill / lucide-static CDN — never inline raw SVG. |
+
+**Layouts** (`resources/views/layouts/`, registered as Livewire's `layouts::` namespace): `app` (authenticated shell — sidebar + topbar + theme toggle + user menu; sidebar items guard on `Route::has()` and show "soon" until their route exists) and `guest` (centered card for auth). Both apply the theme before paint to avoid a dark-mode flash.
+
+**Livewire:** components are **class-based** in `app/Livewire/` with views in `resources/views/livewire/` (project default set via `config/livewire.php` `make_command.type = 'class'` — not Livewire 4's single-file default). Full-page components set their chrome with `#[Layout('layouts.app')]` + `#[Title('…')]`. Components call repositories/actions, never models. Auth lives in `app/Livewire/Auth/` (Login, Register, ForgotPassword, ResetPassword); registration runs through `Domain\User\Actions\RegisterUserAction`. Logout is a POST route. Guest/auth redirects are configured in `bootstrap/app.php` (`redirectGuestsTo` → login, `redirectUsersTo` → /dashboard).
+
 ## Critical rules
 
 **DDD**
