@@ -6,6 +6,7 @@ namespace Domain\Supplier\Data;
 
 use Carbon\CarbonImmutable;
 use Domain\Shared\Data\AbstractData;
+use Domain\Supplier\Enums\SupplierStatus;
 use Domain\Supplier\Models\Supplier;
 
 class SupplierData extends AbstractData
@@ -18,7 +19,7 @@ class SupplierData extends AbstractData
         public ?string $email,
         public ?string $phone,
         public ?string $location,
-        public string $status,
+        public SupplierStatus $status,
         public ?array $column_mapping = null,
         public ?CarbonImmutable $created_at = null,
     ) {}

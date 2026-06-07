@@ -163,6 +163,27 @@
                 {{ $slot }}
             </main>
         </div>
+
+        {{-- Toasts: any component can show one with $this->dispatch('toast', message: '…'). --}}
+        <div
+            x-data="{ toasts: [] }"
+            x-on:toast.window="
+                const id = Date.now() + Math.random();
+                toasts.push({ id, message: $event.detail.message });
+                setTimeout(() => toasts = toasts.filter(t => t.id !== id), 3500);
+            "
+            class="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-xs flex-col gap-2"
+        >
+            <template x-for="toast in toasts" :key="toast.id">
+                <div
+                    x-transition
+                    class="pointer-events-auto flex items-center gap-2 rounded-md border border-border bg-popover px-4 py-3 text-sm text-popover-foreground shadow-lg"
+                >
+                    <x-icon.circle-check class="size-4 shrink-0 text-primary" />
+                    <span x-text="toast.message"></span>
+                </div>
+            </template>
+        </div>
     </div>
 </body>
 </html>

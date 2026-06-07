@@ -7,6 +7,7 @@ namespace Domain\Supplier\Models;
 use Database\Factories\SupplierFactory;
 use Domain\Shared\Traits\HasUuid;
 use Domain\Supplier\Data\SupplierData;
+use Domain\Supplier\Enums\SupplierStatus;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,13 +31,14 @@ class Supplier extends Model
     {
         return [
             'column_mapping' => 'array',
+            'status' => SupplierStatus::class,
         ];
     }
 
     #[Scope]
     protected function active($query)
     {
-        return $query->where('status', 'Active');
+        return $query->where('status', SupplierStatus::Active->value);
     }
 
     public function getData(): SupplierData

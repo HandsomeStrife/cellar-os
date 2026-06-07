@@ -26,6 +26,22 @@ class SupplierRepository
             ->map(fn (Supplier $supplier) => $supplier->getData());
     }
 
+    public function search(?string $term = null): Collection
+    {
+        return Supplier::query()
+            ->when($term !== null && $term !== '', function ($query) use ($term) {
+                $query->where(function ($query) use ($term) {
+                    $query->where('name', 'like', "%{$term}%")
+                        ->orWhere('contact', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%")
+                        ->orWhere('location', 'like', "%{$term}%");
+                });
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Supplier $supplier) => $supplier->getData());
+    }
+
     public function getActive(): Collection
     {
         return Supplier::active()
