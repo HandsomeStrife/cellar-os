@@ -16,6 +16,7 @@ use App\Livewire\Catalogue\Index as CatalogueIndex;
 use App\Livewire\Dashboard;
 use App\Livewire\Import\Index as ImportIndex;
 use App\Livewire\Inventory\Index as InventoryIndex;
+use App\Livewire\Map\Index as MapIndex;
 use App\Livewire\Orders\Index as OrderIndex;
 use App\Livewire\Suppliers\Index as SupplierIndex;
 use Illuminate\Http\Request;
@@ -40,6 +41,7 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/inventory/attachments/{id}/download', DownloadAttachmentController::class)->name('inventory.attachments.download');
     Route::get('/orders', OrderIndex::class)->name('orders');
     Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
+    Route::get('/map', MapIndex::class)->name('map');
     Route::get('/pricing', Pricing::class)->name('pricing');
 
     Route::post('/logout', function (Request $request) {
