@@ -13,6 +13,16 @@ These differ from the generic `new-laravel-site` scaffold baseline; reasons reco
 - **Laravel 13.14** (skill baseline says "12+"). Latest stable. `pestphp/pest-plugin-laravel` only resolves on Laravel 13 with Composer's `-W` flag — keep that in mind when adding test deps.
 - **PHP 8.5** in the Sail container; codebase requires `^8.3`.
 - **Tailwind v4** via `@tailwindcss/vite` (ships with Laravel 13). Theme defined as CSS variables in `resources/css/app.css` (no `tailwind.config.js`).
+
+### Design system (redesigned)
+
+- **Palette:** warm "paper" base with a deep **claret** accent, plus a "cellar" dark mode. All colours are HSL token triples in `app.css` consumed via `hsl(var(--token))`.
+- **Type:** `--font-sans` Hanken Grotesk (UI/body), `--font-display`/`--font-serif` Archivo (headings — `font-serif` is aliased to the display face), `--font-mono` IBM Plex Mono (prices/data/labels). Loaded via the laravel-vite-plugin bunny fonts feature in `vite.config.js`.
+- **Helpers:** `.select-field` styles native `<select>` (claret chevron, no forms plugin); `accent-color` themes native checkboxes; global `prefers-reduced-motion` guard; `.guide-prose` for docs.
+- **Components:** `x-button` (variants incl. `inverse` for image overlays; `focus-visible`), `x-card`, `x-badge`, `x-alert`, `x-stat` (with `tone` + `active`), `x-modal` (`@entangle`), `x-th-sort`, `x-upgrade-gate`, `x-empty-state`, `x-input.{text,email,password,textarea,select,checkbox,search}`, `x-app-logo`. Money via `Domain\Shared\Support\Currency`.
+- **Marketing** (`resources/views/landing.blade.php`): mobile-first, full-bleed hero video, alternating feature sections with **product UI mocks** (not stock-only) and photos, a pricing comparison table (recommended "Most chosen" column), image CTA bands. NO icon-card grids / bento / editorial layouts / em-dashes.
+- **Assets:** hero video at `public/media/hero.{webm,mp4}` + `hero-poster.jpg` (from `cellar-os-hero-v1.mp4`, muted/looping, pauses under reduced motion); curated Pexels imagery in `public/images/` (`CREDITS.txt`).
+- **a11y:** focus-visible rings, aria-labelled icon buttons, scoped pricing table, `<main>` landmarks, ≥40px tap targets, reduced-motion. Keep these when adding UI.
 - **MySQL** (Cerberus shared instance), not the upstream's Postgres. Postgres `pgEnum` columns are modelled as plain `string` columns cast to PHP backed enums.
 - **bigint auto-increment primary keys + a public `uuid` column** (via `Domain\Shared\Traits\HasUuid`), instead of the upstream's UUID primary keys. This keeps Laravel Cashier's migrations working unmodified and matches the standard `HasUuid` pattern. Look entities up by `uuid` for public/URL use, by `id` internally.
 - **Tests run on SQLite `:memory:`** (Laravel 13 default — fast, no external DB), not a dedicated `cellar_os_test` MySQL database.
