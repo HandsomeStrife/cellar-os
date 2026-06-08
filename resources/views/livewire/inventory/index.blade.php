@@ -30,7 +30,7 @@
         <div class="flex flex-wrap items-center gap-3">
             <select
                 wire:change="selectVenue($event.target.value)"
-                class="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
             >
                 @foreach($venues as $venue)
                     <option value="{{ $venue->id }}" @selected($venue->id === $venueId)>{{ $venue->name }}</option>

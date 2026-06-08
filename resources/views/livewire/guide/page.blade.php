@@ -11,7 +11,7 @@
         <select
             id="mobile-section"
             onchange="if(this.value) window.location.href=this.value"
-            class="w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground"
+            class="select-field w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground"
         >
             @foreach($sections as $group)
                 <optgroup label="{{ $group['title'] }}">

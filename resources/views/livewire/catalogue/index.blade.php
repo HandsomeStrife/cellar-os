@@ -15,14 +15,14 @@
             />
         </div>
 
-        <select wire:model.live="country" class="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+        <select wire:model.live="country" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
             <option value="">All countries</option>
             @foreach($countries as $countryOption)
                 <option value="{{ $countryOption }}">{{ $countryOption }}</option>
             @endforeach
         </select>
 
-        <select wire:model.live="colour" class="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+        <select wire:model.live="colour" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
             <option value="">All colours</option>
             @foreach($colours as $colourOption)
                 <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
@@ -101,7 +101,7 @@
                                             wire:model="priceInput"
                                             wire:keydown.enter="savePrice"
                                             wire:keydown.escape="cancelEditPrice"
-                                            class="w-24 rounded-md border border-input bg-background px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                            class="w-24 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
                                             autofocus
                                         />
                                         <button type="button" wire:click="savePrice" class="text-primary hover:text-primary/80" title="Save"><x-icon.check class="size-4" /></button>
@@ -154,7 +154,7 @@
                             type="number" min="1"
                             value="{{ $line['qty'] }}"
                             wire:change="setBasketQty({{ $line['product']->id }}, $event.target.value)"
-                            class="w-20 rounded-md border border-input bg-background px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                            class="w-20 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
                         />
                         <div class="w-24 text-right font-medium tabular-nums">{{ Currency::format($line['line_total'], $currency) }}</div>
                         <button type="button" wire:click="removeFromBasket({{ $line['product']->id }})" class="text-muted-foreground hover:text-destructive" title="Remove">

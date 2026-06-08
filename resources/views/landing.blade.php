@@ -45,36 +45,40 @@
         </div>
     </header>
 
+    <main id="content">
     {{-- Hero --}}
     <section class="relative isolate overflow-hidden">
         <div class="absolute inset-0 -z-10">
             <video
                 class="h-full w-full object-cover"
-                autoplay muted loop playsinline
+                autoplay muted loop playsinline preload="metadata"
+                aria-hidden="true"
                 poster="/media/hero-poster.jpg"
+                x-data
+                x-init="if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { $el.removeAttribute('autoplay'); $el.pause(); }"
             >
                 <source src="/media/hero.webm" type="video/webm">
                 <source src="/media/hero.mp4" type="video/mp4">
             </video>
-            <div class="absolute inset-0 bg-gradient-to-tr from-[#2a0e18]/90 via-[#2a0e18]/70 to-[#2a0e18]/45"></div>
+            <div class="absolute inset-0 bg-gradient-to-tr from-[#23090f]/92 via-[#23090f]/78 to-[#23090f]/62"></div>
         </div>
 
         <div class="mx-auto flex min-h-[86vh] max-w-6xl flex-col justify-center px-5 py-24 sm:px-8">
-            <p class="font-mono text-xs uppercase tracking-[0.28em] text-white/70">For importers, merchants &amp; sommeliers</p>
-            <h1 class="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl">
+            <p class="font-mono text-xs uppercase tracking-[0.22em] text-white/80">For importers, merchants &amp; sommeliers</p>
+            <h1 class="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
                 The operating system for the modern wine trade.
             </h1>
-            <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/80">
+            <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/85">
                 Bring your catalogue, suppliers, purchase orders and stock into one calm, fast workspace. Less spreadsheet wrangling, more selling wine.
             </p>
             <div class="mt-9 flex flex-wrap items-center gap-3">
                 <x-button :href="route('register')" size="lg">Start free</x-button>
-                <a href="#features" class="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-base font-medium text-white ring-1 ring-inset ring-white/30 transition hover:bg-white/10">
+                <x-button href="#features" variant="inverse" size="lg">
                     See how it works
                     <x-icon.chevron-down class="size-4" />
-                </a>
+                </x-button>
             </div>
-            <p class="mt-6 text-sm text-white/60">No card required. Free plan to browse and manage suppliers.</p>
+            <p class="mt-6 text-sm text-white/75">No card required. Free plan to browse and manage suppliers.</p>
         </div>
     </section>
 
@@ -99,17 +103,54 @@
                         <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Basket groups into one purchase order per supplier.</span></li>
                     </ul>
                 </div>
-                <div class="overflow-hidden rounded-xl border border-border shadow-sm">
-                    <img src="/images/bottles.jpg" alt="Wine bottles on a shelf" class="aspect-[4/3] w-full object-cover" loading="lazy">
+                {{-- Product preview: a mini catalogue, built from real UI --}}
+                <div class="overflow-hidden rounded-xl border border-border bg-card shadow-md">
+                    <div class="flex items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2.5">
+                        <span class="flex gap-1.5">
+                            <span class="size-2.5 rounded-full bg-foreground/15"></span>
+                            <span class="size-2.5 rounded-full bg-foreground/15"></span>
+                            <span class="size-2.5 rounded-full bg-foreground/15"></span>
+                        </span>
+                        <span class="ml-2 font-mono text-xs text-muted-foreground">cellaros.app/catalogue</span>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-border text-left font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                                <th class="px-4 py-2 font-medium">Wine</th>
+                                <th class="px-4 py-2 font-medium">Origin</th>
+                                <th class="px-4 py-2 text-right font-medium">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border">
+                            @php
+                                $previewRows = [
+                                    ['Chablis Premier Cru', 'France · Burgundy', '£28.50', '#e9dca6'],
+                                    ['Barolo Riserva', 'Italy · Piedmont', '£92.00', '#7b1e3b'],
+                                    ['Rioja Gran Reserva', 'Spain · Rioja', '£45.00', '#7b1e3b'],
+                                    ['Champagne Brut', 'France · Champagne', '£55.00', '#f0e6c4'],
+                                    ['Provence Rosé', 'France · Provence', '£19.50', '#e8a0a8'],
+                                ];
+                            @endphp
+                            @foreach($previewRows as [$wine, $origin, $price, $swatch])
+                                <tr>
+                                    <td class="px-4 py-2.5">
+                                        <span class="flex items-center gap-2 font-medium text-foreground">
+                                            <span class="size-2.5 shrink-0 rounded-full ring-1 ring-border" style="background-color: {{ $swatch }}"></span>
+                                            {{ $wine }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-muted-foreground">{{ $origin }}</td>
+                                    <td class="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{{ $price }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            {{-- Feature: Import --}}
+            {{-- Feature: Import (image left on desktop, text-first on mobile) --}}
             <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
-                <div class="overflow-hidden rounded-xl border border-border shadow-sm lg:order-1">
-                    <img src="/images/warehouse.jpg" alt="Wine bottles in storage" class="aspect-[4/3] w-full object-cover" loading="lazy">
-                </div>
-                <div class="lg:order-2">
+                <div>
                     <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Imports</p>
                     <h3 class="mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">Drop in a price list, get a clean catalogue.</h3>
                     <p class="mt-4 text-muted-foreground">Upload a supplier's CSV or Excel file and map the columns once. CellarOS standardises grapes and regions, reads prices, vintages and bottle formats out of messy text, and places each wine on the map.</p>
@@ -118,6 +159,9 @@
                         <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Re-importing updates wines instead of duplicating.</span></li>
                         <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Multi-language colour recognition.</span></li>
                     </ul>
+                </div>
+                <div class="overflow-hidden rounded-xl border border-border shadow-sm lg:order-first">
+                    <img src="/images/warehouse.jpg" alt="Wine bottles in storage" class="aspect-[4/3] w-full object-cover" loading="lazy">
                 </div>
             </div>
 
@@ -193,13 +237,18 @@
             </div>
 
             @php($plans = [Plan::Free, ...Plan::paid()])
-            <div class="mt-12 overflow-x-auto">
-                <table class="w-full min-w-[42rem] border-separate border-spacing-0 text-sm">
+            @php($featured = \Domain\Billing\Enums\Plan::Pro)
+            @php($tint = fn ($plan) => $plan === $featured ? ' bg-primary/[0.05]' : '')
+            <div class="mt-12 overflow-x-auto pb-2">
+                <table class="w-full min-w-[44rem] border-separate border-spacing-0 text-sm">
                     <thead>
                         <tr>
-                            <th class="w-1/3 py-4 pr-4 text-left align-bottom"></th>
+                            <th scope="col" class="w-1/3 py-4 pr-4 text-left align-bottom"><span class="sr-only">Feature</span></th>
                             @foreach($plans as $plan)
-                                <th class="px-4 py-4 text-left align-bottom">
+                                <th scope="col" class="rounded-t-lg px-4 py-4 text-left align-bottom{{ $tint($plan) }}">
+                                    @if($plan === $featured)
+                                        <span class="mb-1.5 inline-block font-mono text-[10px] uppercase tracking-wide text-primary">Most chosen</span>
+                                    @endif
                                     <div class="font-display text-lg font-semibold text-foreground">{{ $plan->getLabel() }}</div>
                                     <div class="mt-1 font-mono text-sm text-muted-foreground">{{ $plan->monthlyPrice() }}<span class="text-xs">/mo</span></div>
                                 </th>
@@ -208,20 +257,22 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="border-t border-border py-3 pr-4 text-foreground">Catalogue &amp; suppliers</td>
+                            <th scope="row" class="border-t border-border py-3 pr-4 text-left font-normal text-foreground">Catalogue &amp; suppliers</th>
                             @foreach($plans as $plan)
-                                <td class="border-t border-border px-4 py-3 text-primary"><x-icon.check class="size-4" /></td>
+                                <td class="border-t border-border px-4 py-3{{ $tint($plan) }}">
+                                    <x-icon.check class="size-4 text-primary" /><span class="sr-only">Included</span>
+                                </td>
                             @endforeach
                         </tr>
                         @foreach(Feature::cases() as $feature)
                             <tr>
-                                <td class="border-t border-border py-3 pr-4 text-foreground">{{ $feature->label() }}</td>
+                                <th scope="row" class="border-t border-border py-3 pr-4 text-left font-normal text-foreground">{{ $feature->label() }}</th>
                                 @foreach($plans as $plan)
-                                    <td class="border-t border-border px-4 py-3">
+                                    <td class="border-t border-border px-4 py-3{{ $tint($plan) }}">
                                         @if($plan->can($feature))
-                                            <x-icon.check class="size-4 text-primary" />
+                                            <x-icon.check class="size-4 text-primary" /><span class="sr-only">Included</span>
                                         @else
-                                            <span class="text-muted-foreground/40">·</span>
+                                            <x-icon.x class="size-4 text-muted-foreground/50" /><span class="sr-only">Not included</span>
                                         @endif
                                     </td>
                                 @endforeach
@@ -230,8 +281,8 @@
                         <tr>
                             <td class="py-5 pr-4"></td>
                             @foreach($plans as $plan)
-                                <td class="px-4 py-5">
-                                    <x-button :href="route('register')" :variant="$plan === Plan::Free ? 'outline' : 'primary'" size="sm">
+                                <td class="rounded-b-lg px-4 py-5{{ $tint($plan) }}">
+                                    <x-button :href="route('register')" :variant="$plan === Plan::Free ? 'outline' : 'primary'" size="md">
                                         {{ $plan === Plan::Free ? 'Start free' : 'Choose '.$plan->getLabel() }}
                                     </x-button>
                                 </td>
@@ -252,10 +303,11 @@
             <p class="mx-auto mt-5 max-w-xl text-lg text-white/80">Create an account in under a minute and import your first price list today.</p>
             <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
                 <x-button :href="route('register')" size="lg">Start free</x-button>
-                <x-button :href="route('guide')" variant="ghost" size="lg" class="text-white ring-1 ring-inset ring-white/30 hover:bg-white/10 hover:text-white">Read the guide</x-button>
+                <x-button :href="route('guide')" variant="inverse" size="lg">Read the guide</x-button>
             </div>
         </div>
     </section>
+    </main>
 
     {{-- Footer --}}
     <footer class="border-t border-border">

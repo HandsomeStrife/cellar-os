@@ -13,7 +13,7 @@
 
         {{-- Toolbar --}}
         <div class="flex flex-wrap items-center gap-3">
-            <select wire:model.live="statusFilter" class="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+            <select wire:model.live="statusFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
                 <option value="">All statuses</option>
                 @foreach($statuses as $status)
                     <option value="{{ $status->value }}">{{ $status->getLabel() }}</option>
@@ -58,7 +58,7 @@
                                 <td class="px-3 py-2.5 font-medium">#{{ $order->uuid ? strtoupper(substr($order->uuid, 0, 8)) : $order->id }}</td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $supplierMap[$order->supplier_id]->name ?? '–' }}</td>
                                 <td class="px-3 py-2.5">
-                                    <select wire:change="setStatus({{ $order->id }}, $event.target.value)" class="rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                                    <select wire:change="setStatus({{ $order->id }}, $event.target.value)" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
                                         @foreach($statuses as $status)
                                             <option value="{{ $status->value }}" @selected($status === $order->status)>{{ $status->getLabel() }}</option>
                                         @endforeach
@@ -179,7 +179,7 @@
                             <div wire:key="line-{{ $i }}" class="flex items-center gap-3">
                                 <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ $line['wine_name'] }}</span>
                                 <span class="text-xs text-muted-foreground">{{ Currency::format($line['unit_price'], $currency) }}</span>
-                                <input type="number" min="1" value="{{ $line['quantity'] }}" wire:change="setLineQty({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-background px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                                <input type="number" min="1" value="{{ $line['quantity'] }}" wire:change="setLineQty({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
                                 <button type="button" wire:click="removeLine({{ $i }})" class="text-muted-foreground hover:text-destructive"><x-icon.x class="size-4" /></button>
                             </div>
                         @endforeach

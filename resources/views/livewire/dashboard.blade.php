@@ -28,14 +28,28 @@
     {{-- Secondary metrics --}}
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <x-stat label="Purchase orders" :value="number_format($orderCount)" icon="clipboard-list" />
-        <x-stat label="Open orders" :value="number_format($openOrderCount)" icon="clipboard-list" />
+        <x-stat label="Open orders" :value="number_format($openOrderCount)" icon="clock" />
         <div @class(['rounded-lg border bg-card p-5 shadow-sm', 'border-amber-400/50' => $lowStockCount > 0, 'border-border' => $lowStockCount === 0])>
-            <p class="text-sm font-medium text-muted-foreground">Low stock</p>
-            <p class="mt-2 font-serif text-3xl font-semibold {{ $lowStockCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground' }}">{{ number_format($lowStockCount) }}</p>
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Low stock</p>
+                    <p class="mt-2 font-serif text-3xl font-semibold {{ $lowStockCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground' }}">{{ number_format($lowStockCount) }}</p>
+                </div>
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-md {{ $lowStockCount > 0 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-secondary text-muted-foreground' }}">
+                    <x-icon.circle-alert class="size-5" />
+                </span>
+            </div>
         </div>
         <div @class(['rounded-lg border bg-card p-5 shadow-sm', 'border-destructive/50' => $outOfStockCount > 0, 'border-border' => $outOfStockCount === 0])>
-            <p class="text-sm font-medium text-muted-foreground">Out of stock</p>
-            <p class="mt-2 font-serif text-3xl font-semibold {{ $outOfStockCount > 0 ? 'text-destructive' : 'text-foreground' }}">{{ number_format($outOfStockCount) }}</p>
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium text-muted-foreground">Out of stock</p>
+                    <p class="mt-2 font-serif text-3xl font-semibold {{ $outOfStockCount > 0 ? 'text-destructive' : 'text-foreground' }}">{{ number_format($outOfStockCount) }}</p>
+                </div>
+                <span class="flex size-10 shrink-0 items-center justify-center rounded-md {{ $outOfStockCount > 0 ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-muted-foreground' }}">
+                    <x-icon.circle-x class="size-5" />
+                </span>
+            </div>
         </div>
     </div>
 
@@ -57,7 +71,7 @@
                                 <span class="text-muted-foreground tabular-nums">{{ number_format($qty) }}</span>
                             </div>
                             <div class="h-2 overflow-hidden rounded-full bg-secondary">
-                                <div class="h-full rounded-full" style="width: {{ $maxColour > 0 ? round($qty / $maxColour * 100) : 0 }}%; background-color: {{ $colourSwatch($colour) }}"></div>
+                                <div class="h-full rounded-full bg-primary/70" style="width: {{ $maxColour > 0 ? round($qty / $maxColour * 100) : 0 }}%"></div>
                             </div>
                         </div>
                     @endforeach
@@ -66,7 +80,7 @@
 
             {{-- Inventory by country --}}
             <x-card title="Inventory by country">
-                <ul class="space-y-2.5 text-sm">
+                <div class="space-y-2.5 text-sm">
                     @foreach($byCountry as $country => $data)
                         <div>
                             <div class="mb-1 flex items-center justify-between">
@@ -78,7 +92,7 @@
                             </div>
                         </div>
                     @endforeach
-                </ul>
+                </div>
             </x-card>
         </div>
 

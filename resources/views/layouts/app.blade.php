@@ -33,7 +33,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
-    <div x-data="{ sidebarOpen: false }" class="flex min-h-screen">
+    <div x-data="{ sidebarOpen: false }" x-on:keydown.escape.window="sidebarOpen = false" class="flex min-h-screen">
         {{-- Mobile backdrop --}}
         <div
             x-show="sidebarOpen"
@@ -55,34 +55,27 @@
                     </span>
                     <span class="font-serif text-lg font-semibold tracking-tight">Cellar<span class="text-sidebar-primary">OS</span></span>
                 </a>
-                <button x-on:click="sidebarOpen = false" class="text-sidebar-foreground/70 hover:text-sidebar-foreground lg:hidden">
+                <button x-on:click="sidebarOpen = false" aria-label="Close menu" class="-m-2 flex size-9 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden">
                     <x-icon.x class="size-5" />
                 </button>
             </div>
 
-            <nav class="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+            <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="Primary">
                 @foreach($nav as $item)
-                    @php($exists = \Illuminate\Support\Facades\Route::has($item['route']))
-                    @php($active = $exists && request()->routeIs($item['route'].'*'))
-                    @if($exists)
-                        <a
-                            href="{{ route($item['route']) }}"
-                            @class([
-                                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                                'bg-sidebar-primary text-sidebar-primary-foreground' => $active,
-                                'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground' => ! $active,
-                            ])
-                        >
-                            <x-dynamic-component :component="'icon.'.$item['icon']" class="size-5 shrink-0" />
-                            {{ $item['label'] }}
-                        </a>
-                    @else
-                        <span class="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/35" title="Coming soon">
-                            <x-dynamic-component :component="'icon.'.$item['icon']" class="size-5 shrink-0" />
-                            {{ $item['label'] }}
-                            <span class="ml-auto text-[10px] uppercase tracking-wide text-sidebar-foreground/30">soon</span>
-                        </span>
-                    @endif
+                    @php($active = request()->routeIs($item['route'].'*'))
+                    <a
+                        href="{{ route($item['route']) }}"
+                        wire:navigate
+                        @class([
+                            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
+                            'bg-sidebar-primary text-sidebar-primary-foreground' => $active,
+                            'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground' => ! $active,
+                        ])
+                        @if($active) aria-current="page" @endif
+                    >
+                        <x-dynamic-component :component="'icon.'.$item['icon']" class="size-5 shrink-0" />
+                        {{ $item['label'] }}
+                    </a>
                 @endforeach
             </nav>
         </aside>
@@ -90,7 +83,7 @@
         {{-- Main column --}}
         <div class="flex min-w-0 flex-1 flex-col">
             <header class="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
-                <button x-on:click="sidebarOpen = true" class="text-muted-foreground hover:text-foreground lg:hidden">
+                <button x-on:click="sidebarOpen = true" aria-label="Open menu" class="-ml-2 flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden">
                     <x-icon.menu class="size-6" />
                 </button>
 
@@ -120,8 +113,8 @@
                         <x-button :href="route('register')" size="sm">Get started</x-button>
                     </div>
                 @else
-                <div x-data="{ open: false }" class="relative">
-                    <button x-on:click="open = ! open" class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition hover:bg-accent">
+                <div x-data="{ open: false }" x-on:keydown.escape="open = false" class="relative">
+                    <button x-on:click="open = ! open" aria-label="Account menu" aria-haspopup="menu" x-bind:aria-expanded="open" class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition hover:bg-accent">
                         <span class="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
                             <x-icon.user class="size-4" />
                         </span>

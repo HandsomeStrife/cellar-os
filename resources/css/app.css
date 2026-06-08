@@ -71,7 +71,7 @@
     --secondary: 34 22% 92%;
     --secondary-foreground: 22 14% 22%;
     --muted: 34 20% 93%;
-    --muted-foreground: 26 8% 42%;
+    --muted-foreground: 26 9% 37%;
     --accent: 36 30% 94%;
     --accent-foreground: 345 56% 28%;
     --destructive: 2 60% 44%;
@@ -102,23 +102,23 @@
     --card-foreground: 36 24% 90%;
     --popover: 24 13% 12%;
     --popover-foreground: 36 24% 90%;
-    --primary: 346 64% 55%;
-    --primary-foreground: 24 14% 9%;
+    --primary: 346 60% 47%;
+    --primary-foreground: 36 40% 97%;
     --secondary: 24 10% 18%;
     --secondary-foreground: 36 24% 88%;
     --muted: 24 10% 18%;
-    --muted-foreground: 30 10% 62%;
+    --muted-foreground: 30 10% 64%;
     --accent: 24 10% 18%;
     --accent-foreground: 36 24% 90%;
-    --destructive: 2 64% 56%;
-    --destructive-foreground: 24 14% 9%;
+    --destructive: 2 62% 50%;
+    --destructive-foreground: 36 40% 97%;
     --border: 26 10% 22%;
     --input: 26 10% 24%;
-    --ring: 346 64% 55%;
+    --ring: 346 60% 52%;
     --sidebar: 24 16% 7%;
     --sidebar-foreground: 36 22% 84%;
-    --sidebar-primary: 346 64% 57%;
-    --sidebar-primary-foreground: 24 14% 8%;
+    --sidebar-primary: 346 60% 50%;
+    --sidebar-primary-foreground: 36 40% 97%;
     --sidebar-accent: 24 12% 14%;
     --sidebar-accent-foreground: 36 26% 90%;
     --sidebar-border: 24 10% 16%;
@@ -149,9 +149,50 @@
     }
 }
 
+@layer base {
+    /* Native checkboxes/radios pick up the brand colour without a forms plugin. */
+    input[type='checkbox'],
+    input[type='radio'] {
+        accent-color: hsl(var(--primary));
+    }
+
+    /* Visible keyboard focus for links and native controls. */
+    a:focus-visible,
+    button:focus-visible,
+    [tabindex]:focus-visible {
+        outline: 2px solid hsl(var(--ring));
+        outline-offset: 2px;
+        border-radius: 2px;
+    }
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
 /* Hide Alpine-cloaked elements until Alpine initialises (prevents flash). */
 [x-cloak] {
     display: none !important;
+}
+
+/*
+ * Styled native <select>. Tailwind v4 ships no forms plugin here, so we give
+ * selects a consistent appearance + a claret chevron across browsers.
+ */
+.select-field {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23843b52' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem center;
+    background-size: 1rem;
+    padding-right: 2.25rem;
 }
 
 /* ── Guide (documentation) prose ──────────────────────────────────────── */
