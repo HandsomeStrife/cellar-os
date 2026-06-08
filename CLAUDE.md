@@ -54,9 +54,12 @@ Plan gating: in-component (`Plan::can(Feature)`) + the `feature:<key>` route mid
 
 ### Demo data & E2E
 
-`php artisan migrate:fresh --seed` (or `db:seed`, idempotent) creates:
-- Admin: `admin@cellaros.test` / `password` (at `/admin`)
-- User: `demo@cellaros.test` / `password` (Pro plan) — 3 suppliers, 10 geo-located wines, inventory, a draft order.
+`php artisan migrate:fresh --seed` (or `db:seed`, idempotent) creates a shared catalogue (3 suppliers, 10 geo-located wines), a default admin, and one demo user per plan tier showing a different journey (each with its own venues/inventory/orders). All passwords are `password`; the list is also surfaced at `/guide/demo-logins`.
+- Admin: `admin@cellaros.test` (at `/admin`)
+- `free@cellaros.test` (Free) — venue only, empty/getting-started state
+- `starter@cellaros.test` (Starter) — a draft + sent order, a little stock
+- `demo@cellaros.test` (Pro) — full single venue: stock + orders across the lifecycle (used by E2E auth setup)
+- `group@cellaros.test` (Group) — two venues, each with stock + orders
 
 E2E: `npx playwright install chromium` once, then `npx playwright test` (auth setup logs in the demo user; `global-setup` seeds the dev DB — set `E2E_SKIP_SEED=1` to skip). Reports/auth state are gitignored.
 

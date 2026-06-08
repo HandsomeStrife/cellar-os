@@ -20,32 +20,41 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
+    /** @var array<string, Supplier> */
+    private array $suppliers = [];
+
+    /** @var array<string, Product> */
+    private array $products = [];
+
     /**
-     * Idempotent demo dataset (safe to re-run).
+     * Idempotent demo dataset (safe to re-run). Seeds a default admin plus four
+     * demo users at different points in their journey, each on a different plan.
+     * Catalogue and suppliers are shared across the app; venues, inventory and
+     * orders are per-user.
      */
     public function run(): void
     {
-        $admin = Admin::updateOrCreate(
+        $this->seedAdmin();
+        $this->seedSuppliers();
+        $this->seedCatalogue();
+
+        $this->seedFreeUser();
+        $this->seedStarterUser();
+        $this->seedProUser();
+        $this->seedGroupUser();
+    }
+
+    private function seedAdmin(): void
+    {
+        Admin::updateOrCreate(
             ['email' => 'admin@cellaros.test'],
             ['name' => 'CellarOS Admin', 'password' => Hash::make('password')],
         );
+    }
 
-        $user = User::updateOrCreate(
-            ['email' => 'demo@cellaros.test'],
-            [
-                'full_name' => 'Demo Sommelier',
-                'password' => Hash::make('password'),
-                'role' => 'user',
-                'plan' => Plan::Pro->value,
-            ],
-        );
-
-        $venue = Venue::firstOrCreate(
-            ['user_id' => $user->id, 'name' => 'The Cellar Door'],
-            ['city' => 'London', 'country' => 'United Kingdom', 'base_currency' => 'GBP'],
-        );
-
-        $suppliers = collect([
+    private function seedSuppliers(): void
+    {
+        $this->suppliers = collect([
             'Bordeaux Imports', 'Italian Fine Wines', 'New World Selections',
         ])->mapWithKeys(fn (string $name) => [$name => Supplier::firstOrCreate(
             ['name' => $name],
@@ -55,8 +64,11 @@ class DatabaseSeeder extends Seeder
                 'location' => fake()->city(),
                 'status' => SupplierStatus::Active->value,
             ],
-        )]);
+        )])->all();
+    }
 
+    private function seedCatalogue(): void
+    {
         // wine_name, producer, country, region, colour, vintage, price, lat, lng, supplier
         $wines = [
             ['Chablis Premier Cru', 'Domaine Laroche', 'France', 'Burgundy', WineColour::White, 2021, '28.50', '47.82', '3.80', 'Bordeaux Imports'],
@@ -71,11 +83,9 @@ class DatabaseSeeder extends Seeder
             ['Marlborough Sauvignon Blanc', 'Cloudy Bay', 'New Zealand', 'Marlborough', WineColour::White, 2023, '21.00', '-41.51', '173.86', 'New World Selections'],
         ];
 
-        $products = [];
-
         foreach ($wines as [$name, $producer, $country, $region, $colour, $vintage, $price, $lat, $lng, $supplierName]) {
-            $products[$name] = Product::firstOrCreate(
-                ['wine_name' => $name, 'supplier_id' => $suppliers[$supplierName]->id],
+            $this->products[$name] = Product::firstOrCreate(
+                ['wine_name' => $name, 'supplier_id' => $this->suppliers[$supplierName]->id],
                 [
                     'producer' => $producer,
                     'country' => $country,
@@ -92,49 +102,145 @@ class DatabaseSeeder extends Seeder
                 ],
             );
         }
+    }
 
-        // Some received inventory for the venue.
-        foreach (['Chablis Premier Cru', 'Barolo Riserva', 'Rioja Gran Reserva'] as $name) {
-            InventoryItem::firstOrCreate(
-                ['venue_id' => $venue->id, 'product_id' => $products[$name]->id],
-                [
-                    'quantity_units' => fake()->numberBetween(6, 36),
-                    'last_purchase_price' => $products[$name]->unit_price,
-                    'last_purchase_currency' => 'GBP',
-                    'last_received_at' => now()->subDays(fake()->numberBetween(1, 30)),
-                ],
-            );
+    /** Free plan, just signed up: a venue but no stock or orders yet (empty / getting-started state). */
+    private function seedFreeUser(): void
+    {
+        $user = $this->user('free@cellaros.test', 'Olivia Newbury', Plan::Free);
+        $this->venue($user, 'Harbourview Bistro', 'Brighton');
+    }
+
+    /** Starter plan, getting going: a couple of orders, a little received stock. */
+    private function seedStarterUser(): void
+    {
+        $user = $this->user('starter@cellaros.test', 'Marcus Trent', Plan::Starter);
+        $venue = $this->venue($user, 'The Tasting Room', 'Bristol');
+
+        $this->inventory($venue, 'Sancerre Les Monts', 18, 6);
+        $this->inventory($venue, 'Provence Rosé', 12, 9);
+
+        $this->order($user, $venue, 'Bordeaux Imports', OrderStatus::Draft, 'First order: house whites and rosé.', [
+            'Chablis Premier Cru' => 12,
+            'Provence Rosé' => 6,
+        ]);
+        $this->order($user, $venue, 'New World Selections', OrderStatus::Sent, 'New World reds for the by-the-glass list.', [
+            'Rioja Gran Reserva' => 6,
+        ]);
+    }
+
+    /** Pro plan, fully operational single venue: stock, plus orders across the lifecycle. */
+    private function seedProUser(): void
+    {
+        $user = $this->user('demo@cellaros.test', 'Demo Sommelier', Plan::Pro);
+        $venue = $this->venue($user, 'The Cellar Door', 'London');
+
+        foreach (['Chablis Premier Cru' => 24, 'Barolo Riserva' => 18, 'Rioja Gran Reserva' => 30, 'Champagne Brut Réserve' => 12] as $wine => $qty) {
+            $this->inventory($venue, $wine, $qty, fake()->numberBetween(1, 30));
         }
 
-        // A sample draft order — keyed so re-seeding never duplicates it.
-        $order = Order::firstOrCreate(
+        $this->order($user, $venue, 'Italian Fine Wines', OrderStatus::Draft, 'Restock Italian reds for the autumn list.', [
+            'Barolo Riserva' => 6,
+            'Brunello di Montalcino' => 6,
+        ]);
+        $this->order($user, $venue, 'Bordeaux Imports', OrderStatus::Sent, 'Champagne for the festive season.', [
+            'Champagne Brut Réserve' => 24,
+        ]);
+        $this->order($user, $venue, 'New World Selections', OrderStatus::Received, 'Received: New World mixed case.', [
+            'Napa Cabernet Sauvignon' => 6,
+            'Marlborough Sauvignon Blanc' => 12,
+        ]);
+    }
+
+    /** Group plan: multiple venues, each with its own stock and orders. */
+    private function seedGroupUser(): void
+    {
+        $user = $this->user('group@cellaros.test', 'Priya Anand', Plan::Group);
+
+        $hq = $this->venue($user, 'Group HQ Cellar', 'Manchester');
+        $riverside = $this->venue($user, 'Riverside Brasserie', 'Leeds');
+
+        $this->inventory($hq, 'Brunello di Montalcino', 36, 4);
+        $this->inventory($hq, 'Vintage Port', 24, 12);
+        $this->inventory($riverside, 'Marlborough Sauvignon Blanc', 48, 3);
+        $this->inventory($riverside, 'Provence Rosé', 30, 7);
+
+        $this->order($user, $hq, 'Italian Fine Wines', OrderStatus::Received, 'HQ: Tuscan flagship restock.', [
+            'Brunello di Montalcino' => 12,
+        ]);
+        $this->order($user, $riverside, 'New World Selections', OrderStatus::Draft, 'Riverside: summer whites.', [
+            'Marlborough Sauvignon Blanc' => 24,
+        ]);
+    }
+
+    private function user(string $email, string $name, Plan $plan): User
+    {
+        return User::updateOrCreate(
+            ['email' => $email],
             [
-                'venue_id' => $venue->id,
-                'created_by' => $user->id,
-                'notes' => 'Restock Italian reds for the autumn list.',
+                'full_name' => $name,
+                'password' => Hash::make('password'),
+                'role' => 'user',
+                'plan' => $plan->value,
             ],
+        );
+    }
+
+    private function venue(User $user, string $name, string $city): Venue
+    {
+        return Venue::firstOrCreate(
+            ['user_id' => $user->id, 'name' => $name],
+            ['city' => $city, 'country' => 'United Kingdom', 'base_currency' => 'GBP'],
+        );
+    }
+
+    private function inventory(Venue $venue, string $wine, int $qty, int $daysAgo): void
+    {
+        $product = $this->products[$wine];
+
+        InventoryItem::firstOrCreate(
+            ['venue_id' => $venue->id, 'product_id' => $product->id],
             [
-                'supplier_id' => $suppliers['Italian Fine Wines']->id,
-                'status' => OrderStatus::Draft,
+                'quantity_units' => $qty,
+                'last_purchase_price' => $product->unit_price,
+                'last_purchase_currency' => 'GBP',
+                'last_received_at' => now()->subDays($daysAgo),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, int>  $lines  wine name => quantity
+     */
+    private function order(User $user, Venue $venue, string $supplier, OrderStatus $status, string $notes, array $lines): void
+    {
+        $order = Order::firstOrCreate(
+            ['venue_id' => $venue->id, 'created_by' => $user->id, 'notes' => $notes],
+            [
+                'supplier_id' => $this->suppliers[$supplier]->id,
+                'status' => $status,
                 'total' => 0,
             ],
         );
 
-        if ($order->wasRecentlyCreated) {
-            $total = 0.0;
-            foreach (['Barolo Riserva', 'Brunello di Montalcino'] as $name) {
-                $product = $products[$name];
-                $qty = 6;
-                $order->items()->create([
-                    'product_id' => $product->id,
-                    'wine_name' => $product->wine_name,
-                    'quantity_units' => $qty,
-                    'unit_price_at_order' => $product->unit_price,
-                    'currency_at_order' => 'GBP',
-                ]);
-                $total += $qty * (float) $product->unit_price;
-            }
-            $order->update(['total' => $total]);
+        if (! $order->wasRecentlyCreated) {
+            return;
         }
+
+        $total = 0.0;
+
+        foreach ($lines as $wine => $qty) {
+            $product = $this->products[$wine];
+            $order->items()->create([
+                'product_id' => $product->id,
+                'wine_name' => $product->wine_name,
+                'quantity_units' => $qty,
+                'unit_price_at_order' => $product->unit_price,
+                'currency_at_order' => 'GBP',
+            ]);
+            $total += $qty * (float) $product->unit_price;
+        }
+
+        $order->update(['total' => $total]);
     }
 }

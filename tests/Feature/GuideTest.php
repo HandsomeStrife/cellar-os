@@ -21,6 +21,15 @@ it('renders a specific section as its own URL', function () {
         ->assertSee('Purchase orders');   // sidenav link
 });
 
+it('lists the demo logins with credentials', function () {
+    $this->get(route('guide.section', 'demo-logins'))
+        ->assertOk()
+        ->assertSee('Demo logins')
+        ->assertSee('demo@cellaros.test')
+        ->assertSee('admin@cellaros.test')
+        ->assertSee('password');
+});
+
 it('renders the plan matrix section', function () {
     $this->get(route('guide.section', 'plans'))
         ->assertOk()

@@ -67,6 +67,7 @@ class Guide extends Component
                 'title' => 'Getting started',
                 'items' => [
                     'welcome' => ['title' => 'Welcome', 'partial' => 'guide.sections.welcome'],
+                    'demo-logins' => ['title' => 'Demo logins', 'partial' => 'guide.sections.demo-logins'],
                     'accounts' => ['title' => 'Accounts, venues & plans', 'partial' => 'guide.sections.accounts'],
                 ],
             ],
