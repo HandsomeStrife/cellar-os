@@ -426,7 +426,7 @@
             </div>
             <div class="mt-8 border-t border-border pt-6 text-xs leading-relaxed text-muted-foreground">
                 <p>&copy; {{ date('Y') }} CellarOS Ltd. All rights reserved.</p>
-                <p class="mt-1">CellarOS Ltd is a company registered in England &amp; Wales, company number 17203985. Registered office: 46 Stonard Road, London, England, N13 4DL.</p>
+                <p class="mt-1">CellarOS Ltd is a company registered in England &amp; Wales, company number 17203985.</p>
             </div>
         </div>
     </footer>
