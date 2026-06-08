@@ -29,6 +29,15 @@
             @endforeach
         </select>
 
+        @if($connectedSuppliers->isNotEmpty())
+            <select wire:model.live="supplierFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                <option value="">All my suppliers</option>
+                @foreach($connectedSuppliers as $connectedSupplier)
+                    <option value="{{ $connectedSupplier->id }}">{{ $connectedSupplier->name }}</option>
+                @endforeach
+            </select>
+        @endif
+
         <div class="ml-auto">
             <x-button wire:click="$set('showBasket', true)" variant="outline">
                 <x-icon.clipboard-list class="size-4" />
@@ -48,9 +57,17 @@
                     <x-icon.wine class="size-6" />
                 </span>
                 <div>
-                    <p class="font-medium text-foreground">No wines found</p>
-                    <p class="text-sm text-muted-foreground">Import a supplier price list to build your catalogue, or adjust your filters.</p>
+                    @if(! $hasConnections)
+                        <p class="font-medium text-foreground">No suppliers connected yet</p>
+                        <p class="text-sm text-muted-foreground">Your catalogue shows wines from the suppliers you work with. Connect to a supplier to get started.</p>
+                    @else
+                        <p class="font-medium text-foreground">No wines found</p>
+                        <p class="text-sm text-muted-foreground">Adjust your filters, or connect to more suppliers.</p>
+                    @endif
                 </div>
+                @if(! $hasConnections)
+                    <x-button :href="route('suppliers')" wire:navigate variant="outline" size="sm"><x-icon.plus class="size-4" /> Find suppliers</x-button>
+                @endif
             </div>
         </x-card>
     @else
@@ -107,11 +124,13 @@
                                         <button type="button" wire:click="savePrice" class="text-primary hover:text-primary/80" title="Save"><x-icon.check class="size-4" /></button>
                                         <button type="button" wire:click="cancelEditPrice" class="text-muted-foreground hover:text-foreground" title="Cancel"><x-icon.x class="size-4" /></button>
                                     </div>
-                                @else
+                                @elseif(in_array($product->supplier_id, $editableSupplierIds, true))
                                     <button type="button" wire:click="startEditPrice({{ $product->id }}, '{{ $product->unit_price }}')" class="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground" title="Edit price">
                                         {{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '–' }}
                                         <x-icon.pencil class="size-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                                     </button>
+                                @else
+                                    <span class="whitespace-nowrap font-medium text-foreground">{{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '–' }}</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-right text-muted-foreground">{{ $product->stock }}</td>
@@ -120,9 +139,11 @@
                                     <x-button wire:click="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
                                         <x-icon.plus class="size-4" />
                                     </x-button>
-                                    <x-button wire:click="deleteProduct({{ $product->id }})" wire:confirm="Delete {{ $product->wine_name }} from the catalogue?" variant="ghost" size="sm" title="Delete wine" class="text-destructive hover:bg-destructive/10">
-                                        <x-icon.trash-2 class="size-4" />
-                                    </x-button>
+                                    @if(in_array($product->supplier_id, $editableSupplierIds, true))
+                                        <x-button wire:click="deleteProduct({{ $product->id }})" wire:confirm="Delete {{ $product->wine_name }} from the catalogue?" variant="ghost" size="sm" title="Delete wine" class="text-destructive hover:bg-destructive/10">
+                                            <x-icon.trash-2 class="size-4" />
+                                        </x-button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>

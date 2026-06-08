@@ -54,9 +54,13 @@ class Documents extends Component
         $supplierUser = (new SupplierUserRepository)->getLoggedInSupplierUser();
         $document = (new SupplierDocumentRepository)->find($id);
 
-        // Only the owning supplier may remove its own documents.
+        // Only the owning supplier may remove its OWN documents — never a
+        // buyer's private upload about them (uploaded_by_company_id set).
         abort_unless(
-            $supplierUser !== null && $document !== null && $document->supplier_id === $supplierUser->supplier_id,
+            $supplierUser !== null
+                && $document !== null
+                && $document->supplier_id === $supplierUser->supplier_id
+                && $document->uploaded_by_company_id === null,
             403
         );
 
@@ -68,7 +72,7 @@ class Documents extends Component
     {
         $supplierUser = (new SupplierUserRepository)->getLoggedInSupplierUser();
         $documents = $supplierUser
-            ? (new SupplierDocumentRepository)->forSupplier($supplierUser->supplier_id)
+            ? (new SupplierDocumentRepository)->forSupplierPortal($supplierUser->supplier_id)
             : collect();
 
         return view('livewire.supplier-portal.documents', [

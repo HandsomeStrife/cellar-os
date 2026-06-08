@@ -50,6 +50,7 @@
 
                         <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
                             <x-button wire:click="startAllocate({{ $supplier->id }})" variant="outline" size="sm"><x-icon.map-pin class="size-4" /> Venues</x-button>
+                            <x-button :href="route('suppliers.documents', $supplier->uuid)" wire:navigate variant="outline" size="sm"><x-icon.file-text class="size-4" /> Documents</x-button>
                             @if($owned)
                                 <x-button wire:click="edit({{ $supplier->id }})" variant="ghost" size="sm" aria-label="Edit"><x-icon.pencil class="size-4" /></x-button>
                                 <x-button wire:click="delete({{ $supplier->id }})" wire:confirm="Delete {{ $supplier->name }}? This cannot be undone." variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" aria-label="Delete"><x-icon.trash-2 class="size-4" /></x-button>

@@ -21,7 +21,7 @@ class Dashboard extends Component
         $supplierUser = (new SupplierUserRepository)->getLoggedInSupplierUser();
         $supplier = $supplierUser ? (new SupplierRepository)->find($supplierUser->supplier_id) : null;
         $documents = $supplierUser
-            ? (new SupplierDocumentRepository)->forSupplier($supplierUser->supplier_id)
+            ? (new SupplierDocumentRepository)->forSupplierPortal($supplierUser->supplier_id)
             : collect();
 
         return view('livewire.supplier-portal.dashboard', [

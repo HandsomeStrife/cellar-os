@@ -33,6 +33,35 @@ class SupplierDocumentRepository
             ->map(fn (SupplierDocument $document) => $document->getData());
     }
 
+    /**
+     * Documents visible to the supplier portal: only the supplier's OWN uploads
+     * (never a buyer's private document about them).
+     *
+     * @return Collection<int, SupplierDocumentData>
+     */
+    public function forSupplierPortal(int $supplierId): Collection
+    {
+        return SupplierDocument::where('supplier_id', $supplierId)
+            ->whereNull('uploaded_by_company_id')
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (SupplierDocument $document) => $document->getData());
+    }
+
+    /**
+     * A company's own uploaded documents for a given supplier (buyer side).
+     *
+     * @return Collection<int, SupplierDocumentData>
+     */
+    public function forSupplierAndCompany(int $supplierId, int $companyId): Collection
+    {
+        return SupplierDocument::where('supplier_id', $supplierId)
+            ->where('uploaded_by_company_id', $companyId)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (SupplierDocument $document) => $document->getData());
+    }
+
     public function paginate(int $perPage = 20): LengthAwarePaginator
     {
         return SupplierDocument::query()

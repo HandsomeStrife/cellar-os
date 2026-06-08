@@ -70,16 +70,17 @@ class Index extends Component
 
         $this->reset(['supplierId', 'venueId', 'notes', 'productSearch', 'lines']);
 
-        // Pre-fill from the catalogue basket if present.
+        // Pre-fill from the catalogue basket if present — only connected wines.
         $basket = session('order-basket', []);
 
         if (is_array($basket) && $basket !== []) {
             $productRepo = new ProductRepository;
+            $connected = $this->connectedSupplierIds();
 
             foreach ($basket as $productId => $qty) {
                 $product = $productRepo->find((int) $productId);
 
-                if ($product !== null) {
+                if ($product !== null && in_array($product->supplier_id, $connected, true)) {
                     $this->lines[] = [
                         'product_id' => $product->id,
                         'wine_name' => $product->wine_name,
@@ -93,13 +94,24 @@ class Index extends Component
         $this->showCreate = true;
     }
 
+    /**
+     * Supplier ids the company is connected to (the only wines it may order).
+     *
+     * @return array<int, int>
+     */
+    private function connectedSupplierIds(): array
+    {
+        return (new SupplierRepository)->connectedToCompany($this->currentUser()?->company_id ?? 0)
+            ->pluck('id')->all();
+    }
+
     public function addLine(int $productId): void
     {
         abort_unless($this->entitled(), 403);
 
         $product = (new ProductRepository)->find($productId);
 
-        if ($product === null) {
+        if ($product === null || ! in_array($product->supplier_id, $this->connectedSupplierIds(), true)) {
             return;
         }
 
@@ -320,7 +332,8 @@ class Index extends Component
         $productOptions = [];
 
         if ($entitled && $this->showCreate) {
-            $productOptions = (new ProductRepository)->search(term: $this->productSearch, perPage: 25)
+            // The product picker only offers wines from connected suppliers.
+            $productOptions = (new ProductRepository)->search(term: $this->productSearch, perPage: 25, supplierIds: $this->connectedSupplierIds())
                 ->getCollection()
                 ->mapWithKeys(fn ($p) => [$p->id => $p->wine_name.($p->vintage ? " ({$p->vintage})" : '')])
                 ->all();

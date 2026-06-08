@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Livewire\SupplierPortal\Dashboard;
 use App\Livewire\SupplierPortal\Documents;
+use Domain\Company\Models\Company;
 use Domain\Supplier\Actions\DeleteSupplierAction;
 use Domain\Supplier\Enums\SupplierDocumentStatus;
 use Domain\Supplier\Models\Supplier;
@@ -11,6 +13,52 @@ use Domain\Supplier\Models\SupplierUser;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+
+it('never surfaces a buyer\'s private document to the supplier portal', function () {
+    $supplierUser = SupplierUser::factory()->create();
+    // A buyer's private document about this supplier.
+    SupplierDocument::factory()->create([
+        'supplier_id' => $supplierUser->supplier_id,
+        'uploaded_by_company_id' => Company::factory()->create()->id,
+        'title' => 'Buyer Private Note',
+    ]);
+
+    $this->actingAs($supplierUser, 'supplier');
+
+    Livewire::test(Documents::class)->assertDontSee('Buyer Private Note');
+});
+
+it('does not count or list buyer documents on the supplier dashboard', function () {
+    $supplierUser = SupplierUser::factory()->create();
+    SupplierDocument::factory()->create([
+        'supplier_id' => $supplierUser->supplier_id,
+        'uploaded_by_company_id' => Company::factory()->create()->id,
+        'title' => 'Buyer Dashboard Note',
+    ]);
+
+    $this->actingAs($supplierUser, 'supplier');
+
+    Livewire::test(Dashboard::class)
+        ->assertDontSee('Buyer Dashboard Note')
+        ->assertViewHas('documents', fn ($docs) => $docs->isEmpty());
+});
+
+it('forbids the supplier portal downloading or deleting a buyer document', function () {
+    Storage::fake('local');
+    $supplierUser = SupplierUser::factory()->create();
+    $document = SupplierDocument::factory()->create([
+        'supplier_id' => $supplierUser->supplier_id,
+        'uploaded_by_company_id' => Company::factory()->create()->id,
+        'storage_path' => 'supplier-documents/buyer.csv',
+    ]);
+    Storage::disk('local')->put($document->storage_path, 'data');
+
+    $this->actingAs($supplierUser, 'supplier');
+
+    Livewire::test(Documents::class)->call('delete', $document->id)->assertForbidden();
+    $this->get(route('supplier.documents.download', $document->id))->assertForbidden();
+    $this->assertDatabaseHas('supplier_documents', ['id' => $document->id]);
+});
 
 it('deletes backing files when a supplier is deleted', function () {
     Storage::fake('local');

@@ -74,4 +74,14 @@ test.describe('Company tenancy', () => {
     await page.getByRole('button', { name: 'Discover' }).click();
     await expect(page.getByText('Bordeaux Imports')).toBeVisible();
   });
+
+  test('the catalogue is scoped to connected suppliers', async ({ page }) => {
+    // The Free demo company has no supplier connections yet.
+    await login(page, 'free@cellaros.test');
+    await page.goto('/catalogue');
+
+    await expect(page.getByText('No suppliers connected yet')).toBeVisible();
+    // None of the shared catalogue wines show without a connection.
+    await expect(page.getByText('Barolo Riserva')).toHaveCount(0);
+  });
 });

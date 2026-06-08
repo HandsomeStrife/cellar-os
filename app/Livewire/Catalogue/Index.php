@@ -15,6 +15,7 @@ use Domain\Order\Actions\CreateOrderAction;
 use Domain\Order\Data\OrderData;
 use Domain\Order\Data\OrderItemData;
 use Domain\Order\Enums\OrderStatus;
+use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\User\Repositories\UserRepository;
 use Domain\Venue\Repositories\VenueRepository;
 use Illuminate\Support\Str;
@@ -40,6 +41,9 @@ class Index extends Component
     #[Url(history: true)]
     public string $colour = '';
 
+    #[Url(history: true)]
+    public string $supplierFilter = '';
+
     public string $sort = 'wine_name';
 
     public string $direction = 'asc';
@@ -58,7 +62,7 @@ class Index extends Component
 
     public function updated($property): void
     {
-        if (in_array($property, ['search', 'country', 'colour'], true)) {
+        if (in_array($property, ['search', 'country', 'colour', 'supplierFilter'], true)) {
             $this->resetPage();
         }
     }
@@ -95,6 +99,7 @@ class Index extends Component
     public function savePrice(): void
     {
         $this->validate(['priceInput' => 'required|numeric|min:0']);
+        $this->guardEditableProduct($this->editingPriceId);
 
         (new UpdateProductPriceAction)->execute($this->editingPriceId, (float) $this->priceInput);
 
@@ -105,19 +110,41 @@ class Index extends Component
 
     public function addToBasket(int $id): void
     {
+        // Never basket a wine from a supplier you're not connected to.
+        if (! $this->isOrderableProduct($id)) {
+            return;
+        }
+
         $this->basket[$id] = ($this->basket[$id] ?? 0) + 1;
         $this->dispatch('toast', message: 'Added to basket.');
     }
 
     public function setBasketQty(int $id, int $qty): void
     {
-        if ($qty <= 0) {
+        if ($qty <= 0 || ! $this->isOrderableProduct($id)) {
             unset($this->basket[$id]);
 
             return;
         }
 
         $this->basket[$id] = $qty;
+    }
+
+    /**
+     * Whether a product belongs to one of the company's connected suppliers.
+     */
+    private function isOrderableProduct(int $id): bool
+    {
+        $product = (new ProductRepository)->find($id);
+
+        if ($product === null) {
+            return false;
+        }
+
+        $companyId = (new UserRepository)->getLoggedInUser()?->company_id ?? 0;
+        $connectedIds = (new SupplierRepository)->connectedToCompany($companyId)->pluck('id')->all();
+
+        return in_array($product->supplier_id, $connectedIds, true);
     }
 
     public function removeFromBasket(int $id): void
@@ -133,9 +160,27 @@ class Index extends Component
 
     public function deleteProduct(int $id): void
     {
+        $this->guardEditableProduct($id);
+
         (new DeleteProductAction)->execute($id);
         unset($this->basket[$id]);
         $this->dispatch('toast', message: 'Wine removed from the catalogue.');
+    }
+
+    /**
+     * A buyer may only edit/delete wines belonging to its OWN private suppliers;
+     * public/shared suppliers' catalogues are read-only here.
+     */
+    private function guardEditableProduct(int $id): void
+    {
+        $companyId = (new UserRepository)->getLoggedInUser()?->company_id;
+        $product = (new ProductRepository)->find($id);
+        $supplier = $product?->supplier_id ? (new SupplierRepository)->find($product->supplier_id) : null;
+
+        abort_unless(
+            $companyId !== null && $supplier !== null && $supplier->created_by_company_id === $companyId,
+            403
+        );
     }
 
     /**
@@ -149,12 +194,16 @@ class Index extends Component
         $repository = new ProductRepository;
         $user = (new UserRepository)->getLoggedInUser();
         $userId = $user?->id;
-        $currency = (new VenueRepository)->currencyForCompany($user?->company_id ?? 0);
+        $companyId = $user?->company_id ?? 0;
+        $currency = (new VenueRepository)->currencyForCompany($companyId);
+
+        // Only the company's connected suppliers can be ordered from.
+        $connectedIds = (new SupplierRepository)->connectedToCompany($companyId)->pluck('id')->all();
 
         $groups = [];
         foreach ($this->basket as $productId => $qty) {
             $product = $repository->find((int) $productId);
-            if ($product === null) {
+            if ($product === null || ! in_array($product->supplier_id, $connectedIds, true)) {
                 continue;
             }
             $groups[$product->supplier_id ?? 0][] = ['product' => $product, 'qty' => (int) $qty];
@@ -207,20 +256,33 @@ class Index extends Component
     {
         $repository = new ProductRepository;
 
+        // The catalogue is scoped to the wines of the company's connected suppliers.
+        $companyId = (new UserRepository)->getLoggedInUser()?->company_id ?? 0;
+        $connected = (new SupplierRepository)->connectedToCompany($companyId);
+        $connectedIds = $connected->pluck('id')->all();
+
+        // Optional narrowing to one connected supplier.
+        $supplierFilter = (int) $this->supplierFilter;
+        $supplierIds = $supplierFilter !== 0 && in_array($supplierFilter, $connectedIds, true)
+            ? [$supplierFilter]
+            : $connectedIds;
+
         $products = $repository->search(
             term: $this->search,
             country: $this->country,
             colour: WineColour::tryFrom($this->colour),
             sort: $this->sort,
             direction: $this->direction,
+            supplierIds: $supplierIds,
         );
 
-        // Resolve basket lines into product DTOs + line totals.
+        // Resolve basket lines into product DTOs + line totals — only for wines
+        // from connected suppliers (a tampered basket can't leak others' pricing).
         $basketLines = collect($this->basket)
-            ->map(function (int $qty, int $productId) use ($repository) {
+            ->map(function (int $qty, int $productId) use ($repository, $connectedIds) {
                 $product = $repository->find($productId);
 
-                if ($product === null) {
+                if ($product === null || ! in_array($product->supplier_id, $connectedIds, true)) {
                     return null;
                 }
 
@@ -233,15 +295,21 @@ class Index extends Component
             ->filter()
             ->values();
 
+        // Wines the buyer may edit/delete inline: only their own private suppliers'.
+        $editableSupplierIds = $connected->filter(fn ($s) => $s->created_by_company_id === $companyId)->pluck('id')->all();
+
         return view('livewire.catalogue.index', [
             'products' => $products,
-            'countries' => $repository->countries(),
+            'countries' => $repository->countries($connectedIds),
             'colours' => WineColour::cases(),
+            'connectedSuppliers' => $connected,
+            'hasConnections' => $connected->isNotEmpty(),
+            'editableSupplierIds' => $editableSupplierIds,
             'basketLines' => $basketLines,
             'basketTotal' => $basketLines->sum('line_total'),
             'basketCount' => $basketLines->count(),
             'canCreateOrders' => $this->plan()->can(Feature::CreatePurchaseOrders),
-            'currency' => (new VenueRepository)->currencyForCompany((new UserRepository)->getLoggedInUser()?->company_id ?? 0),
+            'currency' => (new VenueRepository)->currencyForCompany($companyId),
         ]);
     }
 }

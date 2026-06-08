@@ -24,10 +24,14 @@ class StoreSupplierDocumentAction extends AbstractAction
         ?string $fileType,
         int $fileSize,
         string $storagePath,
+        ?int $uploadedByCompanyId = null,
+        ?int $uploadedByUserId = null,
     ): SupplierDocumentData {
         $document = SupplierDocument::create([
             'supplier_id' => $supplierId,
             'uploaded_by_supplier_user_id' => $uploadedBySupplierUserId,
+            'uploaded_by_company_id' => $uploadedByCompanyId,
+            'uploaded_by_user_id' => $uploadedByUserId,
             'title' => $title,
             'file_name' => $fileName,
             'file_type' => $fileType,

@@ -34,6 +34,9 @@ class ProductRepository
      */
     public const SORTABLE = ['wine_name', 'producer', 'country', 'vintage', 'unit_price', 'stock'];
 
+    /**
+     * @param  array<int, int>|null  $supplierIds  restrict to these suppliers (null = all)
+     */
     public function search(
         ?string $term = null,
         ?string $country = null,
@@ -41,11 +44,13 @@ class ProductRepository
         string $sort = 'wine_name',
         string $direction = 'asc',
         int $perPage = 24,
+        ?array $supplierIds = null,
     ): LengthAwarePaginator {
         $sort = in_array($sort, self::SORTABLE, true) ? $sort : 'wine_name';
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
 
         return Product::query()
+            ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
             ->when($term !== null && $term !== '', function ($query) use ($term) {
                 $query->where(function ($query) use ($term) {
                     $query->where('wine_name', 'like', "%{$term}%")
@@ -82,11 +87,13 @@ class ProductRepository
     /**
      * Distinct, non-empty country names for filter dropdowns.
      *
+     * @param  array<int, int>|null  $supplierIds  restrict to these suppliers (null = all)
      * @return array<int, string>
      */
-    public function countries(): array
+    public function countries(?array $supplierIds = null): array
     {
         return Product::query()
+            ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
             ->whereNotNull('country')
             ->where('country', '!=', '')
             ->distinct()
@@ -97,8 +104,12 @@ class ProductRepository
 
     public function allForMap(): Collection
     {
+        // The public sourcing map excludes wines from buyers' private suppliers.
         return Product::whereNotNull('latitude')
             ->whereNotNull('longitude')
+            ->whereNotIn('supplier_id', fn ($query) => $query->select('id')
+                ->from('suppliers')
+                ->whereNotNull('created_by_company_id'))
             ->get()
             ->map(fn (Product $product) => $product->getData());
     }

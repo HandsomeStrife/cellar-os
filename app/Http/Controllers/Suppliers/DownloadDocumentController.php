@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers\SupplierPortal;
+namespace App\Http\Controllers\Suppliers;
 
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
-use Domain\Supplier\Repositories\SupplierUserRepository;
+use Domain\User\Repositories\UserRepository;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -16,15 +16,9 @@ class DownloadDocumentController
         $document = (new SupplierDocumentRepository)->find($id);
         abort_if($document === null, 404);
 
-        // Authorize: the document must belong to the signed-in user's supplier
-        // AND be a supplier-side upload (never a buyer's private document).
-        $supplierId = (new SupplierUserRepository)->getLoggedInSupplierUser()?->supplier_id;
-        abort_unless(
-            $supplierId !== null
-                && $document->supplier_id === $supplierId
-                && $document->uploaded_by_company_id === null,
-            403
-        );
+        // Authorize: the document must have been uploaded by the current company.
+        $companyId = (new UserRepository)->getLoggedInUser()?->company_id;
+        abort_unless($companyId !== null && $document->uploaded_by_company_id === $companyId, 403);
 
         abort_unless(Storage::disk('local')->exists($document->storage_path), 404);
 

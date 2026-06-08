@@ -19,6 +19,8 @@ class SupplierDocument extends Model
     protected $fillable = [
         'supplier_id',
         'uploaded_by_supplier_user_id',
+        'uploaded_by_company_id',
+        'uploaded_by_user_id',
         'title',
         'file_name',
         'file_type',

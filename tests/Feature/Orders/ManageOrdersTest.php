@@ -271,6 +271,16 @@ it('rejects attaching another user\'s venue', function () {
     expect(Order::count())->toBe(0);
 });
 
+it('does not add an order line for an unconnected supplier\'s wine', function () {
+    $stranger = Supplier::factory()->create();
+    $strangerWine = Product::factory()->create(['supplier_id' => $stranger->id]);
+
+    Livewire::test(Index::class)
+        ->call('openCreate')
+        ->call('addLine', $strangerWine->id)
+        ->assertSet('lines', []);
+});
+
 it('forbids ordering from a supplier the company is not connected to', function () {
     $stranger = Supplier::factory()->create();
 

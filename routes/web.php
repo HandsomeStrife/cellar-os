@@ -7,6 +7,7 @@ use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Http\Controllers\Orders\DownloadOrderPdfController;
 use App\Http\Controllers\SupplierPortal\DownloadDocumentController as SupplierDownloadDocumentController;
+use App\Http\Controllers\Suppliers\DownloadDocumentController as SupplierDocumentDownloadController;
 use App\Livewire\Admin\Auth\Login as AdminLogin;
 use App\Livewire\Admin\Companies as AdminCompanies;
 use App\Livewire\Admin\CompanyShow as AdminCompanyShow;
@@ -34,6 +35,7 @@ use App\Livewire\SupplierPortal\Auth\ResetPassword as SupplierResetPassword;
 use App\Livewire\SupplierPortal\Dashboard as SupplierDashboard;
 use App\Livewire\SupplierPortal\Documents as SupplierDocuments;
 use App\Livewire\SupplierPortal\Profile as SupplierProfile;
+use App\Livewire\Suppliers\Documents as BuyerSupplierDocuments;
 use App\Livewire\Suppliers\Index as SupplierIndex;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -63,6 +65,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth:web')->group(function () {
     Route::get('/dashboard', Dashboard::class)->name('dashboard');
     Route::get('/suppliers', SupplierIndex::class)->name('suppliers');
+    Route::get('/suppliers/documents/{id}/download', SupplierDocumentDownloadController::class)->name('suppliers.documents.download');
+    Route::get('/suppliers/{uuid}/documents', BuyerSupplierDocuments::class)->name('suppliers.documents');
     Route::get('/catalogue', CatalogueIndex::class)->name('catalogue');
     Route::get('/import', ImportIndex::class)->name('import');
     Route::get('/inventory', InventoryIndex::class)->name('inventory');
