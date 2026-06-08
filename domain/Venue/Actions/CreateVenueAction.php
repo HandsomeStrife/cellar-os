@@ -13,7 +13,7 @@ class CreateVenueAction extends AbstractAction
     public function execute(VenueData $data): VenueData
     {
         $venue = Venue::create([
-            'user_id' => $data->user_id,
+            'company_id' => $data->company_id,
             'name' => $data->name,
             'address' => $data->address,
             'city' => $data->city,

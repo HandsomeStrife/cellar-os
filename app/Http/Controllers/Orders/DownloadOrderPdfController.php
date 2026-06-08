@@ -6,10 +6,10 @@ namespace App\Http\Controllers\Orders;
 
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
+use Domain\Company\Repositories\CompanyRepository;
 use Domain\Order\Repositories\OrderRepository;
 use Domain\Order\Services\OrderPdfService;
 use Domain\Supplier\Repositories\SupplierRepository;
-use Domain\User\Repositories\UserRepository;
 use Domain\Venue\Repositories\VenueRepository;
 use Illuminate\Http\Response;
 
@@ -18,7 +18,7 @@ class DownloadOrderPdfController
     public function __invoke(int $id): Response
     {
         // Same entitlement as the rest of the Orders feature.
-        $plan = (new UserRepository)->getLoggedInUser()?->plan ?? Plan::Free;
+        $plan = (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::Free;
         abort_unless($plan->can(Feature::CreatePurchaseOrders), 403);
 
         $order = (new OrderRepository)->find($id);

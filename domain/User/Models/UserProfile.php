@@ -13,7 +13,6 @@ class UserProfile extends Model
     protected $fillable = [
         'user_id',
         'profession',
-        'company_name',
     ];
 
     public function user(): BelongsTo

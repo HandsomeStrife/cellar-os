@@ -12,7 +12,7 @@ use Livewire\Livewire;
 
 it('renders inventory analytics for the user\'s venues', function () {
     $user = User::factory()->create();
-    $venue = Venue::factory()->create(['user_id' => $user->id]);
+    $venue = Venue::factory()->create(['company_id' => $user->company_id]);
     $supplier = Supplier::factory()->create();
     $product = Product::factory()->create([
         'supplier_id' => $supplier->id,

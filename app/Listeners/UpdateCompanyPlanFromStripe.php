@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use Domain\Billing\Enums\Plan;
-use Domain\User\Actions\SetUserPlanAction;
-use Domain\User\Repositories\UserRepository;
+use Domain\Company\Actions\SetCompanyPlanAction;
+use Domain\Company\Repositories\CompanyRepository;
 use Laravel\Cashier\Events\WebhookReceived;
 
 /**
- * Keeps users.plan in step with their Stripe subscription. Cashier already
+ * Keeps companies.plan in step with their Stripe subscription. Cashier already
  * maintains the subscriptions table; this maps the active price back to our
- * Plan enum (and resets to Free on cancellation).
+ * Plan enum (and resets to Free on cancellation). The billable is the Company.
  */
-class UpdateUserPlanFromStripe
+class UpdateCompanyPlanFromStripe
 {
     public function handle(WebhookReceived $event): void
     {
@@ -38,14 +38,14 @@ class UpdateUserPlanFromStripe
             return;
         }
 
-        $user = (new UserRepository)->findByStripeId($customerId);
+        $company = (new CompanyRepository)->findByStripeId($customerId);
 
-        if ($user === null) {
+        if ($company === null) {
             return;
         }
 
         if ($type === 'customer.subscription.deleted') {
-            (new SetUserPlanAction)->execute($user->id, Plan::Free);
+            (new SetCompanyPlanAction)->execute($company->id, Plan::Free);
 
             return;
         }
@@ -62,7 +62,7 @@ class UpdateUserPlanFromStripe
         $plan = is_string($priceId) ? Plan::forStripePrice($priceId) : null;
 
         if ($plan !== null) {
-            (new SetUserPlanAction)->execute($user->id, $plan);
+            (new SetCompanyPlanAction)->execute($company->id, $plan);
         }
     }
 }

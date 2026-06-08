@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use Domain\Billing\Enums\Plan;
 use Domain\Company\Models\Company;
-use Domain\Venue\Models\Venue;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<Venue>
+ * @extends Factory<Company>
  */
-class VenueFactory extends Factory
+class CompanyFactory extends Factory
 {
-    protected $model = Venue::class;
+    protected $model = Company::class;
 
     /**
      * @return array<string, mixed>
@@ -23,11 +23,14 @@ class VenueFactory extends Factory
     {
         return [
             'uuid' => (string) Str::uuid(),
-            'company_id' => Company::factory(),
             'name' => fake()->company(),
-            'city' => fake()->city(),
-            'country' => fake()->country(),
             'base_currency' => 'GBP',
+            'plan' => Plan::Free->value,
         ];
+    }
+
+    public function onPlan(Plan $plan): static
+    {
+        return $this->state(fn () => ['plan' => $plan->value]);
     }
 }

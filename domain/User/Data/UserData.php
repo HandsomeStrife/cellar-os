@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Domain\User\Data;
 
 use Carbon\CarbonImmutable;
-use Domain\Billing\Enums\Plan;
 use Domain\Shared\Data\AbstractData;
+use Domain\User\Enums\Role;
 use Domain\User\Models\User;
 
 class UserData extends AbstractData
@@ -14,10 +14,11 @@ class UserData extends AbstractData
     public function __construct(
         public ?int $id,
         public ?string $uuid,
+        public ?int $company_id,
         public ?string $full_name,
         public string $email,
-        public string $role,
-        public Plan $plan,
+        public Role $role,
+        public bool $has_password = false,
         public ?CarbonImmutable $created_at = null,
     ) {}
 
@@ -26,10 +27,11 @@ class UserData extends AbstractData
         return new self(
             id: $model->id,
             uuid: $model->uuid,
+            company_id: $model->company_id,
             full_name: $model->full_name,
             email: $model->email,
-            role: $model->role,
-            plan: $model->plan,
+            role: Role::from($model->role),
+            has_password: $model->password !== null,
             created_at: $model->created_at?->toImmutable(),
         );
     }

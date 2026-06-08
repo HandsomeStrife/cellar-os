@@ -9,19 +9,12 @@ use Domain\User\Models\User;
 
 class DeleteUserAction extends AbstractAction
 {
+    /**
+     * Remove a single seat. Billing lives on the company, so deleting a user
+     * never touches Stripe (tenant teardown is DeleteCompanyAction's job).
+     */
     public function execute(int $id): void
     {
-        $user = User::findOrFail($id);
-
-        // Don't orphan an active Stripe subscription (keeps billing them).
-        if ($user->subscribed('default')) {
-            try {
-                $user->subscription('default')->cancelNow();
-            } catch (\Throwable) {
-                // Stripe unreachable/unconfigured — proceed with deletion anyway.
-            }
-        }
-
-        $user->delete();
+        User::findOrFail($id)->delete();
     }
 }

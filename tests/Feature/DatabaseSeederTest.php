@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Models\Product;
+use Domain\Company\Models\Company;
 use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Models\Order;
 use Domain\Supplier\Models\Supplier;
@@ -27,7 +28,8 @@ it('seeds a coherent demo dataset', function () {
     ];
     foreach ($tiers as $email => $plan) {
         $user = User::where('email', $email)->first();
-        expect($user?->plan)->toBe($plan)
+        // The plan lives on the user's company now.
+        expect(Company::find($user?->company_id)?->plan)->toBe($plan)
             ->and(Hash::check('password', $user->password))->toBeTrue();
     }
 
@@ -57,20 +59,22 @@ it('gives each journey the right shape of data', function () {
     $group = User::where('email', 'group@cellaros.test')->first();
 
     // Free user: a venue, but no stock or orders yet (empty / getting-started state).
-    $freeVenue = Venue::where('user_id', $free->id)->first();
+    $freeVenue = Venue::where('company_id', $free->company_id)->first();
     expect($freeVenue)->not->toBeNull()
         ->and(InventoryItem::where('venue_id', $freeVenue->id)->count())->toBe(0)
         ->and(Order::where('created_by', $free->id)->count())->toBe(0);
 
-    // Group user: more than one venue.
-    expect(Venue::where('user_id', $group->id)->count())->toBe(2);
+    // Group company: more than one venue, and a team (owner + member).
+    expect(Venue::where('company_id', $group->company_id)->count())->toBe(2)
+        ->and(User::where('company_id', $group->company_id)->count())->toBe(2);
 });
 
 it('is idempotent across repeated runs', function () {
     $this->seed();
     $this->seed();
 
-    expect(User::count())->toBe(4)
+    expect(Company::count())->toBe(4)
+        ->and(User::count())->toBe(5)
         ->and(Admin::count())->toBe(1)
         ->and(Supplier::count())->toBe(3)
         ->and(Product::count())->toBe(10)

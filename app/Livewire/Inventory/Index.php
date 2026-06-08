@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Livewire\Inventory;
 
+use App\Livewire\Concerns\WithTenant;
 use Domain\Billing\Enums\Feature;
-use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Inventory\Actions\AddInventoryAttachmentAction;
 use Domain\Inventory\Actions\AddInventoryItemAction;
@@ -15,8 +15,6 @@ use Domain\Inventory\Actions\DeleteInventoryAttachmentAction;
 use Domain\Inventory\Actions\RestoreInventoryItemAction;
 use Domain\Inventory\Repositories\InventoryAttachmentRepository;
 use Domain\Inventory\Repositories\InventoryItemRepository;
-use Domain\User\Data\UserData;
-use Domain\User\Repositories\UserRepository;
 use Domain\Venue\Actions\CreateVenueAction;
 use Domain\Venue\Data\VenueData;
 use Domain\Venue\Repositories\VenueRepository;
@@ -33,6 +31,7 @@ use Livewire\WithFileUploads;
 class Index extends Component
 {
     use WithFileUploads;
+    use WithTenant;
 
     #[Session]
     public ?int $venueId = null;
@@ -63,39 +62,23 @@ class Index extends Component
 
     public $upload;
 
-    private function user(): ?UserData
-    {
-        return (new UserRepository)->getLoggedInUser();
-    }
-
-    private function plan(): Plan
-    {
-        return $this->user()?->plan ?? Plan::Free;
-    }
-
     private function can(Feature $feature): bool
     {
-        return $this->plan()->can($feature);
+        return $this->companyPlan()->can($feature);
     }
 
     /**
-     * Resolve the active venue, ensuring it belongs to the current user.
+     * Resolve the active venue, ensuring the current user can access it.
      */
     private function activeVenueId(): ?int
     {
-        $userId = $this->user()?->id;
-
-        if ($userId === null) {
-            return null;
-        }
-
-        $venues = (new VenueRepository)->getForUser($userId);
+        $venues = $this->accessibleVenues();
 
         if ($venues->isEmpty()) {
             return null;
         }
 
-        // Fall back to the first venue if the stored one isn't (or no longer) the user's.
+        // Fall back to the first accessible venue if the stored one isn't (or no longer) reachable.
         if ($this->venueId === null || ! $venues->contains(fn (VenueData $v) => $v->id === $this->venueId)) {
             $this->venueId = $venues->first()->id;
         }
@@ -107,10 +90,7 @@ class Index extends Component
     {
         abort_unless($this->can(Feature::Inventory), 403);
 
-        $userId = $this->user()?->id;
-        $owns = (new VenueRepository)->getForUser($userId ?? 0)->contains(fn (VenueData $v) => $v->id === $id);
-
-        if ($owns) {
+        if ($this->accessibleVenues()->contains(fn (VenueData $v) => $v->id === $id)) {
             $this->venueId = $id;
         }
     }
@@ -119,9 +99,12 @@ class Index extends Component
     {
         abort_unless($this->can(Feature::Inventory), 403);
 
+        // Only owners/managers add venues to the company.
+        $company = $this->currentCompany();
+        abort_unless($company !== null && ($this->currentUser()?->role->canManageTeam() ?? false), 403);
+
         // First venue is included; additional venues require the Group plan.
-        $userId = $this->user()?->id;
-        $existing = (new VenueRepository)->getForUser($userId ?? 0);
+        $existing = (new VenueRepository)->getForCompany($company->id);
         abort_unless($existing->isEmpty() || $this->can(Feature::MultiVenue), 403);
 
         $this->validate(['venueName' => 'required|string|max:255']);
@@ -129,12 +112,12 @@ class Index extends Component
         $venue = (new CreateVenueAction)->execute(new VenueData(
             id: null,
             uuid: null,
-            user_id: $this->user()?->id,
+            company_id: $company->id,
             name: $this->venueName,
             address: null,
             city: null,
             country: null,
-            base_currency: 'GBP',
+            base_currency: $company->base_currency,
         ));
 
         $this->venueId = $venue->id;
@@ -212,7 +195,7 @@ class Index extends Component
 
         (new AddInventoryAttachmentAction)->execute(
             inventoryItemId: $this->attachmentItemId,
-            uploadedBy: $this->user()?->id,
+            uploadedBy: $this->currentUser()?->id,
             fileName: $this->upload->getClientOriginalName(),
             fileType: $this->upload->getMimeType(),
             fileSize: $this->upload->getSize(),
@@ -243,19 +226,17 @@ class Index extends Component
     private function guardOwnsItem(int $id): void
     {
         $item = (new InventoryItemRepository)->find($id);
-        $userId = $this->user()?->id;
         $owns = $item !== null
-            && (new VenueRepository)->getForUser($userId ?? 0)->contains(fn (VenueData $v) => $v->id === $item->venue_id);
+            && $this->accessibleVenues()->contains(fn (VenueData $v) => $v->id === $item->venue_id);
 
         abort_unless($owns, 403);
     }
 
     public function render()
     {
-        $user = $this->user();
         $canInventory = $this->can(Feature::Inventory);
 
-        $venues = $user ? (new VenueRepository)->getForUser($user->id) : collect();
+        $venues = $this->accessibleVenues();
         $venueId = $this->activeVenueId();
 
         $rows = collect();
@@ -300,7 +281,7 @@ class Index extends Component
             'canArchive' => $this->can(Feature::InventoryArchive),
             'canAttachments' => $this->can(Feature::InventoryAttachments),
             'canMultiVenue' => $this->can(Feature::MultiVenue),
-            'plan' => $this->plan(),
+            'plan' => $this->companyPlan(),
             'venues' => $venues,
             'venueId' => $venueId,
             'rows' => $rows,

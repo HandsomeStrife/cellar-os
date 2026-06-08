@@ -116,7 +116,7 @@
                 @guest
                     <div class="flex items-center gap-2">
                         <x-button :href="route('login')" variant="ghost" size="sm">Sign in</x-button>
-                        <x-button :href="route('register')" size="sm">Get started</x-button>
+                        <x-button :href="route('home').'#contact'" size="sm">Enquire</x-button>
                     </div>
                 @else
                 <div x-data="{ open: false }" x-on:keydown.escape="open = false" class="relative">

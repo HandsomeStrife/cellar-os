@@ -22,11 +22,10 @@
             <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
                 <a href="#features" class="opacity-80 transition hover:opacity-100">Features</a>
                 <a href="#contact" class="opacity-80 transition hover:opacity-100">Contact</a>
-                <a href="{{ route('guide') }}" class="opacity-80 transition hover:opacity-100">Guide</a>
             </nav>
             <div class="flex items-center gap-2">
                 <a href="{{ route('login') }}" class="hidden px-3 py-2 text-sm font-medium opacity-80 transition hover:opacity-100 sm:inline-flex">Sign in</a>
-                <x-button :href="route('register')" size="sm">Get started</x-button>
+                <x-button href="#contact" size="sm">Enquire</x-button>
                 <button type="button" id="menu-toggle" class="-mr-1 p-1 md:hidden" aria-label="Menu" aria-expanded="false">
                     <x-icon.menu id="menu-open-icon" class="size-6" />
                     <x-icon.x id="menu-close-icon" class="size-6 hidden" />
@@ -37,7 +36,6 @@
             <nav class="mx-auto flex max-w-6xl flex-col gap-1 px-5 py-3 text-sm">
                 <a href="#features" class="rounded-md px-2 py-2 hover:bg-accent">Features</a>
                 <a href="#contact" class="rounded-md px-2 py-2 hover:bg-accent">Contact</a>
-                <a href="{{ route('guide') }}" class="rounded-md px-2 py-2 hover:bg-accent">Guide</a>
                 <a href="{{ route('login') }}" class="rounded-md px-2 py-2 hover:bg-accent">Sign in</a>
             </nav>
         </div>
@@ -70,13 +68,13 @@
                 Bring your catalogue, suppliers, purchase orders and stock into one calm, fast workspace. Less spreadsheet wrangling, more selling wine.
             </p>
             <div class="mt-9 flex flex-wrap items-center gap-3 [&_*]:[text-shadow:none]">
-                <x-button :href="route('register')" size="lg">Start free</x-button>
+                <x-button href="#contact" size="lg">Get in touch</x-button>
                 <x-button href="#features" variant="inverse" size="lg">
                     See how it works
                     <x-icon.chevron-down class="size-4" />
                 </x-button>
             </div>
-            <p class="mt-6 text-sm text-white/90">No card required. Free plan to browse and manage suppliers.</p>
+            <p class="mt-6 text-sm text-white/90">We set every account up personally. Send an enquiry and we'll get you started.</p>
         </div>
 
         {{-- Scroll indicator --}}
@@ -403,10 +401,9 @@
         <div class="absolute inset-0 -z-10 bg-[#1c0a11]/80"></div>
         <div class="mx-auto max-w-6xl px-5 py-24 text-center sm:px-8 sm:py-32">
             <h2 class="mx-auto max-w-2xl font-display text-3xl font-semibold tracking-tight text-white sm:text-5xl">Put your wine business on solid ground.</h2>
-            <p class="mx-auto mt-5 max-w-xl text-lg text-white/80">Create an account in under a minute and import your first price list today.</p>
+            <p class="mx-auto mt-5 max-w-xl text-lg text-white/80">Tell us about your business and we'll set you up, and help you import your first price list.</p>
             <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
-                <x-button :href="route('register')" size="lg">Start free</x-button>
-                <x-button :href="route('guide')" variant="inverse" size="lg">Read the guide</x-button>
+                <x-button href="#contact" size="lg">Get in touch</x-button>
             </div>
         </div>
     </section>

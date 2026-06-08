@@ -14,12 +14,15 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
+            // Tenant link. The FK constraint is added in the companies migration,
+            // which necessarily runs after this one.
+            $table->unsignedBigInteger('company_id')->nullable()->index();
             $table->string('full_name')->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->string('role')->default('user');
-            $table->string('plan')->default('free');
+            $table->string('password')->nullable();
+            // Role within the company: owner | manager | member.
+            $table->string('role')->default('member');
             $table->rememberToken();
             $table->timestamps();
         });
@@ -28,7 +31,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('profession')->nullable();
-            $table->string('company_name')->nullable();
             $table->timestamps();
         });
 

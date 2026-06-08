@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Livewire\Admin\Auth\Login;
 use App\Livewire\Admin\Users;
 use Domain\Admin\Models\Admin;
-use Domain\Billing\Enums\Plan;
 use Domain\User\Models\User;
 use Livewire\Livewire;
 
@@ -60,15 +59,11 @@ it('renders the admin dashboard for an admin', function () {
     $this->get(route('admin.dashboard'))->assertOk()->assertSee('Users');
 });
 
-it('lists users and changes a plan', function () {
+it('lists users', function () {
     $this->actingAs(Admin::factory()->create(), 'admin');
-    $user = User::factory()->create(['plan' => Plan::Free->value, 'email' => 'member@example.test']);
+    User::factory()->create(['email' => 'member@example.test']);
 
-    Livewire::test(Users::class)
-        ->assertSee('member@example.test')
-        ->call('setPlan', $user->id, Plan::Pro->value);
-
-    expect($user->fresh()->plan)->toBe(Plan::Pro);
+    Livewire::test(Users::class)->assertSee('member@example.test');
 });
 
 it('deletes a user', function () {
@@ -93,9 +88,9 @@ it('forbids a web user from invoking admin actions directly', function () {
 it('forbids a guest from invoking admin actions directly', function () {
     $target = User::factory()->create();
 
-    Livewire::test(Users::class)->call('setPlan', $target->id, Plan::Pro->value)->assertForbidden();
+    Livewire::test(Users::class)->call('deleteUser', $target->id)->assertForbidden();
 
-    expect($target->fresh()->plan)->toBe(Plan::Free);
+    $this->assertDatabaseHas('users', ['id' => $target->id]);
 });
 
 it('throttles repeated failed admin logins', function () {

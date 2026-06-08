@@ -5,28 +5,25 @@ declare(strict_types=1);
 namespace Domain\User\Models;
 
 use Database\Factories\UserFactory;
-use Domain\Billing\Enums\Plan;
 use Domain\Shared\Traits\HasUuid;
 use Domain\User\Data\UserData;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Laravel\Cashier\Billable;
 
 class User extends Authenticatable
 {
-    use Billable;
     use HasFactory;
     use HasUuid;
     use Notifiable;
 
     protected $fillable = [
+        'company_id',
         'full_name',
         'email',
         'password',
         'role',
-        'plan',
     ];
 
     protected $hidden = [
@@ -39,7 +36,6 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'plan' => Plan::class,
         ];
     }
 

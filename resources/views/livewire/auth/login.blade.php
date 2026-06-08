@@ -1,8 +1,9 @@
 <div>
-    <x-card>
+    <x-card class="shadow-md">
         <x-slot:header>
-            <h1 class="font-serif text-2xl font-semibold leading-tight">Welcome back</h1>
-            <p class="mt-1 text-sm text-muted-foreground">Sign in to your CellarOS account.</p>
+            <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Welcome back</p>
+            <h1 class="mt-2 font-display text-2xl font-semibold tracking-tight">Sign in to CellarOS</h1>
+            <p class="mt-1 text-sm text-muted-foreground">Enter your details to reach your workspace.</p>
         </x-slot:header>
 
         <form wire:submit="login" class="space-y-5">
@@ -14,19 +15,20 @@
                 <x-input.checkbox label="Remember me" name="remember" wire:model="remember" />
 
                 @if(Route::has('password.request'))
-                    <a href="{{ route('password.request') }}" class="text-sm text-primary hover:underline" wire:navigate>Forgot password?</a>
+                    <a href="{{ route('password.request') }}" class="text-sm font-medium text-primary hover:underline" wire:navigate>Forgot password?</a>
                 @endif
             </div>
 
-            <x-button type="submit" class="w-full" wire:loading.attr="disabled">
+            <x-button type="submit" size="lg" class="w-full" wire:loading.attr="disabled">
                 <span wire:loading.remove wire:target="login">Log in</span>
                 <span wire:loading wire:target="login">Signing in…</span>
             </x-button>
         </form>
     </x-card>
 
-    <p class="mt-4 text-center text-sm text-muted-foreground">
-        Don't have an account?
-        <a href="{{ route('register') }}" class="font-medium text-primary hover:underline" wire:navigate>Create one</a>
+    <p class="mt-6 text-center text-sm text-muted-foreground">
+        Don't have an account yet?
+        <a href="{{ route('home').'#contact' }}" class="font-medium text-primary hover:underline">Get in touch</a>
+        and we'll set you up.
     </p>
 </div>

@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Admin;
 
-use Domain\Billing\Enums\Plan;
 use Domain\User\Actions\DeleteUserAction;
-use Domain\User\Actions\SetUserPlanAction;
 use Domain\User\Repositories\UserRepository;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -25,17 +23,6 @@ class Users extends Component
     public function updatedSearch(): void
     {
         $this->resetPage();
-    }
-
-    public function setPlan(int $id, string $plan): void
-    {
-        $this->ensureAdmin();
-
-        $planEnum = Plan::tryFrom($plan);
-        abort_if($planEnum === null, 422);
-
-        (new SetUserPlanAction)->execute($id, $planEnum);
-        $this->dispatch('toast', message: 'Plan updated.');
     }
 
     public function deleteUser(int $id): void
@@ -59,7 +46,6 @@ class Users extends Component
     {
         return view('livewire.admin.users', [
             'users' => (new UserRepository)->paginate($this->search),
-            'plans' => Plan::cases(),
         ]);
     }
 }

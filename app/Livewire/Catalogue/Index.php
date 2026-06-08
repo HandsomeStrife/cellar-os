@@ -10,6 +10,7 @@ use Domain\Catalogue\Actions\DeleteProductAction;
 use Domain\Catalogue\Actions\UpdateProductPriceAction;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Repositories\ProductRepository;
+use Domain\Company\Repositories\CompanyRepository;
 use Domain\Order\Actions\CreateOrderAction;
 use Domain\Order\Data\OrderData;
 use Domain\Order\Data\OrderItemData;
@@ -146,8 +147,9 @@ class Index extends Component
         abort_unless($this->plan()->can(Feature::CreatePurchaseOrders), 403);
 
         $repository = new ProductRepository;
-        $userId = (new UserRepository)->getLoggedInUser()?->id;
-        $currency = (new VenueRepository)->currencyForUser($userId ?? 0);
+        $user = (new UserRepository)->getLoggedInUser();
+        $userId = $user?->id;
+        $currency = (new VenueRepository)->currencyForCompany($user?->company_id ?? 0);
 
         $groups = [];
         foreach ($this->basket as $productId => $qty) {
@@ -197,7 +199,7 @@ class Index extends Component
 
     private function plan(): Plan
     {
-        return (new UserRepository)->getLoggedInUser()?->plan ?? Plan::Free;
+        return (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::Free;
     }
 
     public function render()
@@ -238,7 +240,7 @@ class Index extends Component
             'basketTotal' => $basketLines->sum('line_total'),
             'basketCount' => $basketLines->count(),
             'canCreateOrders' => $this->plan()->can(Feature::CreatePurchaseOrders),
-            'currency' => (new VenueRepository)->currencyForUser((new UserRepository)->getLoggedInUser()?->id ?? 0),
+            'currency' => (new VenueRepository)->currencyForCompany((new UserRepository)->getLoggedInUser()?->company_id ?? 0),
         ]);
     }
 }

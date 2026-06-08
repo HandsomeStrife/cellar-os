@@ -13,7 +13,6 @@ class UserProfileData extends AbstractData
         public ?int $id,
         public int $user_id,
         public ?string $profession,
-        public ?string $company_name,
     ) {}
 
     public static function fromModel(UserProfile $model): self
@@ -22,7 +21,6 @@ class UserProfileData extends AbstractData
             id: $model->id,
             user_id: $model->user_id,
             profession: $model->profession,
-            company_name: $model->company_name,
         );
     }
 

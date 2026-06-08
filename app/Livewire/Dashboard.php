@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Livewire;
 
+use App\Livewire\Concerns\WithTenant;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Inventory\Repositories\InventoryItemRepository;
 use Domain\Order\Repositories\OrderRepository;
 use Domain\Supplier\Repositories\SupplierRepository;
-use Domain\User\Repositories\UserRepository;
-use Domain\Venue\Repositories\VenueRepository;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -19,17 +18,19 @@ use Livewire\Component;
 #[Title('Dashboard')]
 class Dashboard extends Component
 {
+    use WithTenant;
+
     private const LOW_STOCK_THRESHOLD = 12;
 
     public function render()
     {
-        $user = (new UserRepository)->getLoggedInUser();
+        $user = $this->currentUser();
 
         $productRepo = new ProductRepository;
         $supplierRepo = new SupplierRepository;
         $orderRepo = new OrderRepository;
 
-        $venues = $user ? (new VenueRepository)->getForUser($user->id) : collect();
+        $venues = $this->accessibleVenues();
         $items = (new InventoryItemRepository)->forVenues($venues->pluck('id')->all());
 
         $products = $productRepo->findMany(
@@ -99,7 +100,7 @@ class Dashboard extends Component
 
         return view('livewire.dashboard', [
             'user' => $user,
-            'plan' => $user?->plan,
+            'plan' => $this->companyPlan(),
             'hasVenue' => $venues->isNotEmpty(),
             'currency' => $venues->first()?->base_currency ?? 'GBP',
             // headline

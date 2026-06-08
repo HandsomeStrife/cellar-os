@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 beforeEach(function () {
-    $this->user = User::factory()->create(['plan' => Plan::Starter->value]);
+    $this->user = userOnPlan(Plan::Starter);
     $this->supplier = Supplier::factory()->create();
     $this->actingAs($this->user);
 });
@@ -38,7 +38,7 @@ it('renders the import page', function () {
 });
 
 it('shows an upgrade gate for free users', function () {
-    $this->actingAs(User::factory()->create(['plan' => Plan::Free->value]));
+    $this->actingAs(userOnPlan(Plan::Free));
 
     Livewire::test(Index::class)->assertSee('paid feature');
 });
@@ -71,7 +71,7 @@ it('imports a CSV price list end to end', function () {
 });
 
 it('forbids uploading for free users', function () {
-    $this->actingAs(User::factory()->create(['plan' => Plan::Free->value]));
+    $this->actingAs(userOnPlan(Plan::Free));
 
     Livewire::test(Index::class)
         ->set('supplierId', $this->supplier->id)
@@ -135,7 +135,7 @@ it('forbids importing another user\'s upload', function () {
     $rawUploadId = $component->get('rawUploadId');
 
     // A different user tries to import it.
-    $this->actingAs(User::factory()->create(['plan' => Plan::Starter->value]));
+    $this->actingAs(userOnPlan(Plan::Starter));
     Livewire::test(Index::class)
         ->set('rawUploadId', $rawUploadId)
         ->set('mapping', ['wine_name' => 'Wine'])

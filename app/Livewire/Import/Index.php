@@ -7,6 +7,7 @@ namespace App\Livewire\Import;
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Actions\UpsertProductAction;
+use Domain\Company\Repositories\CompanyRepository;
 use Domain\Import\Actions\MarkRawUploadImportedAction;
 use Domain\Import\Actions\StoreRawUploadAction;
 use Domain\Import\Repositories\RawUploadRepository;
@@ -61,7 +62,7 @@ class Index extends Component
 
     private function plan(): Plan
     {
-        return (new UserRepository)->getLoggedInUser()?->plan ?? Plan::Free;
+        return (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::Free;
     }
 
     private function entitled(): bool

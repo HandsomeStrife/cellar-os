@@ -15,7 +15,7 @@
                     <tr>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Plan</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Role</th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Joined</th>
                         <th class="px-3 py-2"></th>
                     </tr>
@@ -25,13 +25,7 @@
                         <tr wire:key="user-{{ $user->id }}" class="hover:bg-accent/40">
                             <td class="px-3 py-2.5 font-medium">{{ $user->full_name ?? '–' }}</td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $user->email }}</td>
-                            <td class="px-3 py-2.5">
-                                <select wire:change="setPlan({{ $user->id }}, $event.target.value)" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
-                                    @foreach($plans as $plan)
-                                        <option value="{{ $plan->value }}" @selected($plan === $user->plan)>{{ $plan->getLabel() }}</option>
-                                    @endforeach
-                                </select>
-                            </td>
+                            <td class="px-3 py-2.5"><x-badge color="gray">{{ $user->role->getLabel() }}</x-badge></td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $user->created_at?->format('j M Y') }}</td>
                             <td class="px-3 py-2.5 text-right">
                                 <x-button wire:click="deleteUser({{ $user->id }})" wire:confirm="Delete {{ $user->email }}? This cannot be undone." variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10">

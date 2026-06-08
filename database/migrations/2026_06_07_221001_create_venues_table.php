@@ -13,7 +13,7 @@ return new class extends Migration
         Schema::create('venues', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('company_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->string('address')->nullable();
             $table->string('city')->nullable();

@@ -54,7 +54,7 @@
                         <x-button :href="route('dashboard')" variant="ghost" size="sm">Dashboard</x-button>
                     @else
                         <x-button :href="route('login')" variant="ghost" size="sm">Sign in</x-button>
-                        <x-button :href="route('register')" size="sm">Get started</x-button>
+                        <x-button :href="route('home').'#contact'" size="sm">Enquire</x-button>
                     @endauth
                 </nav>
             </div>

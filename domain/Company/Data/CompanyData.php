@@ -2,43 +2,38 @@
 
 declare(strict_types=1);
 
-namespace Domain\Venue\Data;
+namespace Domain\Company\Data;
 
 use Carbon\CarbonImmutable;
+use Domain\Billing\Enums\Plan;
+use Domain\Company\Models\Company;
 use Domain\Shared\Data\AbstractData;
-use Domain\Venue\Models\Venue;
 
-class VenueData extends AbstractData
+class CompanyData extends AbstractData
 {
     public function __construct(
         public ?int $id,
         public ?string $uuid,
-        public ?int $company_id,
         public string $name,
-        public ?string $address,
-        public ?string $city,
-        public ?string $country,
         public string $base_currency,
+        public Plan $plan,
         public ?CarbonImmutable $created_at = null,
     ) {}
 
-    public static function fromModel(Venue $model): self
+    public static function fromModel(Company $model): self
     {
         return new self(
             id: $model->id,
             uuid: $model->uuid,
-            company_id: $model->company_id,
             name: $model->name,
-            address: $model->address,
-            city: $model->city,
-            country: $model->country,
             base_currency: $model->base_currency,
+            plan: $model->plan,
             created_at: $model->created_at?->toImmutable(),
         );
     }
 
-    public function toModel(): Venue
+    public function toModel(): Company
     {
-        return Venue::findOrFail($this->id);
+        return Company::findOrFail($this->id);
     }
 }

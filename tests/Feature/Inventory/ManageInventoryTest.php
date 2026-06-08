@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->user = User::factory()->create(['plan' => Plan::Pro->value]);
-    $this->venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $this->user = userOnPlan(Plan::Pro);
+    $this->venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     $supplier = Supplier::factory()->create();
     $this->product = Product::factory()->create(['supplier_id' => $supplier->id, 'wine_name' => 'Test Wine']);
     $this->actingAs($this->user);
@@ -29,7 +29,7 @@ it('renders the inventory page', function () {
 });
 
 it('shows an upgrade gate for free users', function () {
-    $this->actingAs(User::factory()->create(['plan' => Plan::Free->value]));
+    $this->actingAs(userOnPlan(Plan::Free));
 
     Livewire::test(Index::class)->assertSee('Inventory is a paid feature');
 });
@@ -47,7 +47,7 @@ it('lists stock for the active venue', function () {
 });
 
 it('creates a venue', function () {
-    $user = User::factory()->create(['plan' => Plan::Starter->value]);
+    $user = userOnPlan(Plan::Starter);
     $this->actingAs($user);
 
     Livewire::test(Index::class)
@@ -55,7 +55,7 @@ it('creates a venue', function () {
         ->call('createVenue')
         ->assertHasNoErrors();
 
-    $this->assertDatabaseHas('venues', ['name' => 'My Cellar', 'user_id' => $user->id]);
+    $this->assertDatabaseHas('venues', ['name' => 'My Cellar', 'company_id' => $user->company_id]);
 });
 
 it('receives stock manually', function () {
@@ -90,8 +90,8 @@ it('tops up an existing line instead of duplicating', function () {
 });
 
 it('forbids manual add below the Pro plan', function () {
-    $this->actingAs($starter = User::factory()->create(['plan' => Plan::Starter->value]));
-    Venue::factory()->create(['user_id' => $starter->id]);
+    $this->actingAs($starter = userOnPlan(Plan::Starter));
+    Venue::factory()->create(['company_id' => $starter->company_id]);
 
     Livewire::test(Index::class)
         ->set('addProductId', $this->product->id)
@@ -129,8 +129,8 @@ it('archives and restores a line', function () {
 });
 
 it('forbids adjusting quantity for free users', function () {
-    $free = User::factory()->create(['plan' => Plan::Free->value]);
-    $venue = Venue::factory()->create(['user_id' => $free->id]);
+    $free = userOnPlan(Plan::Free);
+    $venue = Venue::factory()->create(['company_id' => $free->company_id]);
     $item = InventoryItem::factory()->create([
         'venue_id' => $venue->id,
         'product_id' => $this->product->id,
@@ -150,19 +150,19 @@ it('requires the Group plan to create a second venue', function () {
         ->call('createVenue')
         ->assertForbidden();
 
-    expect(Venue::where('user_id', $this->user->id)->count())->toBe(1);
+    expect(Venue::where('company_id', $this->user->company_id)->count())->toBe(1);
 });
 
 it('allows a Group user multiple venues', function () {
-    $this->actingAs($group = User::factory()->create(['plan' => Plan::Group->value]));
-    Venue::factory()->create(['user_id' => $group->id]);
+    $this->actingAs($group = userOnPlan(Plan::Group));
+    Venue::factory()->create(['company_id' => $group->company_id]);
 
     Livewire::test(Index::class)
         ->set('venueName', 'Second Cellar')
         ->call('createVenue')
         ->assertHasNoErrors();
 
-    expect(Venue::where('user_id', $group->id)->count())->toBe(2);
+    expect(Venue::where('company_id', $group->company_id)->count())->toBe(2);
 });
 
 it('rejects a disallowed attachment type', function () {
@@ -203,8 +203,8 @@ it('returns 404 downloading a missing attachment', function () {
 });
 
 it('forbids touching another user\'s inventory', function () {
-    $otherUser = User::factory()->create(['plan' => Plan::Pro->value]);
-    $otherVenue = Venue::factory()->create(['user_id' => $otherUser->id]);
+    $otherUser = userOnPlan(Plan::Pro);
+    $otherVenue = Venue::factory()->create(['company_id' => $otherUser->company_id]);
     $otherItem = InventoryItem::factory()->create([
         'venue_id' => $otherVenue->id,
         'product_id' => $this->product->id,
@@ -239,8 +239,8 @@ it('uploads and downloads an attachment', function () {
 });
 
 it('forbids deleting another user\'s attachment', function () {
-    $otherUser = User::factory()->create(['plan' => Plan::Pro->value]);
-    $otherVenue = Venue::factory()->create(['user_id' => $otherUser->id]);
+    $otherUser = userOnPlan(Plan::Pro);
+    $otherVenue = Venue::factory()->create(['company_id' => $otherUser->company_id]);
     $otherItem = InventoryItem::factory()->create([
         'venue_id' => $otherVenue->id,
         'product_id' => $this->product->id,
@@ -253,8 +253,8 @@ it('forbids deleting another user\'s attachment', function () {
 });
 
 it('forbids downloading another user\'s attachment', function () {
-    $otherUser = User::factory()->create(['plan' => Plan::Pro->value]);
-    $otherVenue = Venue::factory()->create(['user_id' => $otherUser->id]);
+    $otherUser = userOnPlan(Plan::Pro);
+    $otherVenue = Venue::factory()->create(['company_id' => $otherUser->company_id]);
     $otherItem = InventoryItem::factory()->create([
         'venue_id' => $otherVenue->id,
         'product_id' => $this->product->id,

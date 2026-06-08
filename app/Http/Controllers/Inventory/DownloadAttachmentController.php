@@ -22,10 +22,16 @@ class DownloadAttachmentController
         $item = (new InventoryItemRepository)->find($attachment->inventory_item_id);
         abort_if($item === null, 404);
 
-        // Authorize: the item's venue must belong to the current user.
-        $userId = (new UserRepository)->getLoggedInUser()?->id;
-        $owns = (new VenueRepository)->getForUser($userId ?? 0)
-            ->contains(fn (VenueData $venue) => $venue->id === $item->venue_id);
+        // Authorize: the item's venue must be one the current user can access
+        // (owners/managers see all company venues; members only assigned ones).
+        $user = (new UserRepository)->getLoggedInUser();
+        $venues = new VenueRepository;
+        $accessible = $user === null || $user->company_id === null
+            ? collect()
+            : ($user->role->seesAllVenues()
+                ? $venues->getForCompany($user->company_id)
+                : $venues->getAssignedToUser($user->id));
+        $owns = $accessible->contains(fn (VenueData $venue) => $venue->id === $item->venue_id);
         abort_unless($owns, 403);
 
         abort_unless(Storage::disk('local')->exists($attachment->storage_path), 404);

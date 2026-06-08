@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Orders;
 
+use App\Livewire\Concerns\WithTenant;
 use App\Mail\PurchaseOrderMail;
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
@@ -18,7 +19,6 @@ use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Repositories\OrderRepository;
 use Domain\Order\Services\OrderPdfService;
 use Domain\Supplier\Repositories\SupplierRepository;
-use Domain\User\Repositories\UserRepository;
 use Domain\Venue\Repositories\VenueRepository;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -32,6 +32,7 @@ use Livewire\WithPagination;
 class Index extends Component
 {
     use WithPagination;
+    use WithTenant;
 
     public string $statusFilter = '';
 
@@ -55,7 +56,7 @@ class Index extends Component
 
     private function plan(): Plan
     {
-        return $this->memoPlan ??= ((new UserRepository)->getLoggedInUser()?->plan ?? Plan::Free);
+        return $this->memoPlan ??= $this->companyPlan();
     }
 
     private function entitled(): bool
@@ -148,13 +149,14 @@ class Index extends Component
     {
         abort_unless($this->entitled(), 403);
 
-        $userId = (new UserRepository)->getLoggedInUser()?->id;
-        $currency = (new VenueRepository)->currencyForUser($userId ?? 0);
+        $user = $this->currentUser();
+        $userId = $user?->id;
+        $currency = (new VenueRepository)->currencyForCompany($user?->company_id ?? 0);
 
         $this->validate([
             'supplierId' => 'required|integer|exists:suppliers,id',
-            // Venue (if any) must belong to the current user.
-            'venueId' => ['nullable', 'integer', Rule::exists('venues', 'id')->where('user_id', $userId)],
+            // Venue (if any) must be one the current user can access.
+            'venueId' => ['nullable', 'integer', Rule::in($this->accessibleVenueIds())],
             'lines' => 'required|array|min:1',
             'lines.*.product_id' => 'required|integer|exists:products,id',
             'lines.*.quantity' => 'required|integer|min:1',
@@ -217,9 +219,8 @@ class Index extends Component
             return;
         }
 
-        // Defence: the venue must belong to the current user.
-        $userId = (new UserRepository)->getLoggedInUser()?->id;
-        $ownsVenue = (new VenueRepository)->getForUser($userId ?? 0)
+        // Defence: the venue must be one the current user can access.
+        $ownsVenue = $this->accessibleVenues()
             ->contains(fn ($venue) => $venue->id === $order->venue_id);
         abort_unless($ownsVenue, 403);
 
@@ -305,13 +306,13 @@ class Index extends Component
                 ->all();
         }
 
-        $userId = (new UserRepository)->getLoggedInUser()?->id;
-        $venues = $userId !== null ? (new VenueRepository)->getForUser($userId) : collect();
+        $user = $this->currentUser();
+        $venues = $this->accessibleVenues();
 
         return view('livewire.orders.index', [
             'entitled' => $entitled,
             'canEmail' => $this->plan()->can(Feature::SendPurchaseOrderEmail),
-            'currency' => (new VenueRepository)->currencyForUser($userId ?? 0),
+            'currency' => (new VenueRepository)->currencyForCompany($user?->company_id ?? 0),
             'orders' => $orders,
             'viewing' => $viewing,
             'statuses' => OrderStatus::cases(),

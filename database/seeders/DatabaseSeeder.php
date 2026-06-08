@@ -8,6 +8,7 @@ use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Models\Product;
+use Domain\Company\Models\Company;
 use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Models\Order;
@@ -16,7 +17,9 @@ use Domain\Supplier\Enums\SupplierStatus;
 use Domain\Supplier\Models\Supplier;
 use Domain\Supplier\Models\SupplierDocument;
 use Domain\Supplier\Models\SupplierUser;
+use Domain\User\Enums\Role;
 use Domain\User\Models\User;
+use Domain\Venue\Actions\SyncUserVenuesAction;
 use Domain\Venue\Models\Venue;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -116,27 +119,31 @@ class DatabaseSeeder extends Seeder
         }
     }
 
-    /** Free plan, just signed up: a venue but no stock or orders yet (empty / getting-started state). */
+    /** Free plan, just signed up: a company + owner + venue but no stock or orders yet. */
     private function seedFreeUser(): void
     {
-        $user = $this->user('free@cellaros.test', 'Olivia Newbury', Plan::Free);
-        $this->venue($user, 'Harbourview Bistro', 'Brighton');
+        $company = $this->company('Harbourview Hospitality', Plan::Free);
+        $owner = $this->owner($company, 'free@cellaros.test', 'Olivia Newbury');
+        $venue = $this->venue($company, 'Harbourview Bistro', 'Brighton');
+        $this->assignVenues($owner, [$venue->id]);
     }
 
     /** Starter plan, getting going: a couple of orders, a little received stock. */
     private function seedStarterUser(): void
     {
-        $user = $this->user('starter@cellaros.test', 'Marcus Trent', Plan::Starter);
-        $venue = $this->venue($user, 'The Tasting Room', 'Bristol');
+        $company = $this->company('Tasting Room Wines', Plan::Starter);
+        $owner = $this->owner($company, 'starter@cellaros.test', 'Marcus Trent');
+        $venue = $this->venue($company, 'The Tasting Room', 'Bristol');
+        $this->assignVenues($owner, [$venue->id]);
 
         $this->inventory($venue, 'Sancerre Les Monts', 18, 6);
         $this->inventory($venue, 'Provence Rosé', 12, 9);
 
-        $this->order($user, $venue, 'Bordeaux Imports', OrderStatus::Draft, 'First order: house whites and rosé.', [
+        $this->order($owner, $venue, 'Bordeaux Imports', OrderStatus::Draft, 'First order: house whites and rosé.', [
             'Chablis Premier Cru' => 12,
             'Provence Rosé' => 6,
         ]);
-        $this->order($user, $venue, 'New World Selections', OrderStatus::Sent, 'New World reds for the by-the-glass list.', [
+        $this->order($owner, $venue, 'New World Selections', OrderStatus::Sent, 'New World reds for the by-the-glass list.', [
             'Rioja Gran Reserva' => 6,
         ]);
     }
@@ -144,44 +151,55 @@ class DatabaseSeeder extends Seeder
     /** Pro plan, fully operational single venue: stock, plus orders across the lifecycle. */
     private function seedProUser(): void
     {
-        $user = $this->user('demo@cellaros.test', 'Demo Sommelier', Plan::Pro);
-        $venue = $this->venue($user, 'The Cellar Door', 'London');
+        $company = $this->company('Cellar Door Group', Plan::Pro);
+        $owner = $this->owner($company, 'demo@cellaros.test', 'Demo Sommelier');
+        $venue = $this->venue($company, 'The Cellar Door', 'London');
+        $this->assignVenues($owner, [$venue->id]);
 
         // wine => [quantity, days since received]
         foreach (['Chablis Premier Cru' => [24, 5], 'Barolo Riserva' => [18, 12], 'Rioja Gran Reserva' => [30, 3], 'Champagne Brut Réserve' => [12, 20]] as $wine => [$qty, $daysAgo]) {
             $this->inventory($venue, $wine, $qty, $daysAgo);
         }
 
-        $this->order($user, $venue, 'Italian Fine Wines', OrderStatus::Draft, 'Restock Italian reds for the autumn list.', [
+        $this->order($owner, $venue, 'Italian Fine Wines', OrderStatus::Draft, 'Restock Italian reds for the autumn list.', [
             'Barolo Riserva' => 6,
             'Brunello di Montalcino' => 6,
         ]);
-        $this->order($user, $venue, 'Bordeaux Imports', OrderStatus::Sent, 'Champagne for the festive season.', [
+        $this->order($owner, $venue, 'Bordeaux Imports', OrderStatus::Sent, 'Champagne for the festive season.', [
             'Champagne Brut Réserve' => 24,
         ]);
-        $this->order($user, $venue, 'New World Selections', OrderStatus::Received, 'Received: New World mixed case.', [
+        $this->order($owner, $venue, 'New World Selections', OrderStatus::Received, 'Received: New World mixed case.', [
             'Napa Cabernet Sauvignon' => 6,
             'Marlborough Sauvignon Blanc' => 12,
         ]);
     }
 
-    /** Group plan: multiple venues, each with its own stock and orders. */
+    /**
+     * Group plan: one company, multiple venues, and a TEAM — an owner who sees
+     * everything plus a member scoped to a single venue (showcases user_venue).
+     */
     private function seedGroupUser(): void
     {
-        $user = $this->user('group@cellaros.test', 'Priya Anand', Plan::Group);
+        $company = $this->company('Anand Restaurant Group', Plan::Group);
+        $owner = $this->owner($company, 'group@cellaros.test', 'Priya Anand');
 
-        $hq = $this->venue($user, 'Group HQ Cellar', 'Manchester');
-        $riverside = $this->venue($user, 'Riverside Brasserie', 'Leeds');
+        $hq = $this->venue($company, 'Group HQ Cellar', 'Manchester');
+        $riverside = $this->venue($company, 'Riverside Brasserie', 'Leeds');
+        $this->assignVenues($owner, [$hq->id, $riverside->id]);
+
+        // A member who can only see the Riverside site.
+        $member = $this->teammate($company, 'group.member@cellaros.test', 'Leo Carter', Role::Member);
+        $this->assignVenues($member, [$riverside->id]);
 
         $this->inventory($hq, 'Brunello di Montalcino', 36, 4);
         $this->inventory($hq, 'Vintage Port', 24, 12);
         $this->inventory($riverside, 'Marlborough Sauvignon Blanc', 48, 3);
         $this->inventory($riverside, 'Provence Rosé', 30, 7);
 
-        $this->order($user, $hq, 'Italian Fine Wines', OrderStatus::Received, 'HQ: Tuscan flagship restock.', [
+        $this->order($owner, $hq, 'Italian Fine Wines', OrderStatus::Received, 'HQ: Tuscan flagship restock.', [
             'Brunello di Montalcino' => 12,
         ]);
-        $this->order($user, $riverside, 'New World Selections', OrderStatus::Draft, 'Riverside: summer whites.', [
+        $this->order($member, $riverside, 'New World Selections', OrderStatus::Draft, 'Riverside: summer whites.', [
             'Marlborough Sauvignon Blanc' => 24,
         ]);
     }
@@ -276,25 +294,46 @@ class DatabaseSeeder extends Seeder
         );
     }
 
-    private function user(string $email, string $name, Plan $plan): User
+    private function company(string $name, Plan $plan): Company
+    {
+        return Company::firstOrCreate(
+            ['name' => $name],
+            ['plan' => $plan->value, 'base_currency' => 'GBP'],
+        );
+    }
+
+    private function owner(Company $company, string $email, string $name): User
+    {
+        return $this->teammate($company, $email, $name, Role::Owner);
+    }
+
+    private function teammate(Company $company, string $email, string $name, Role $role): User
     {
         return User::updateOrCreate(
             ['email' => $email],
             [
+                'company_id' => $company->id,
                 'full_name' => $name,
                 'password' => Hash::make('password'),
-                'role' => 'user',
-                'plan' => $plan->value,
+                'role' => $role->value,
             ],
         );
     }
 
-    private function venue(User $user, string $name, string $city): Venue
+    private function venue(Company $company, string $name, string $city): Venue
     {
         return Venue::firstOrCreate(
-            ['user_id' => $user->id, 'name' => $name],
+            ['company_id' => $company->id, 'name' => $name],
             ['city' => $city, 'country' => 'United Kingdom', 'base_currency' => 'GBP'],
         );
+    }
+
+    /**
+     * @param  array<int, int>  $venueIds
+     */
+    private function assignVenues(User $user, array $venueIds): void
+    {
+        (new SyncUserVenuesAction)->execute($user->id, $venueIds);
     }
 
     private function inventory(Venue $venue, string $wine, int $qty, int $daysAgo): void

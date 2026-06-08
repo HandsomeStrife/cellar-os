@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->user = User::factory()->create(['plan' => Plan::Starter->value]);
+    $this->user = userOnPlan(Plan::Starter);
     $this->supplier = Supplier::factory()->create(['email' => 'supplier@example.test']);
     $this->product = Product::factory()->create([
         'supplier_id' => $this->supplier->id,
@@ -32,13 +32,13 @@ it('renders the orders page', function () {
 });
 
 it('shows an upgrade gate for free users', function () {
-    $this->actingAs(User::factory()->create(['plan' => Plan::Free->value]));
+    $this->actingAs(userOnPlan(Plan::Free));
 
     Livewire::test(Index::class)->assertSee('paid feature');
 });
 
 it('forbids creating orders for free users', function () {
-    $this->actingAs(User::factory()->create(['plan' => Plan::Free->value]));
+    $this->actingAs(userOnPlan(Plan::Free));
 
     Livewire::test(Index::class)->call('openCreate')->assertForbidden();
 });
@@ -80,7 +80,7 @@ it('prefills the create form from the catalogue basket', function () {
 });
 
 it('receives a sent order into venue inventory', function () {
-    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     $order = Order::factory()->create([
         'supplier_id' => $this->supplier->id,
         'venue_id' => $venue->id,
@@ -118,7 +118,7 @@ it('does not receive a sent order with no venue', function () {
 });
 
 it('rejects receiving an order that is not Sent', function () {
-    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     $order = Order::factory()->create([
         'supplier_id' => $this->supplier->id,
         'venue_id' => $venue->id,
@@ -132,7 +132,7 @@ it('rejects receiving an order that is not Sent', function () {
 });
 
 it('does not double-receive (no inventory inflation)', function () {
-    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     $order = Order::factory()->create([
         'supplier_id' => $this->supplier->id,
         'venue_id' => $venue->id,
@@ -152,7 +152,7 @@ it('does not double-receive (no inventory inflation)', function () {
 });
 
 it('tops up an existing inventory line when receiving', function () {
-    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     InventoryItem::factory()->create([
         'venue_id' => $venue->id,
         'product_id' => $this->product->id,
@@ -175,7 +175,7 @@ it('tops up an existing inventory line when receiving', function () {
 });
 
 it('forbids receiving into another user\'s venue', function () {
-    $otherVenue = Venue::factory()->create(['user_id' => User::factory()->create()->id]);
+    $otherVenue = Venue::factory()->create(['company_id' => User::factory()->create()->company_id]);
     $order = Order::factory()->create([
         'supplier_id' => $this->supplier->id,
         'venue_id' => $otherVenue->id,
@@ -237,19 +237,19 @@ it('does not email when the supplier has no address', function () {
 
 it('blocks the PDF download for free users', function () {
     $order = Order::factory()->create(['supplier_id' => $this->supplier->id]);
-    $this->actingAs(User::factory()->create(['plan' => Plan::Free->value]));
+    $this->actingAs(userOnPlan(Plan::Free));
 
     $this->get(route('orders.pdf', $order->id))->assertForbidden();
 });
 
 it('forbids line edits for free users', function () {
-    $this->actingAs(User::factory()->create(['plan' => Plan::Free->value]));
+    $this->actingAs(userOnPlan(Plan::Free));
 
     Livewire::test(Index::class)->call('addLine', $this->product->id)->assertForbidden();
 });
 
 it('rejects attaching another user\'s venue', function () {
-    $otherVenue = Venue::factory()->create(['user_id' => User::factory()->create()->id]);
+    $otherVenue = Venue::factory()->create(['company_id' => User::factory()->create()->company_id]);
 
     Livewire::test(Index::class)
         ->call('openCreate')
@@ -263,7 +263,7 @@ it('rejects attaching another user\'s venue', function () {
 });
 
 it('accepts the user\'s own venue', function () {
-    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
 
     Livewire::test(Index::class)
         ->call('openCreate')

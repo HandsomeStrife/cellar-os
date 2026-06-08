@@ -16,7 +16,7 @@ class Venue extends Model
     use HasUuid;
 
     protected $fillable = [
-        'user_id',
+        'company_id',
         'name',
         'address',
         'city',

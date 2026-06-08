@@ -92,7 +92,7 @@ it('deletes a product from the catalogue', function () {
 });
 
 it('creates one draft order per supplier from the basket', function () {
-    $this->actingAs(User::factory()->create(['plan' => Plan::Starter->value]));
+    $this->actingAs(userOnPlan(Plan::Starter));
     $supplierTwo = Supplier::factory()->create();
     $p1 = Product::factory()->create(['supplier_id' => $this->supplier->id, 'unit_price' => '10.00']);
     $p2 = Product::factory()->create(['supplier_id' => $supplierTwo->id, 'unit_price' => '20.00']);

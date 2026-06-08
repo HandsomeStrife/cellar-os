@@ -7,7 +7,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
-use Domain\User\Repositories\UserRepository;
+use Domain\Company\Repositories\CompanyRepository;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureFeatureAccess
 {
-    public function __construct(private readonly UserRepository $users) {}
+    public function __construct(private readonly CompanyRepository $companies) {}
 
     public function handle(Request $request, Closure $next, string $feature): Response
     {
@@ -29,8 +29,7 @@ class EnsureFeatureAccess
             abort(500, "Unknown gated feature [{$feature}].");
         }
 
-        $user = $this->users->getLoggedInUser();
-        $plan = $user?->plan ?? Plan::Free;
+        $plan = $this->companies->getLoggedInCompany()?->plan ?? Plan::Free;
 
         if (! $plan->can($featureEnum)) {
             return redirect()

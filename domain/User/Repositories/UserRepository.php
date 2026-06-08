@@ -7,10 +7,27 @@ namespace Domain\User\Repositories;
 use Domain\User\Data\UserData;
 use Domain\User\Models\User;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 class UserRepository
 {
+    public function findByUuid(string $uuid): ?UserData
+    {
+        return User::where('uuid', $uuid)->first()?->getData();
+    }
+
+    /**
+     * @return Collection<int, UserData>
+     */
+    public function forCompany(int $companyId): Collection
+    {
+        return User::where('company_id', $companyId)
+            ->orderBy('full_name')
+            ->get()
+            ->map(fn (User $user) => $user->getData());
+    }
+
     public function paginate(?string $term = null, int $perPage = 20): LengthAwarePaginator
     {
         return User::query()
@@ -43,11 +60,6 @@ class UserRepository
     public function findByEmail(string $email): ?UserData
     {
         return User::where('email', $email)->first()?->getData();
-    }
-
-    public function findByStripeId(string $stripeId): ?UserData
-    {
-        return User::where('stripe_id', $stripeId)->first()?->getData();
     }
 
     /**
