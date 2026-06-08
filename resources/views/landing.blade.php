@@ -8,11 +8,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CellarOS · The operating system for the modern wine trade</title>
     <meta name="description" content="Manage your wine catalogue, suppliers, purchase orders and stock in one place. Built for importers, merchants and sommeliers.">
-    <script>
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        }
-    </script>
+    {{-- Marketing is intentionally always light and inviting. --}}
+    <script>document.documentElement.classList.remove('dark');</script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
@@ -46,8 +43,8 @@
     </header>
 
     <main id="content">
-    {{-- Hero --}}
-    <section class="relative isolate overflow-hidden">
+    {{-- Hero: full-screen video, no heavy overlay, text anchored low with a soft scrim --}}
+    <section class="relative isolate flex min-h-screen flex-col overflow-hidden">
         <div class="absolute inset-0 -z-10">
             <video
                 class="h-full w-full object-cover"
@@ -60,25 +57,26 @@
                 <source src="/media/hero.webm" type="video/webm">
                 <source src="/media/hero.mp4" type="video/mp4">
             </video>
-            <div class="absolute inset-0 bg-gradient-to-tr from-[#23090f]/92 via-[#23090f]/78 to-[#23090f]/62"></div>
+            {{-- Light, bottom-anchored scrim only, so the footage stays bright while the text stays legible. --}}
+            <div class="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 via-black/25 to-transparent"></div>
         </div>
 
-        <div class="mx-auto flex min-h-[86vh] max-w-6xl flex-col justify-center px-5 py-24 sm:px-8">
-            <p class="font-mono text-xs uppercase tracking-[0.22em] text-white/80">For importers, merchants &amp; sommeliers</p>
+        <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-end px-5 pb-20 pt-32 sm:px-8 sm:pb-24 [&_*]:[text-shadow:0_1px_12px_rgba(0,0,0,0.35)]">
+            <p class="font-mono text-xs uppercase tracking-[0.22em] text-white/90">For importers, merchants &amp; sommeliers</p>
             <h1 class="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
                 The operating system for the modern wine trade.
             </h1>
-            <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/85">
+            <p class="mt-6 max-w-xl text-lg leading-relaxed text-white">
                 Bring your catalogue, suppliers, purchase orders and stock into one calm, fast workspace. Less spreadsheet wrangling, more selling wine.
             </p>
-            <div class="mt-9 flex flex-wrap items-center gap-3">
+            <div class="mt-9 flex flex-wrap items-center gap-3 [&_*]:[text-shadow:none]">
                 <x-button :href="route('register')" size="lg">Start free</x-button>
                 <x-button href="#features" variant="inverse" size="lg">
                     See how it works
                     <x-icon.chevron-down class="size-4" />
                 </x-button>
             </div>
-            <p class="mt-6 text-sm text-white/75">No card required. Free plan to browse and manage suppliers.</p>
+            <p class="mt-6 text-sm text-white/90">No card required. Free plan to browse and manage suppliers.</p>
         </div>
     </section>
 

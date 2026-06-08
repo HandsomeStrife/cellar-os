@@ -25,9 +25,16 @@
     <title>{{ $title ? $title.' · CellarOS' : 'CellarOS' }}</title>
 
     <script>
-        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-            document.documentElement.classList.add('dark');
-        }
+        // Apply the theme before paint, and re-apply after every wire:navigate
+        // (SPA navigation does not re-run head scripts, which dropped the class).
+        (function () {
+            const apply = () => {
+                const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.classList.toggle('dark', dark);
+            };
+            apply();
+            document.addEventListener('livewire:navigated', apply);
+        })();
     </script>
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
