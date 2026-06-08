@@ -2,15 +2,17 @@
 
 declare(strict_types=1);
 
-use App\Livewire\Auth\ForgotPassword;
-use App\Livewire\Auth\Login;
-use App\Livewire\Auth\Register;
-use App\Livewire\Auth\ResetPassword;
+use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Http\Controllers\Orders\DownloadOrderPdfController;
 use App\Livewire\Admin\Auth\Login as AdminLogin;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
+use App\Livewire\Admin\Enquiries as AdminEnquiries;
 use App\Livewire\Admin\Users as AdminUsers;
+use App\Livewire\Auth\ForgotPassword;
+use App\Livewire\Auth\Login;
+use App\Livewire\Auth\Register;
+use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Billing\Pricing;
 use App\Livewire\Catalogue\Index as CatalogueIndex;
 use App\Livewire\Dashboard;
@@ -25,6 +27,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'landing')->name('home');
+
+// Public contact / enquiry form (stored for admin review). Throttled against spam.
+Route::post('/enquiries', [EnquiryController::class, 'store'])
+    ->middleware('throttle:6,1')
+    ->name('enquiries.store');
 
 // Public documentation-style guide. One Livewire page with a sticky sidenav;
 // each section is a real URL (e.g. /guide/catalogue, /guide/orders).
@@ -72,6 +79,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware('auth:admin')->group(function () {
         Route::get('/', AdminDashboard::class)->name('dashboard');
         Route::get('users', AdminUsers::class)->name('users');
+        Route::get('enquiries', AdminEnquiries::class)->name('enquiries');
 
         Route::post('logout', function (Request $request) {
             Auth::guard('admin')->logout();

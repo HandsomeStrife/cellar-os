@@ -47,7 +47,8 @@ All bounded contexts have a working UI + tests. Modules (each: Livewire in `app/
 - **Money** — `Domain\Shared\Support\Currency`; values display in the venue's base currency (per-line currency on orders/inventory). No conversion (matches upstream).
 - **Billing** — `/pricing` plan cards, Cashier checkout (swap for existing subs), webhook plan-sync (`UpdateUserPlanFromStripe`, fail-closed without `STRIPE_WEBHOOK_SECRET`).
 - **Map** — `/map` Leaflet + OpenStreetMap (tokenless) global sourcing view.
-- **Admin** — separate `admin` guard at `/admin`: login (throttled), dashboard, user management (plan change, delete). `auth:admin` + intrinsic guards.
+- **Admin** — separate `admin` guard at `/admin`: login (throttled), dashboard, user management (plan change, delete), enquiry review (status + delete). `auth:admin` + intrinsic guards.
+- **Enquiries** — public contact form on the landing (plain `<form>` → `EnquiryController@store` → `StoreEnquiryAction`, throttled), stored in `enquiries`; reviewed at `/admin/enquiries`. The marketing **pricing** section is currently hidden behind an `@if(false)` guard in `landing.blade.php` (restore by removing the guard); the contact section took its place.
 
 Plan gating: in-component (`Plan::can(Feature)`) + the `feature:<key>` route middleware (redirects to `pricing`); UI shows `x-upgrade-gate`.
 
@@ -111,6 +112,7 @@ Each bounded context is self-contained — `Models/`, `Actions/`, `Data/`, `Repo
 | `Order` | Purchase orders + line items (unit-based: 1 unit = 1 bottle) | `orders`, `order_items` |
 | `Inventory` | Received stock per venue + file attachments | `inventory_items`, `inventory_attachments` |
 | `Billing` | Plan tiers, feature gating, Stripe (Cashier) | Cashier: `subscriptions`, `subscription_items` |
+| `Enquiry` | Public contact-form submissions, reviewed in admin | `enquiries` |
 
 ---
 

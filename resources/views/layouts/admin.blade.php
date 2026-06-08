@@ -4,6 +4,7 @@
     $nav = [
         ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'admin.dashboard'],
         ['label' => 'Users', 'icon' => 'users', 'route' => 'admin.users'],
+        ['label' => 'Enquiries', 'icon' => 'mail', 'route' => 'admin.enquiries'],
     ];
     $admin = auth('admin')->user();
 @endphp

@@ -21,7 +21,7 @@
             <x-app-logo :href="route('home')" mark-class="" />
             <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
                 <a href="#features" class="opacity-80 transition hover:opacity-100">Features</a>
-                <a href="#pricing" class="opacity-80 transition hover:opacity-100">Pricing</a>
+                <a href="#contact" class="opacity-80 transition hover:opacity-100">Contact</a>
                 <a href="{{ route('guide') }}" class="opacity-80 transition hover:opacity-100">Guide</a>
             </nav>
             <div class="flex items-center gap-2">
@@ -36,7 +36,7 @@
         <div id="mobile-menu" class="hidden border-t border-border bg-background text-foreground md:hidden">
             <nav class="mx-auto flex max-w-6xl flex-col gap-1 px-5 py-3 text-sm">
                 <a href="#features" class="rounded-md px-2 py-2 hover:bg-accent">Features</a>
-                <a href="#pricing" class="rounded-md px-2 py-2 hover:bg-accent">Pricing</a>
+                <a href="#contact" class="rounded-md px-2 py-2 hover:bg-accent">Contact</a>
                 <a href="{{ route('guide') }}" class="rounded-md px-2 py-2 hover:bg-accent">Guide</a>
                 <a href="{{ route('login') }}" class="rounded-md px-2 py-2 hover:bg-accent">Sign in</a>
             </nav>
@@ -297,7 +297,8 @@
         </div>
     </section>
 
-    {{-- Pricing (comparison table, not a card grid) --}}
+    {{-- Pricing is hidden for now; remove the @if(false) guard below to restore it. --}}
+    @if(false)
     <section id="pricing" class="border-y border-border bg-card/40 scroll-mt-20">
         <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
             <div class="max-w-2xl">
@@ -363,6 +364,38 @@
             </div>
         </div>
     </section>
+    @endif
+
+    {{-- Contact / enquiry --}}
+    <section id="contact" class="border-y border-border bg-card/40 scroll-mt-20">
+        <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+            <div class="grid gap-x-16 gap-y-10 lg:grid-cols-2">
+                <div>
+                    <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Get in touch</p>
+                    <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Talk to us about your cellar.</h2>
+                    <p class="mt-4 text-lg text-muted-foreground">Tell us about your business and what you're looking for. Send a note and we'll get back to you by email.</p>
+                    <ul class="mt-8 space-y-3 text-sm text-muted-foreground">
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>A reply from a real person, not a bot.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Help getting your first price list imported.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>No obligation and no hard sell.</span></li>
+                    </ul>
+                </div>
+                <div>
+                    @if(session('enquiry_success'))
+                        <x-alert variant="success">Thanks for getting in touch. Your enquiry has been received and we'll reply by email soon.</x-alert>
+                    @endif
+                    <form method="POST" action="{{ route('enquiries.store') }}" class="mt-2 space-y-4">
+                        @csrf
+                        <x-input.text name="name" label="Name" :value="old('name')" required autocomplete="name" />
+                        <x-input.email name="email" label="Email" :value="old('email')" required autocomplete="email" />
+                        <x-input.text name="company" label="Company (optional)" :value="old('company')" autocomplete="organization" />
+                        <x-input.textarea name="message" label="How can we help?" rows="5" required>{{ old('message') }}</x-input.textarea>
+                        <x-button type="submit" size="lg">Send enquiry</x-button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
 
     {{-- Final CTA --}}
     <section class="relative isolate overflow-hidden">
@@ -385,7 +418,7 @@
             <x-app-logo :href="route('home')" />
             <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
                 <a href="#features" class="hover:text-foreground">Features</a>
-                <a href="#pricing" class="hover:text-foreground">Pricing</a>
+                <a href="#contact" class="hover:text-foreground">Contact</a>
                 <a href="{{ route('guide') }}" class="hover:text-foreground">Guide</a>
                 <a href="{{ route('login') }}" class="hover:text-foreground">Sign in</a>
             </nav>
