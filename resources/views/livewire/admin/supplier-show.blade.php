@@ -3,8 +3,34 @@
         <a href="{{ route('admin.suppliers') }}" wire:navigate class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <x-icon.chevron-right class="size-4 rotate-180" /> Back to suppliers
         </a>
-        <h2 class="mt-2 font-serif text-2xl font-semibold">{{ $supplier?->name }}</h2>
+        <div class="mt-2 flex flex-wrap items-center gap-3">
+            <h2 class="font-serif text-2xl font-semibold">{{ $supplier?->name }}</h2>
+            @if($supplier?->tier)<x-badge :color="$supplier->tier->getColour()">{{ $supplier->tier->getLabel() }}</x-badge>@endif
+        </div>
     </div>
+
+    {{-- Tier / onboarding --}}
+    <x-card title="Listing & onboarding">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm text-muted-foreground">
+                @if($supplier?->tier === \Domain\Supplier\Enums\SupplierTier::Private)
+                    Private to the company that added it. Make it public to let every company discover and connect to it.
+                @elseif($supplier?->tier === \Domain\Supplier\Enums\SupplierTier::Listed)
+                    Listed publicly. Mark it onboarded once it manages its own portal account.
+                @else
+                    Onboarded — this supplier self-manages via the portal.
+                @endif
+            </p>
+            <div class="flex gap-2">
+                @if($supplier?->tier === \Domain\Supplier\Enums\SupplierTier::Private)
+                    <x-button wire:click="makePublic" variant="outline" size="sm">Make public</x-button>
+                @endif
+                @if($supplier?->tier !== \Domain\Supplier\Enums\SupplierTier::Onboarded)
+                    <x-button wire:click="markOnboarded" size="sm">Mark onboarded</x-button>
+                @endif
+            </div>
+        </div>
+    </x-card>
 
     {{-- Company profile --}}
     <x-card title="Company profile">

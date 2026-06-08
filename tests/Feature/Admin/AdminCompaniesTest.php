@@ -8,6 +8,7 @@ use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
 use Domain\Company\Models\Company;
 use Domain\Order\Models\Order;
+use Domain\Supplier\Models\Supplier;
 use Domain\User\Enums\Role;
 use Domain\User\Models\User;
 use Domain\User\Notifications\UserInviteNotification;
@@ -69,6 +70,17 @@ it('deletes a company and cascades its users, venues and orders', function () {
     $this->assertDatabaseMissing('users', ['id' => $owner->id]);
     $this->assertDatabaseMissing('venues', ['id' => $venue->id]);
     $this->assertDatabaseMissing('orders', ['id' => $order->id]);
+});
+
+it('removes a deleted company\'s private suppliers (no public leak)', function () {
+    $this->actingAs(Admin::factory()->create(), 'admin');
+    [$company] = makeTenant(Plan::Pro);
+    $private = Supplier::factory()->create(['created_by_company_id' => $company->id]);
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])->call('deleteCompany');
+
+    // The private supplier must be gone, not nulled into the public pool.
+    $this->assertDatabaseMissing('suppliers', ['id' => $private->id]);
 });
 
 it('forbids a non-admin from company management actions', function () {

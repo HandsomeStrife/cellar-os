@@ -59,4 +59,19 @@ test.describe('Company tenancy', () => {
     const response = await page.goto('/team');
     expect(response?.status()).toBe(403);
   });
+
+  test('My suppliers shows connected suppliers and Discover lists the rest', async ({ page }) => {
+    await login(page, 'group@cellaros.test');
+    await page.goto('/suppliers');
+
+    // The group is connected to these.
+    await expect(page.getByText('Italian Fine Wines')).toBeVisible();
+    await expect(page.getByText('New World Selections')).toBeVisible();
+    // Not connected to Bordeaux (it's discoverable), so it isn't in My suppliers.
+    await expect(page.getByText('Bordeaux Imports')).toHaveCount(0);
+
+    // Discover lists the unconnected public suppliers.
+    await page.getByRole('button', { name: 'Discover' }).click();
+    await expect(page.getByText('Bordeaux Imports')).toBeVisible();
+  });
 });

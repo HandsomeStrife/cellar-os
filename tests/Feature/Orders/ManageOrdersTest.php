@@ -10,6 +10,7 @@ use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Models\Order;
 use Domain\Order\Models\OrderItem;
+use Domain\Supplier\Actions\ConnectCompanyToSupplierAction;
 use Domain\Supplier\Models\Supplier;
 use Domain\User\Models\User;
 use Domain\Venue\Models\Venue;
@@ -19,6 +20,8 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->user = userOnPlan(Plan::Starter);
     $this->supplier = Supplier::factory()->create(['email' => 'supplier@example.test']);
+    // Orders can only be placed with a connected supplier.
+    (new ConnectCompanyToSupplierAction)->execute($this->user->company_id, $this->supplier->id);
     $this->product = Product::factory()->create([
         'supplier_id' => $this->supplier->id,
         'wine_name' => 'Test Wine',
@@ -266,6 +269,19 @@ it('rejects attaching another user\'s venue', function () {
         ->assertHasErrors('venueId');
 
     expect(Order::count())->toBe(0);
+});
+
+it('forbids ordering from a supplier the company is not connected to', function () {
+    $stranger = Supplier::factory()->create();
+
+    Livewire::test(Index::class)
+        ->call('openCreate')
+        ->set('supplierId', $stranger->id)
+        ->call('addLine', $this->product->id)
+        ->call('createOrder')
+        ->assertForbidden();
+
+    expect(Order::where('supplier_id', $stranger->id)->count())->toBe(0);
 });
 
 it('accepts the user\'s own venue', function () {

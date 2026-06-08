@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Livewire\Admin\Suppliers;
 use App\Livewire\Admin\SupplierShow;
 use Domain\Admin\Models\Admin;
+use Domain\Company\Models\Company;
+use Domain\Supplier\Enums\SupplierTier;
 use Domain\Supplier\Jobs\AnalyseSupplierDocumentJob;
 use Domain\Supplier\Models\Supplier;
 use Domain\Supplier\Models\SupplierDocument;
@@ -71,6 +73,20 @@ it('updates a supplier profile', function () {
 
     expect($supplier->fresh()->website)->toBe('https://updated.test')
         ->and($supplier->fresh()->city)->toBe('Reims');
+});
+
+it('promotes a private supplier to public, then onboarded', function () {
+    $this->actingAs(Admin::factory()->create(), 'admin');
+    $company = Company::factory()->create();
+    $supplier = Supplier::factory()->create(['created_by_company_id' => $company->id]);
+
+    expect($supplier->fresh()->getData()->tier)->toBe(SupplierTier::Private);
+
+    Livewire::test(SupplierShow::class, ['uuid' => $supplier->uuid])->call('makePublic');
+    expect($supplier->fresh()->getData()->tier)->toBe(SupplierTier::Listed);
+
+    Livewire::test(SupplierShow::class, ['uuid' => $supplier->uuid])->call('markOnboarded');
+    expect($supplier->fresh()->getData()->tier)->toBe(SupplierTier::Onboarded);
 });
 
 it('forbids a non-admin from supplier management actions', function () {

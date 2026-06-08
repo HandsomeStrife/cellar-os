@@ -13,6 +13,7 @@ class CreateSupplierAction extends AbstractAction
     public function execute(SupplierData $data): SupplierData
     {
         $supplier = Supplier::create([
+            'created_by_company_id' => $data->created_by_company_id,
             'name' => $data->name,
             'contact' => $data->contact,
             'email' => $data->email,

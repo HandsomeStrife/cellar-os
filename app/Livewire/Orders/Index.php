@@ -163,6 +163,12 @@ class Index extends Component
             'lines.*.unit_price' => 'required|numeric|min:0',
         ], [], ['lines' => 'order lines']);
 
+        // You can only order from a supplier your company is connected to.
+        abort_unless(
+            (new SupplierRepository)->isConnectedToCompany($this->supplierId, $user?->company_id ?? 0),
+            403
+        );
+
         $items = array_map(fn ($line) => new OrderItemData(
             id: null,
             order_id: null,
@@ -330,7 +336,8 @@ class Index extends Component
             'orders' => $orders,
             'viewing' => $viewing,
             'statuses' => OrderStatus::cases(),
-            'suppliers' => (new SupplierRepository)->all(),
+            // Only the company's connected suppliers can be ordered from.
+            'suppliers' => (new SupplierRepository)->connectedToCompany($companyId),
             'venues' => $venues,
             'productOptions' => $productOptions,
             'linesTotal' => collect($this->lines)->sum(fn ($l) => $l['quantity'] * (float) $l['unit_price']),

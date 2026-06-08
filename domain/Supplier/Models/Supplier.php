@@ -18,6 +18,7 @@ class Supplier extends Model
     use HasUuid;
 
     protected $fillable = [
+        'created_by_company_id',
         'name',
         'contact',
         'email',
@@ -29,6 +30,7 @@ class Supplier extends Model
         'country',
         'website',
         'status',
+        'onboarded_at',
         'column_mapping',
     ];
 
@@ -37,6 +39,7 @@ class Supplier extends Model
         return [
             'column_mapping' => 'array',
             'status' => SupplierStatus::class,
+            'onboarded_at' => 'datetime',
         ];
     }
 

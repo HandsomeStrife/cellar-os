@@ -7,6 +7,8 @@ namespace App\Livewire\Admin;
 use Domain\Supplier\Actions\CreateSupplierUserAction;
 use Domain\Supplier\Actions\DeleteSupplierDocumentAction;
 use Domain\Supplier\Actions\DeleteSupplierUserAction;
+use Domain\Supplier\Actions\MakeSupplierPublicAction;
+use Domain\Supplier\Actions\MarkSupplierOnboardedAction;
 use Domain\Supplier\Actions\UpdateSupplierAction;
 use Domain\Supplier\Data\SupplierData;
 use Domain\Supplier\Enums\SupplierStatus;
@@ -173,6 +175,20 @@ class SupplierShow extends Component
 
         (new DeleteSupplierUserAction)->execute($userId);
         $this->dispatch('toast', message: 'User removed.');
+    }
+
+    public function makePublic(): void
+    {
+        $this->ensureAdmin();
+        (new MakeSupplierPublicAction)->execute($this->supplierId);
+        $this->dispatch('toast', message: 'Supplier is now listed publicly.');
+    }
+
+    public function markOnboarded(): void
+    {
+        $this->ensureAdmin();
+        (new MarkSupplierOnboardedAction)->execute($this->supplierId);
+        $this->dispatch('toast', message: 'Supplier marked as onboarded.');
     }
 
     public function analyse(int $documentId): void

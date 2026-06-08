@@ -7,6 +7,7 @@ namespace Domain\Supplier\Data;
 use Carbon\CarbonImmutable;
 use Domain\Shared\Data\AbstractData;
 use Domain\Supplier\Enums\SupplierStatus;
+use Domain\Supplier\Enums\SupplierTier;
 use Domain\Supplier\Models\Supplier;
 
 class SupplierData extends AbstractData
@@ -25,6 +26,9 @@ class SupplierData extends AbstractData
         public ?string $postcode = null,
         public ?string $country = null,
         public ?string $website = null,
+        public ?int $created_by_company_id = null,
+        public ?CarbonImmutable $onboarded_at = null,
+        public ?SupplierTier $tier = null,
         public ?array $column_mapping = null,
         public ?CarbonImmutable $created_at = null,
     ) {}
@@ -45,6 +49,9 @@ class SupplierData extends AbstractData
             postcode: $model->postcode,
             country: $model->country,
             website: $model->website,
+            created_by_company_id: $model->created_by_company_id,
+            onboarded_at: $model->onboarded_at?->toImmutable(),
+            tier: SupplierTier::derive($model->created_by_company_id, $model->onboarded_at),
             column_mapping: $model->column_mapping,
             created_at: $model->created_at?->toImmutable(),
         );

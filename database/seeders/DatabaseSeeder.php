@@ -22,6 +22,7 @@ use Domain\User\Models\User;
 use Domain\Venue\Actions\SyncUserVenuesAction;
 use Domain\Venue\Models\Venue;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
@@ -146,6 +147,9 @@ class DatabaseSeeder extends Seeder
         $this->order($owner, $venue, 'New World Selections', OrderStatus::Sent, 'New World reds for the by-the-glass list.', [
             'Rioja Gran Reserva' => 6,
         ]);
+
+        $this->connectSupplier($company, 'Bordeaux Imports', [$venue]);
+        $this->connectSupplier($company, 'New World Selections', [$venue]);
     }
 
     /** Pro plan, fully operational single venue: stock, plus orders across the lifecycle. */
@@ -171,6 +175,19 @@ class DatabaseSeeder extends Seeder
         $this->order($owner, $venue, 'New World Selections', OrderStatus::Received, 'Received: New World mixed case.', [
             'Napa Cabernet Sauvignon' => 6,
             'Marlborough Sauvignon Blanc' => 12,
+        ]);
+
+        $this->connectSupplier($company, 'Italian Fine Wines', [$venue]);
+        $this->connectSupplier($company, 'Bordeaux Imports', [$venue]);
+        $this->connectSupplier($company, 'New World Selections', [$venue]);
+
+        // A private (buyer-added) supplier, to showcase the tier.
+        $private = Supplier::firstOrCreate(
+            ['name' => 'Borough Wine Co', 'created_by_company_id' => $company->id],
+            ['contact' => 'Jonah Reed', 'location' => 'London, United Kingdom', 'status' => SupplierStatus::Active->value],
+        );
+        DB::table('company_supplier')->insertOrIgnore([
+            'company_id' => $company->id, 'supplier_id' => $private->id, 'created_at' => now(), 'updated_at' => now(),
         ]);
     }
 
@@ -202,6 +219,10 @@ class DatabaseSeeder extends Seeder
         $this->order($member, $riverside, 'New World Selections', OrderStatus::Draft, 'Riverside: summer whites.', [
             'Marlborough Sauvignon Blanc' => 24,
         ]);
+
+        // HQ buys Italian; Riverside buys New World.
+        $this->connectSupplier($company, 'Italian Fine Wines', [$hq]);
+        $this->connectSupplier($company, 'New World Selections', [$riverside]);
     }
 
     /**
@@ -227,6 +248,8 @@ class DatabaseSeeder extends Seeder
             'city' => 'Bordeaux',
             'postcode' => '33000',
             'country' => 'France',
+            // It runs a portal account, so it's onboarded.
+            'onboarded_at' => now(),
         ]);
         $camille = $this->supplierUser($bordeaux, 'supplier@cellaros.test', 'Camille Laurent');
         $this->supplierUser($bordeaux, 'supplier.team@cellaros.test', 'Hugo Marchand');
@@ -334,6 +357,32 @@ class DatabaseSeeder extends Seeder
     private function assignVenues(User $user, array $venueIds): void
     {
         (new SyncUserVenuesAction)->execute($user->id, $venueIds);
+    }
+
+    /**
+     * Connect a company to a (shared) supplier and allocate it to venues.
+     *
+     * @param  array<int, Venue>  $venues
+     */
+    private function connectSupplier(Company $company, string $supplierName, array $venues = []): void
+    {
+        $supplier = $this->suppliers[$supplierName];
+
+        DB::table('company_supplier')->insertOrIgnore([
+            'company_id' => $company->id,
+            'supplier_id' => $supplier->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        foreach ($venues as $venue) {
+            DB::table('supplier_venue')->insertOrIgnore([
+                'supplier_id' => $supplier->id,
+                'venue_id' => $venue->id,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 
     private function inventory(Venue $venue, string $wine, int $qty, int $daysAgo): void

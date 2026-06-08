@@ -34,7 +34,7 @@ it('seeds a coherent demo dataset', function () {
     }
 
     // Shared catalogue + per-user venues/inventory/orders.
-    expect(Supplier::count())->toBe(3)
+    expect(Supplier::count())->toBe(4)
         ->and(Product::count())->toBe(10)
         ->and(Product::whereNotNull('latitude')->count())->toBe(10)
         ->and(Venue::count())->toBe(5)
@@ -76,7 +76,7 @@ it('is idempotent across repeated runs', function () {
     expect(Company::count())->toBe(4)
         ->and(User::count())->toBe(5)
         ->and(Admin::count())->toBe(1)
-        ->and(Supplier::count())->toBe(3)
+        ->and(Supplier::count())->toBe(4)
         ->and(Product::count())->toBe(10)
         ->and(Venue::count())->toBe(5)
         ->and(InventoryItem::count())->toBe(10)
