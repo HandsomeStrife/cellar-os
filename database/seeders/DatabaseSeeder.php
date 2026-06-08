@@ -54,17 +54,24 @@ class DatabaseSeeder extends Seeder
 
     private function seedSuppliers(): void
     {
-        $this->suppliers = collect([
-            'Bordeaux Imports', 'Italian Fine Wines', 'New World Selections',
-        ])->mapWithKeys(fn (string $name) => [$name => Supplier::firstOrCreate(
-            ['name' => $name],
-            [
-                'contact' => fake()->name(),
-                'email' => str(str($name)->slug())->append('@example.test')->value(),
-                'location' => fake()->city(),
-                'status' => SupplierStatus::Active->value,
-            ],
-        )])->all();
+        // Deterministic so the seeder runs without Faker (a dev-only dependency).
+        $details = [
+            'Bordeaux Imports' => ['Camille Laurent', 'Bordeaux, France'],
+            'Italian Fine Wines' => ['Marco Bianchi', 'Milan, Italy'],
+            'New World Selections' => ['Sarah Mitchell', 'London, United Kingdom'],
+        ];
+
+        foreach ($details as $name => [$contact, $location]) {
+            $this->suppliers[$name] = Supplier::firstOrCreate(
+                ['name' => $name],
+                [
+                    'contact' => $contact,
+                    'email' => str(str($name)->slug())->append('@example.test')->value(),
+                    'location' => $location,
+                    'status' => SupplierStatus::Active->value,
+                ],
+            );
+        }
     }
 
     private function seedCatalogue(): void
@@ -83,7 +90,7 @@ class DatabaseSeeder extends Seeder
             ['Marlborough Sauvignon Blanc', 'Cloudy Bay', 'New Zealand', 'Marlborough', WineColour::White, 2023, '21.00', '-41.51', '173.86', 'New World Selections'],
         ];
 
-        foreach ($wines as [$name, $producer, $country, $region, $colour, $vintage, $price, $lat, $lng, $supplierName]) {
+        foreach ($wines as $i => [$name, $producer, $country, $region, $colour, $vintage, $price, $lat, $lng, $supplierName]) {
             $this->products[$name] = Product::firstOrCreate(
                 ['wine_name' => $name, 'supplier_id' => $this->suppliers[$supplierName]->id],
                 [
@@ -96,7 +103,7 @@ class DatabaseSeeder extends Seeder
                     'price_per_litre' => number_format((float) $price / 0.75, 2, '.', ''),
                     'format_ml' => 750,
                     'case_size' => 6,
-                    'stock' => fake()->numberBetween(6, 60),
+                    'stock' => 12 + ($i * 4), // deterministic 12..48
                     'latitude' => $lat,
                     'longitude' => $lng,
                 ],
@@ -135,8 +142,9 @@ class DatabaseSeeder extends Seeder
         $user = $this->user('demo@cellaros.test', 'Demo Sommelier', Plan::Pro);
         $venue = $this->venue($user, 'The Cellar Door', 'London');
 
-        foreach (['Chablis Premier Cru' => 24, 'Barolo Riserva' => 18, 'Rioja Gran Reserva' => 30, 'Champagne Brut Réserve' => 12] as $wine => $qty) {
-            $this->inventory($venue, $wine, $qty, fake()->numberBetween(1, 30));
+        // wine => [quantity, days since received]
+        foreach (['Chablis Premier Cru' => [24, 5], 'Barolo Riserva' => [18, 12], 'Rioja Gran Reserva' => [30, 3], 'Champagne Brut Réserve' => [12, 20]] as $wine => [$qty, $daysAgo]) {
+            $this->inventory($venue, $wine, $qty, $daysAgo);
         }
 
         $this->order($user, $venue, 'Italian Fine Wines', OrderStatus::Draft, 'Restock Italian reds for the autumn list.', [
