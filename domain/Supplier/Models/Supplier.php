@@ -23,6 +23,11 @@ class Supplier extends Model
         'email',
         'phone',
         'location',
+        'address',
+        'city',
+        'postcode',
+        'country',
+        'website',
         'status',
         'column_mapping',
     ];

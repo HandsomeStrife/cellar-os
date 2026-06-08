@@ -2,12 +2,16 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Admin\DownloadSupplierDocumentController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Http\Controllers\Orders\DownloadOrderPdfController;
+use App\Http\Controllers\SupplierPortal\DownloadDocumentController as SupplierDownloadDocumentController;
 use App\Livewire\Admin\Auth\Login as AdminLogin;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Admin\Enquiries as AdminEnquiries;
+use App\Livewire\Admin\Suppliers as AdminSuppliers;
+use App\Livewire\Admin\SupplierShow as AdminSupplierShow;
 use App\Livewire\Admin\Users as AdminUsers;
 use App\Livewire\Auth\ForgotPassword;
 use App\Livewire\Auth\Login;
@@ -21,6 +25,12 @@ use App\Livewire\Import\Index as ImportIndex;
 use App\Livewire\Inventory\Index as InventoryIndex;
 use App\Livewire\Map\Index as MapIndex;
 use App\Livewire\Orders\Index as OrderIndex;
+use App\Livewire\SupplierPortal\Auth\ForgotPassword as SupplierForgotPassword;
+use App\Livewire\SupplierPortal\Auth\Login as SupplierLogin;
+use App\Livewire\SupplierPortal\Auth\ResetPassword as SupplierResetPassword;
+use App\Livewire\SupplierPortal\Dashboard as SupplierDashboard;
+use App\Livewire\SupplierPortal\Documents as SupplierDocuments;
+use App\Livewire\SupplierPortal\Profile as SupplierProfile;
 use App\Livewire\Suppliers\Index as SupplierIndex;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -79,6 +89,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware('auth:admin')->group(function () {
         Route::get('/', AdminDashboard::class)->name('dashboard');
         Route::get('users', AdminUsers::class)->name('users');
+        Route::get('suppliers', AdminSuppliers::class)->name('suppliers');
+        Route::get('suppliers/{uuid}', AdminSupplierShow::class)->name('suppliers.show');
+        Route::get('supplier-documents/{id}/download', DownloadSupplierDocumentController::class)->name('supplier-documents.download');
         Route::get('enquiries', AdminEnquiries::class)->name('enquiries');
 
         Route::post('logout', function (Request $request) {
@@ -87,6 +100,34 @@ Route::prefix('admin')->name('admin.')->group(function () {
             $request->session()->regenerateToken();
 
             return redirect()->route('admin.login');
+        })->name('logout');
+    });
+});
+
+/*
+ * Supplier portal — a third, fully separate authentication domain (`supplier`
+ * guard). Supplier companies' users sign in here to upload their portfolios /
+ * price sheets for analysis.
+ */
+Route::prefix('supplier')->name('supplier.')->group(function () {
+    Route::middleware('guest:supplier')->group(function () {
+        Route::get('login', SupplierLogin::class)->name('login');
+        Route::get('forgot-password', SupplierForgotPassword::class)->name('password.request');
+        Route::get('reset-password/{token}', SupplierResetPassword::class)->name('password.reset');
+    });
+
+    Route::middleware('auth:supplier')->group(function () {
+        Route::get('/', SupplierDashboard::class)->name('dashboard');
+        Route::get('documents', SupplierDocuments::class)->name('documents');
+        Route::get('documents/{id}/download', SupplierDownloadDocumentController::class)->name('documents.download');
+        Route::get('profile', SupplierProfile::class)->name('profile');
+
+        Route::post('logout', function (Request $request) {
+            Auth::guard('supplier')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('supplier.login');
         })->name('logout');
     });
 });

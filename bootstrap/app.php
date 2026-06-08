@@ -22,12 +22,32 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature' => EnsureFeatureAccess::class,
         ]);
 
-        // Unauthenticated users → login (admin area → admin login);
-        // already-authenticated users hitting guest-only routes → dashboard.
-        $middleware->redirectGuestsTo(
-            fn (Request $request) => $request->is('admin') || $request->is('admin/*') ? route('admin.login') : route('login')
-        );
-        $middleware->redirectUsersTo('/dashboard');
+        // Unauthenticated users → login. Each isolated area redirects to its own
+        // sign-in: admin → admin login, supplier portal → supplier login.
+        $middleware->redirectGuestsTo(function (Request $request) {
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return route('admin.login');
+            }
+
+            if ($request->is('supplier') || $request->is('supplier/*')) {
+                return route('supplier.login');
+            }
+
+            return route('login');
+        });
+        // Already-authenticated users hitting a guest-only route go to their
+        // own area's home, not the end-user dashboard.
+        $middleware->redirectUsersTo(function (Request $request) {
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return route('admin.dashboard');
+            }
+
+            if ($request->is('supplier') || $request->is('supplier/*')) {
+                return route('supplier.dashboard');
+            }
+
+            return '/dashboard';
+        });
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

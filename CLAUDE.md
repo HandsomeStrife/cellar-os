@@ -29,6 +29,7 @@ These differ from the generic `new-laravel-site` scaffold baseline; reasons reco
 - **Tests run on SQLite `:memory:`** (Laravel 13 default — fast, no external DB), not a dedicated `cellar_os_test` MySQL database.
 - **Auth is plain Livewire/session** aligned to the DDD layout (the stock starter kit puts `User` in `app/Models`, which violates the "models live in `/domain`" rule). Auth UI/flows are queued as tasks.
 - **Admins are a fully separate domain** (`Domain\Admin`), table (`admins`), and auth guard (`admin`) — independent of end users. See below.
+- **Supplier portal is a third separate auth domain** (`supplier` guard, `supplier_users` table, `supplier_password_reset_tokens` broker) living inside `Domain\Supplier`. A `Supplier` (the wine company) has many `supplier_users` (logins). Never mix supplier auth into the `User` or `Admin` contexts.
 
 ---
 
@@ -40,6 +41,7 @@ All bounded contexts have a working UI + tests. Modules (each: Livewire in `app/
 - **Dashboard** — KPI cards (bottles & inventory value, low/out-of-stock), inventory breakdowns by colour/country/region, recent orders, low-stock alerts, getting-started guide.
 - **Guide** (`/guide`, public) — documentation-style site with its **own** doc layout + sticky sidenav (`layouts/guide.blade.php`), not the app shell. Each section is a real URL (`/guide/{section}`) backed by a prose partial in `resources/views/guide/sections/`; the sidenav config lives in `App\Livewire\Guide::sections()`. Covers every area + user journeys + the plan-feature matrix + a **Demo logins** page (`/guide/demo-logins`). Written for a layperson — no developer/CLI references.
 - **Suppliers** — card grid CRUD, status toggle.
+- **Supplier portal** — a third isolated auth domain (`supplier` guard) at `/supplier`: login (throttled), dashboard, **Documents** (upload portfolios/price sheets to the private disk → status **Awaiting Analysis**; download/delete own files), company **Profile**. Uses `layouts/supplier.blade.php`. Admins provision accounts under **`/admin/suppliers`** (list/create companies → `SupplierShow`: edit profile, add/remove portal users with **email invite links** via the `supplier_users` password broker, list documents, trigger **Analyse**, download). The analysis pipeline is **framework-only for now**: `AnalyseSupplierDocumentJob` drives `AwaitingAnalysis → Analysing → Analysed | Failed` through `Mark*` actions, calling `Domain\Supplier\Services\DocumentAnalysisService` — a documented **stub** (`AnalysisNotImplementedException`) that is the single place the real LLM extraction + safety checks plug in later (until then a triggered analysis lands on `Failed` with a "not yet implemented" note, proving the wiring).
 - **Catalogue** — sortable/filterable product table, inline price edit, session basket (`order-basket`) that feeds Orders.
 - **Inventory** — per-venue stock (active-venue selector), quantity stepper, archive/restore, file attachments (private disk + authed download). Gated: Starter+ (page), Pro+ (manual add / archive / attachments), Group (2nd+ venue).
 - **Import** — CSV/Excel → column mapping → preview → import wizard with `NormaliseService` (colour/grape/region standardisation, price/vintage/format parsing, region/country geocoding for the map); remembers supplier mappings; idempotent upsert. Gated Starter+.
@@ -57,6 +59,7 @@ Plan gating: in-component (`Plan::can(Feature)`) + the `feature:<key>` route mid
 
 `php artisan migrate:fresh --seed` (or `db:seed`, idempotent) creates a shared catalogue (3 suppliers, 10 geo-located wines), a default admin, and one demo user per plan tier showing a different journey (each with its own venues/inventory/orders). All passwords are `password`; the list is also surfaced at `/guide/demo-logins`.
 - Admin: `admin@cellaros.test` (at `/admin`)
+- Supplier portal (at `/supplier`): three suppliers at different journeys — `supplier@cellaros.test` (Bordeaux Imports: a 2-user team, docs awaiting + analysed), `italian-supplier@cellaros.test` (Italian Fine Wines: a doc analysing + one failed), `newworld-supplier@cellaros.test` (New World Selections: **invite pending**, no password yet)
 - `free@cellaros.test` (Free) — venue only, empty/getting-started state
 - `starter@cellaros.test` (Starter) — a draft + sent order, a little stock
 - `demo@cellaros.test` (Pro) — full single venue: stock + orders across the lifecycle (used by E2E auth setup)
@@ -110,7 +113,7 @@ Each bounded context is self-contained — `Models/`, `Actions/`, `Data/`, `Repo
 | `User` | End-user accounts, profiles, plan tier | `users`, `user_profiles` |
 | `Admin` | **Separate** back-office administrators (own guard) | `admins`, `admin_password_reset_tokens` |
 | `Venue` | Venues/locations owned by users | `venues` |
-| `Supplier` | Wine suppliers + their import column mappings | `suppliers` |
+| `Supplier` | Wine suppliers + their import column mappings, **plus the supplier portal**: company profile, portal logins, uploaded portfolios/sheets + analysis lifecycle | `suppliers`, `supplier_users`, `supplier_password_reset_tokens`, `supplier_documents` |
 | `Catalogue` | Wine products with full attributes + geo | `products` |
 | `Import` | Raw uploaded supplier price lists (CSV/Excel) | `raw_uploads` |
 | `Order` | Purchase orders + line items (unit-based: 1 unit = 1 bottle) | `orders`, `order_items` |
@@ -388,6 +391,9 @@ bigint PKs + unique `uuid` columns on public entities. Key points:
 
 - `users` — `uuid`, `full_name`, `email`, `password`, `role`, `plan` (+ Cashier columns: `stripe_id`, `pm_type`, `pm_last_four`, `trial_ends_at`).
 - `admins` — separate auth table (`uuid`, `name`, `email`, `password`).
+- `suppliers` — wine companies; profile columns (`address`, `city`, `postcode`, `country`, `website`) added for the portal.
+- `supplier_users` — portal logins (`supplier` guard), FK `supplier_id`; `password` nullable until the invite link is used.
+- `supplier_documents` — uploaded portfolios/sheets; the **real file** lives on the private `local` disk (`storage_path`), `status` cast to `SupplierDocumentStatus`, plus `analysis_notes` / `analysed_at`.
 - `products` — full wine attributes; `grape` is JSON; `colour` cast to `WineColour`; geo `latitude`/`longitude`; indexes on `(country, region)` and `colour`.
 - `orders` / `order_items` — `status` cast to `OrderStatus`; ordering is **unit-based** (`quantity_units`, 1 unit = 1 bottle); `unit_price_at_order` / `currency_at_order` snapshot the price at order time.
 - `inventory_items` — unique on `(venue_id, product_id)`; archive support (`is_archived`, `archived_at`).

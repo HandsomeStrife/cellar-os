@@ -2,12 +2,11 @@
 
 @php
     $nav = [
-        ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'admin.dashboard'],
-        ['label' => 'Users', 'icon' => 'users', 'route' => 'admin.users'],
-        ['label' => 'Suppliers', 'icon' => 'building-2', 'route' => 'admin.suppliers'],
-        ['label' => 'Enquiries', 'icon' => 'mail', 'route' => 'admin.enquiries'],
+        ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'supplier.dashboard'],
+        ['label' => 'Documents', 'icon' => 'file-text', 'route' => 'supplier.documents'],
+        ['label' => 'Company profile', 'icon' => 'building-2', 'route' => 'supplier.profile'],
     ];
-    $admin = auth('admin')->user();
+    $supplierUser = auth('supplier')->user();
 @endphp
 
 <!DOCTYPE html>
@@ -16,7 +15,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ? $title.' · CellarOS Admin' : 'CellarOS Admin' }}</title>
+    <title>{{ $title ? $title.' · CellarOS Suppliers' : 'CellarOS Suppliers' }}</title>
     <link rel="icon" type="image/svg+xml" href="/cellar-os-logo.svg">
     <script>
         (function () {
@@ -37,14 +36,14 @@
         <aside x-bind:class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static">
             <div class="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
                 <span class="flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                    <x-icon.shield class="size-5" />
+                    <x-icon.logo class="size-5" />
                 </span>
-                <span class="font-serif text-lg font-semibold tracking-tight">Admin</span>
+                <span class="font-serif text-lg font-semibold tracking-tight">Suppliers</span>
             </div>
             <nav class="flex-1 space-y-1 px-3 py-4">
                 @foreach($nav as $item)
                     @php($active = request()->routeIs($item['route'].'*'))
-                    <a href="{{ route($item['route']) }}" @class([
+                    <a href="{{ route($item['route']) }}" wire:navigate @class([
                         'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
                         'bg-sidebar-primary text-sidebar-primary-foreground' => $active,
                         'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground' => ! $active,
@@ -62,8 +61,8 @@
                 <div class="min-w-0 flex-1">
                     @if($title)<h1 class="truncate font-serif text-lg font-semibold">{{ $title }}</h1>@endif
                 </div>
-                <span class="hidden text-sm text-muted-foreground sm:block">{{ $admin?->name }}</span>
-                <form method="POST" action="{{ route('admin.logout') }}">
+                <span class="hidden text-sm text-muted-foreground sm:block">{{ $supplierUser?->name }}</span>
+                <form method="POST" action="{{ route('supplier.logout') }}">
                     @csrf
                     <x-button type="submit" variant="outline" size="sm">
                         <x-icon.log-out class="size-4" /> Log out

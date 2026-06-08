@@ -20,6 +20,11 @@ class SupplierData extends AbstractData
         public ?string $phone,
         public ?string $location,
         public SupplierStatus $status,
+        public ?string $address = null,
+        public ?string $city = null,
+        public ?string $postcode = null,
+        public ?string $country = null,
+        public ?string $website = null,
         public ?array $column_mapping = null,
         public ?CarbonImmutable $created_at = null,
     ) {}
@@ -35,6 +40,11 @@ class SupplierData extends AbstractData
             phone: $model->phone,
             location: $model->location,
             status: $model->status,
+            address: $model->address,
+            city: $model->city,
+            postcode: $model->postcode,
+            country: $model->country,
+            website: $model->website,
             column_mapping: $model->column_mapping,
             created_at: $model->created_at?->toImmutable(),
         );

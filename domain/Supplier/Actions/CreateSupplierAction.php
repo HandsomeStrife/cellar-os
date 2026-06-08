@@ -18,6 +18,11 @@ class CreateSupplierAction extends AbstractAction
             'email' => $data->email,
             'phone' => $data->phone,
             'location' => $data->location,
+            'address' => $data->address,
+            'city' => $data->city,
+            'postcode' => $data->postcode,
+            'country' => $data->country,
+            'website' => $data->website,
             'status' => $data->status,
             'column_mapping' => $data->column_mapping,
         ]);

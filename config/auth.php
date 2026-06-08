@@ -1,6 +1,7 @@
 <?php
 
 use Domain\Admin\Models\Admin;
+use Domain\Supplier\Models\SupplierUser;
 use Domain\User\Models\User;
 
 return [
@@ -48,6 +49,11 @@ return [
             'driver' => 'session',
             'provider' => 'admins',
         ],
+
+        'supplier' => [
+            'driver' => 'session',
+            'provider' => 'supplier_users',
+        ],
     ],
 
     /*
@@ -76,6 +82,11 @@ return [
         'admins' => [
             'driver' => 'eloquent',
             'model' => Admin::class,
+        ],
+
+        'supplier_users' => [
+            'driver' => 'eloquent',
+            'model' => SupplierUser::class,
         ],
     ],
 
@@ -110,6 +121,15 @@ return [
             'provider' => 'admins',
             'table' => 'admin_password_reset_tokens',
             'expire' => 60,
+            'throttle' => 60,
+        ],
+
+        // 24h expiry: this broker backs both the initial admin invite and
+        // self-service resets, so the link wants a friendlier window.
+        'supplier_users' => [
+            'provider' => 'supplier_users',
+            'table' => 'supplier_password_reset_tokens',
+            'expire' => 1440,
             'throttle' => 60,
         ],
     ],

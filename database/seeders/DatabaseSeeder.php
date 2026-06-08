@@ -11,8 +11,11 @@ use Domain\Catalogue\Models\Product;
 use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Models\Order;
+use Domain\Supplier\Enums\SupplierDocumentStatus;
 use Domain\Supplier\Enums\SupplierStatus;
 use Domain\Supplier\Models\Supplier;
+use Domain\Supplier\Models\SupplierDocument;
+use Domain\Supplier\Models\SupplierUser;
 use Domain\User\Models\User;
 use Domain\Venue\Models\Venue;
 use Illuminate\Database\Seeder;
@@ -42,6 +45,8 @@ class DatabaseSeeder extends Seeder
         $this->seedStarterUser();
         $this->seedProUser();
         $this->seedGroupUser();
+
+        $this->seedSupplierPortal();
     }
 
     private function seedAdmin(): void
@@ -179,6 +184,96 @@ class DatabaseSeeder extends Seeder
         $this->order($user, $riverside, 'New World Selections', OrderStatus::Draft, 'Riverside: summer whites.', [
             'Marlborough Sauvignon Blanc' => 24,
         ]);
+    }
+
+    /**
+     * Supplier portal demo: three suppliers at different points in their journey,
+     * mirroring the per-plan user journeys. All passwords are `password`.
+     *
+     *  - Bordeaux Imports (supplier@cellaros.test) — established: a full profile,
+     *    two portal users (a team), and documents spanning the lifecycle
+     *    (awaiting + analysed).
+     *  - Italian Fine Wines (italian-supplier@cellaros.test) — mid-analysis: one
+     *    document being analysed and one that failed.
+     *  - New World Selections (newworld-supplier@cellaros.test) — just invited:
+     *    the user has no password yet (invite pending) and no documents.
+     */
+    private function seedSupplierPortal(): void
+    {
+        // Established supplier with a team and documents either side of analysis.
+        $bordeaux = $this->suppliers['Bordeaux Imports'];
+        $bordeaux->update([
+            'phone' => '+33 5 56 00 00 00',
+            'website' => 'https://bordeaux-imports.example',
+            'address' => '12 Quai des Chartrons',
+            'city' => 'Bordeaux',
+            'postcode' => '33000',
+            'country' => 'France',
+        ]);
+        $camille = $this->supplierUser($bordeaux, 'supplier@cellaros.test', 'Camille Laurent');
+        $this->supplierUser($bordeaux, 'supplier.team@cellaros.test', 'Hugo Marchand');
+        $this->supplierDocument($bordeaux, $camille, 'spring-2026-portfolio.csv', 'Spring 2026 portfolio', SupplierDocumentStatus::AwaitingAnalysis);
+        $this->supplierDocument($bordeaux, $camille, 'winter-2025-list.xlsx', 'Winter 2025 price list', SupplierDocumentStatus::Analysed, 'Extracted 142 wines.', 6);
+
+        // Mid-analysis supplier: one in progress, one failed.
+        $italian = $this->suppliers['Italian Fine Wines'];
+        $italian->update([
+            'phone' => '+39 02 1234 5678',
+            'website' => 'https://italian-fine-wines.example',
+            'address' => 'Via Montenapoleone 8',
+            'city' => 'Milan',
+            'postcode' => '20121',
+            'country' => 'Italy',
+        ]);
+        $marco = $this->supplierUser($italian, 'italian-supplier@cellaros.test', 'Marco Bianchi');
+        $this->supplierDocument($italian, $marco, 'piedmont-2026.csv', 'Piedmont 2026 allocation', SupplierDocumentStatus::Analysing);
+        $this->supplierDocument($italian, $marco, 'scanned-catalogue.pdf', 'Scanned catalogue', SupplierDocumentStatus::Failed, 'Could not read a usable table from the file.', 2);
+
+        // Freshly invited supplier: invite pending (no password), no documents yet.
+        $newWorld = $this->suppliers['New World Selections'];
+        $newWorld->update([
+            'website' => 'https://new-world-selections.example',
+            'city' => 'London',
+            'country' => 'United Kingdom',
+        ]);
+        $this->supplierUser($newWorld, 'newworld-supplier@cellaros.test', 'Sarah Mitchell', invited: true);
+    }
+
+    private function supplierUser(Supplier $supplier, string $email, string $name, bool $invited = false): SupplierUser
+    {
+        return SupplierUser::updateOrCreate(
+            ['email' => $email],
+            [
+                'supplier_id' => $supplier->id,
+                'name' => $name,
+                // Invited users have no password until they accept the email invite.
+                'password' => $invited ? null : Hash::make('password'),
+            ],
+        );
+    }
+
+    private function supplierDocument(
+        Supplier $supplier,
+        SupplierUser $uploader,
+        string $fileName,
+        string $title,
+        SupplierDocumentStatus $status,
+        ?string $notes = null,
+        ?int $analysedDaysAgo = null,
+    ): void {
+        SupplierDocument::firstOrCreate(
+            ['supplier_id' => $supplier->id, 'file_name' => $fileName],
+            [
+                'uploaded_by_supplier_user_id' => $uploader->id,
+                'title' => $title,
+                'file_type' => str($fileName)->endsWith('.pdf') ? 'application/pdf' : 'text/csv',
+                'file_size' => 24_000,
+                'storage_path' => 'supplier-documents/demo-'.$fileName,
+                'status' => $status->value,
+                'analysis_notes' => $notes,
+                'analysed_at' => $analysedDaysAgo !== null ? now()->subDays($analysedDaysAgo) : null,
+            ],
+        );
     }
 
     private function user(string $email, string $name, Plan $plan): User

@@ -6,6 +6,7 @@ namespace Domain\Supplier\Repositories;
 
 use Domain\Supplier\Data\SupplierData;
 use Domain\Supplier\Models\Supplier;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class SupplierRepository
@@ -13,6 +14,22 @@ class SupplierRepository
     public function find(int $id): ?SupplierData
     {
         return Supplier::find($id)?->getData();
+    }
+
+    public function paginate(?string $term = null, int $perPage = 20): LengthAwarePaginator
+    {
+        return Supplier::query()
+            ->when($term !== null && $term !== '', function ($query) use ($term) {
+                $query->where(function ($query) use ($term) {
+                    $query->where('name', 'like', "%{$term}%")
+                        ->orWhere('contact', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%")
+                        ->orWhere('location', 'like', "%{$term}%");
+                });
+            })
+            ->orderBy('name')
+            ->paginate($perPage)
+            ->through(fn (Supplier $supplier) => $supplier->getData());
     }
 
     public function findByUuid(string $uuid): ?SupplierData
