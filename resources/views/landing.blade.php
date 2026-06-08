@@ -82,15 +82,41 @@
         </div>
     </section>
 
-    {{-- Intro --}}
-    <section id="features" class="mx-auto max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28">
-        <div class="max-w-2xl">
-            <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">One workspace</p>
-            <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Everything the trade runs on, in one place.</h2>
-            <p class="mt-4 text-lg text-muted-foreground">From the first supplier price list to a purchase order on its way, CellarOS keeps the moving parts of a wine business connected, so nothing lives in a spreadsheet you have to remember to update.</p>
+    {{-- Overview: one workspace and the connected areas it covers --}}
+    <section id="features" class="scroll-mt-20 border-y border-border bg-card/40">
+        <div class="mx-auto grid max-w-6xl gap-x-16 gap-y-10 px-5 py-20 sm:px-8 sm:py-28 lg:grid-cols-2">
+            <div>
+                <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">One workspace</p>
+                <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Everything the trade runs on, in one place.</h2>
+                <p class="mt-4 text-lg text-muted-foreground">From the first supplier price list to a purchase order on its way, CellarOS keeps the moving parts of a wine business connected, so nothing lives in a spreadsheet you have to remember to update.</p>
+            </div>
+            <dl class="border-t border-border">
+                @php
+                    $areas = [
+                        ['Catalogue', 'Every wine you trade, priced, searchable and ready to order.'],
+                        ['Suppliers', "Contacts, status and each supplier's saved price-list layout."],
+                        ['Importing', 'Turn a CSV or Excel price list into clean catalogue wines.'],
+                        ['Orders', 'Raise, send and receive purchase orders, grouped by supplier.'],
+                        ['Inventory', 'Track stock levels, value and attachments per venue.'],
+                        ['Sourcing map', 'See where your whole range comes from, at a glance.'],
+                    ];
+                @endphp
+                @foreach($areas as [$label, $desc])
+                    <div class="flex flex-col gap-1 border-b border-border py-4 sm:flex-row sm:gap-6">
+                        <dt class="flex shrink-0 items-center gap-2.5 font-medium text-foreground sm:w-40">
+                            <span class="size-1.5 shrink-0 rounded-full bg-primary"></span>
+                            {{ $label }}
+                        </dt>
+                        <dd class="text-sm leading-relaxed text-muted-foreground sm:pt-px">{{ $desc }}</dd>
+                    </div>
+                @endforeach
+            </dl>
         </div>
+    </section>
 
-        <div class="mt-16 space-y-20 sm:mt-20 sm:space-y-28">
+    {{-- Feature deep-dives --}}
+    <section class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+        <div class="space-y-20 sm:space-y-28">
             {{-- Feature: Catalogue --}}
             <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
                 <div>
