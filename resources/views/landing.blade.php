@@ -14,28 +14,28 @@
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
 
-    {{-- Header --}}
-    <header x-data="{ open: false }" class="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur">
+    {{-- Header: sits over the hero video, transparent until you scroll (vanilla JS at the foot of the page) --}}
+    <header id="site-header" class="fixed inset-x-0 top-0 z-50 border-b border-transparent text-white transition-colors duration-300">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
             <x-app-logo :href="route('home')" />
-            <nav class="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
-                <a href="#features" class="transition-colors hover:text-foreground">Features</a>
-                <a href="#pricing" class="transition-colors hover:text-foreground">Pricing</a>
-                <a href="{{ route('guide') }}" class="transition-colors hover:text-foreground">Guide</a>
+            <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
+                <a href="#features" class="opacity-80 transition hover:opacity-100">Features</a>
+                <a href="#pricing" class="opacity-80 transition hover:opacity-100">Pricing</a>
+                <a href="{{ route('guide') }}" class="opacity-80 transition hover:opacity-100">Guide</a>
             </nav>
             <div class="flex items-center gap-2">
-                <x-button :href="route('login')" variant="ghost" size="sm" class="hidden sm:inline-flex">Sign in</x-button>
+                <a href="{{ route('login') }}" class="hidden px-3 py-2 text-sm font-medium opacity-80 transition hover:opacity-100 sm:inline-flex">Sign in</a>
                 <x-button :href="route('register')" size="sm">Get started</x-button>
-                <button x-on:click="open = !open" class="text-muted-foreground md:hidden" aria-label="Menu">
-                    <x-icon.menu class="size-6" x-show="!open" />
-                    <x-icon.x class="size-6" x-show="open" x-cloak />
+                <button type="button" id="menu-toggle" class="-mr-1 p-1 md:hidden" aria-label="Menu" aria-expanded="false">
+                    <x-icon.menu id="menu-open-icon" class="size-6" />
+                    <x-icon.x id="menu-close-icon" class="size-6 hidden" />
                 </button>
             </div>
         </div>
-        <div x-show="open" x-cloak x-transition class="border-t border-border md:hidden">
+        <div id="mobile-menu" class="hidden border-t border-border bg-background text-foreground md:hidden">
             <nav class="mx-auto flex max-w-6xl flex-col gap-1 px-5 py-3 text-sm">
-                <a href="#features" x-on:click="open=false" class="rounded-md px-2 py-2 hover:bg-accent">Features</a>
-                <a href="#pricing" x-on:click="open=false" class="rounded-md px-2 py-2 hover:bg-accent">Pricing</a>
+                <a href="#features" class="rounded-md px-2 py-2 hover:bg-accent">Features</a>
+                <a href="#pricing" class="rounded-md px-2 py-2 hover:bg-accent">Pricing</a>
                 <a href="{{ route('guide') }}" class="rounded-md px-2 py-2 hover:bg-accent">Guide</a>
                 <a href="{{ route('login') }}" class="rounded-md px-2 py-2 hover:bg-accent">Sign in</a>
             </nav>
@@ -47,21 +47,20 @@
     <section class="relative isolate flex min-h-screen flex-col overflow-hidden">
         <div class="absolute inset-0 -z-10">
             <video
+                id="hero-video"
                 class="h-full w-full object-cover"
                 autoplay muted loop playsinline preload="metadata"
                 aria-hidden="true"
                 poster="/media/hero-poster.jpg"
-                x-data
-                x-init="if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { $el.removeAttribute('autoplay'); $el.pause(); }"
             >
                 <source src="/media/hero.webm" type="video/webm">
                 <source src="/media/hero.mp4" type="video/mp4">
             </video>
-            {{-- Light, bottom-anchored scrim only, so the footage stays bright while the text stays legible. --}}
-            <div class="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/70 via-black/25 to-transparent"></div>
+            {{-- Soft scrim, lighter at the top so the footage stays bright, enough at centre for legible text. --}}
+            <div class="absolute inset-0 bg-gradient-to-b from-black/15 via-black/30 to-black/60"></div>
         </div>
 
-        <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-end px-5 pb-20 pt-32 sm:px-8 sm:pb-24 [&_*]:[text-shadow:0_1px_12px_rgba(0,0,0,0.35)]">
+        <div class="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-5 py-28 sm:px-8 [&_*]:[text-shadow:0_1px_14px_rgba(0,0,0,0.45)]">
             <p class="font-mono text-xs uppercase tracking-[0.22em] text-white/90">For importers, merchants &amp; sommeliers</p>
             <h1 class="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-5xl lg:text-6xl">
                 The operating system for the modern wine trade.
@@ -78,6 +77,12 @@
             </div>
             <p class="mt-6 text-sm text-white/90">No card required. Free plan to browse and manage suppliers.</p>
         </div>
+
+        {{-- Scroll indicator --}}
+        <a href="#features" aria-label="Scroll to content" class="absolute inset-x-0 bottom-6 mx-auto flex w-max flex-col items-center gap-1.5 text-white/85 transition hover:text-white">
+            <span class="font-mono text-[10px] uppercase tracking-[0.2em]">Scroll</span>
+            <x-icon.chevron-down class="size-5 motion-safe:animate-bounce" />
+        </a>
     </section>
 
     {{-- Overview: one workspace and the connected areas it covers --}}
@@ -387,5 +392,45 @@
         </div>
     </footer>
 
+    <script>
+        (function () {
+            // Header: transparent over the hero, solid once you scroll (or the mobile menu is open).
+            const header = document.getElementById('site-header');
+            const clear = ['text-white', 'border-transparent'];
+            const solid = ['text-foreground', 'border-border', 'bg-background/95', 'shadow-sm', 'backdrop-blur'];
+            const menu = document.getElementById('mobile-menu');
+            const toggle = document.getElementById('menu-toggle');
+            const openIcon = document.getElementById('menu-open-icon');
+            const closeIcon = document.getElementById('menu-close-icon');
+
+            function setSolid(on) {
+                header.classList.toggle('border-b', true);
+                clear.forEach((c) => header.classList.toggle(c, !on));
+                solid.forEach((c) => header.classList.toggle(c, on));
+            }
+            function syncHeader() {
+                const menuOpen = !menu.classList.contains('hidden');
+                setSolid(menuOpen || window.scrollY > 40);
+            }
+            window.addEventListener('scroll', syncHeader, { passive: true });
+            syncHeader();
+
+            toggle.addEventListener('click', () => {
+                const willOpen = menu.classList.contains('hidden');
+                menu.classList.toggle('hidden', !willOpen);
+                openIcon.classList.toggle('hidden', willOpen);
+                closeIcon.classList.toggle('hidden', !willOpen);
+                toggle.setAttribute('aria-expanded', String(willOpen));
+                syncHeader();
+            });
+
+            // Pause the hero video when the visitor prefers reduced motion.
+            const video = document.getElementById('hero-video');
+            if (video && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                video.removeAttribute('autoplay');
+                video.pause();
+            }
+        })();
+    </script>
 </body>
 </html>

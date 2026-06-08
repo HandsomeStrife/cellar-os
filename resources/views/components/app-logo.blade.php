@@ -10,6 +10,6 @@
         <x-icon.wine class="size-5" />
     </span>
     @if($showText)
-        <span class="font-display text-xl font-semibold tracking-tight text-foreground">Cellar<span class="text-primary">OS</span></span>
+        <span class="font-display text-xl font-semibold tracking-tight">Cellar<span class="text-primary">OS</span></span>
     @endif
 </{{ $tag }}>
