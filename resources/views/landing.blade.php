@@ -8,6 +8,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>CellarOS · The operating system for the modern wine trade</title>
     <meta name="description" content="Manage your wine catalogue, suppliers, purchase orders and stock in one place. Built for importers, merchants and sommeliers.">
+    <link rel="icon" type="image/svg+xml" href="/cellar-os-logo.svg">
     {{-- Marketing is intentionally always light and inviting. --}}
     <script>document.documentElement.classList.remove('dark');</script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -17,7 +18,7 @@
     {{-- Header: sits over the hero video, transparent until you scroll (vanilla JS at the foot of the page) --}}
     <header id="site-header" class="fixed inset-x-0 top-0 z-50 border-b border-transparent text-white transition-colors duration-300">
         <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
-            <x-app-logo :href="route('home')" />
+            <x-app-logo :href="route('home')" mark-class="" />
             <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
                 <a href="#features" class="opacity-80 transition hover:opacity-100">Features</a>
                 <a href="#pricing" class="opacity-80 transition hover:opacity-100">Pricing</a>

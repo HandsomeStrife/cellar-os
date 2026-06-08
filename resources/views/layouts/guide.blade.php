@@ -16,6 +16,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? 'Guide' }} · CellarOS</title>
+    <link rel="icon" type="image/svg+xml" href="/cellar-os-logo.svg">
     <script>
         // Apply the theme before paint, and re-apply after every wire:navigate
         // (SPA navigation does not re-run head scripts, which dropped the class).

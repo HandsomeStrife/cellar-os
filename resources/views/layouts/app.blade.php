@@ -23,6 +23,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ? $title.' · CellarOS' : 'CellarOS' }}</title>
+    <link rel="icon" type="image/svg+xml" href="/cellar-os-logo.svg">
 
     <script>
         // Apply the theme before paint, and re-apply after every wire:navigate
@@ -56,10 +57,8 @@
             class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0"
         >
             <div class="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
-                <a href="{{ route('dashboard') }}" class="inline-flex items-center gap-2.5">
-                    <span class="flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                        <x-icon.wine class="size-5" />
-                    </span>
+                <a href="{{ route('dashboard') }}" wire:navigate class="inline-flex items-center gap-2.5">
+                    <x-icon.logo class="size-7 shrink-0 text-sidebar-primary" />
                     <span class="font-serif text-lg font-semibold tracking-tight">Cellar<span class="text-sidebar-primary">OS</span></span>
                 </a>
                 <button x-on:click="sidebarOpen = false" aria-label="Close menu" class="-m-2 flex size-9 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground lg:hidden">
