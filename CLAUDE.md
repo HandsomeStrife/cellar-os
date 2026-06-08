@@ -28,6 +28,7 @@ These differ from the generic `new-laravel-site` scaffold baseline; reasons reco
 - **bigint auto-increment primary keys + a public `uuid` column** (via `Domain\Shared\Traits\HasUuid`), instead of the upstream's UUID primary keys. This keeps Laravel Cashier's migrations working unmodified and matches the standard `HasUuid` pattern. Look entities up by `uuid` for public/URL use, by `id` internally.
 - **Tests run on SQLite `:memory:`** (Laravel 13 default — fast, no external DB), not a dedicated `cellar_os_test` MySQL database.
 - **Auth is plain Livewire/session** aligned to the DDD layout (the stock starter kit puts `User` in `app/Models`, which violates the "models live in `/domain`" rule). Auth UI/flows are queued as tasks.
+- **The Company is the tenant**, not the user. `Domain\Company\Models\Company` is the Cashier `Billable` and holds the `plan`; **users are seats** (a `role` of `owner`/`manager`/`member` — see `Domain\User\Enums\Role`), and **venues belong to the company** (`company_id`). A user's venue access is **role-aware**: owners/managers see every company venue, members only the venues assigned to them via the **`user_venue`** pivot. App code resolves this through `App\Livewire\Concerns\WithTenant` (`currentCompany()`, `companyPlan()`, `accessibleVenues()`) + `Domain\Company\Repositories\CompanyRepository::getLoggedInCompany()`. Plan gating reads the **company** plan (`Plan::can(Feature)`); billing (Pricing/checkout/portal/webhook `UpdateCompanyPlanFromStripe`) is **owner-only** and acts on the Company billable. Registration creates company→owner→venue→pivot. Owners/managers manage the team at **`/team`** (invite users by email at-or-below their own role, assign venue visibility); admins manage companies/plans/teams at **`/admin/companies`**.
 - **Admins are a fully separate domain** (`Domain\Admin`), table (`admins`), and auth guard (`admin`) — independent of end users. See below.
 - **Supplier portal is a third separate auth domain** (`supplier` guard, `supplier_users` table, `supplier_password_reset_tokens` broker) living inside `Domain\Supplier`. A `Supplier` (the wine company) has many `supplier_users` (logins). Never mix supplier auth into the `User` or `Admin` contexts.
 
@@ -63,7 +64,7 @@ Plan gating: in-component (`Plan::can(Feature)`) + the `feature:<key>` route mid
 - `free@cellaros.test` (Free) — venue only, empty/getting-started state
 - `starter@cellaros.test` (Starter) — a draft + sent order, a little stock
 - `demo@cellaros.test` (Pro) — full single venue: stock + orders across the lifecycle (used by E2E auth setup)
-- `group@cellaros.test` (Group) — two venues, each with stock + orders
+- `group@cellaros.test` (Group, **owner**) — a company with two venues (stock + orders) and a team; plus `group.member@cellaros.test` (**member**) scoped to just the Riverside venue
 
 E2E: `npx playwright install chromium` once, then `npx playwright test` (auth setup logs in the demo user; `global-setup` seeds the dev DB — set `E2E_SKIP_SEED=1` to skip). Reports/auth state are gitignored.
 
@@ -110,9 +111,10 @@ Each bounded context is self-contained — `Models/`, `Actions/`, `Data/`, `Repo
 | Context | Responsibility | Key tables |
 |---------|----------------|------------|
 | `Shared` | Base classes & traits (`AbstractAction`, `AbstractData`, `HasUuid`) | — |
-| `User` | End-user accounts, profiles, plan tier | `users`, `user_profiles` |
+| `Company` | **The tenant/account**: holds the plan + Cashier billing, owns users/venues/suppliers | `companies` |
+| `User` | Login seats within a company (role: owner/manager/member), profiles | `users`, `user_profiles`, `user_venue` |
 | `Admin` | **Separate** back-office administrators (own guard) | `admins`, `admin_password_reset_tokens` |
-| `Venue` | Venues/locations owned by users | `venues` |
+| `Venue` | Trading locations owned by a company; users get access via the `user_venue` pivot | `venues` |
 | `Supplier` | Wine suppliers + their import column mappings, **plus the supplier portal**: company profile, portal logins, uploaded portfolios/sheets + analysis lifecycle | `suppliers`, `supplier_users`, `supplier_password_reset_tokens`, `supplier_documents` |
 | `Catalogue` | Wine products with full attributes + geo | `products` |
 | `Import` | Raw uploaded supplier price lists (CSV/Excel) | `raw_uploads` |
@@ -389,7 +391,10 @@ Factories exist for every model (`database/factories`). Cross-context FKs are le
 
 bigint PKs + unique `uuid` columns on public entities. Key points:
 
-- `users` — `uuid`, `full_name`, `email`, `password`, `role`, `plan` (+ Cashier columns: `stripe_id`, `pm_type`, `pm_last_four`, `trial_ends_at`).
+- `companies` — the tenant: `uuid`, `name`, `base_currency`, `plan`, + Cashier columns (`stripe_id`, `pm_type`, `pm_last_four`, `trial_ends_at`). `subscriptions.company_id` is the Cashier owner key.
+- `users` — `uuid`, `company_id` (FK, cascade), `full_name`, `email`, `password` (nullable until an invited seat is activated), `role` (`owner`/`manager`/`member`). **No** `plan`/Cashier columns — those live on `companies`.
+- `user_venue` — pivot granting a user access to specific venues (members are scoped to these; owners/managers see all company venues).
+- `venues` — `company_id` (FK, cascade), `name`, `address`, `city`, `country`, `base_currency`.
 - `admins` — separate auth table (`uuid`, `name`, `email`, `password`).
 - `suppliers` — wine companies; profile columns (`address`, `city`, `postcode`, `country`, `website`) added for the portal.
 - `supplier_users` — portal logins (`supplier` guard), FK `supplier_id`; `password` nullable until the invite link is used.

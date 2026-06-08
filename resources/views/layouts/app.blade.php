@@ -14,6 +14,11 @@
         ['label' => 'Guide', 'icon' => 'file-text', 'route' => 'guide'],
     ];
     $user = auth()->user();
+
+    // Team management is for owners/managers only.
+    if (in_array($user?->role, ['owner', 'manager'], true)) {
+        array_splice($nav, 7, 0, [['label' => 'Team', 'icon' => 'user', 'route' => 'team']]);
+    }
 @endphp
 
 <!DOCTYPE html>

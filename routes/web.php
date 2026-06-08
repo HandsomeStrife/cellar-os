@@ -8,6 +8,8 @@ use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Http\Controllers\Orders\DownloadOrderPdfController;
 use App\Http\Controllers\SupplierPortal\DownloadDocumentController as SupplierDownloadDocumentController;
 use App\Livewire\Admin\Auth\Login as AdminLogin;
+use App\Livewire\Admin\Companies as AdminCompanies;
+use App\Livewire\Admin\CompanyShow as AdminCompanyShow;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Admin\Enquiries as AdminEnquiries;
 use App\Livewire\Admin\Suppliers as AdminSuppliers;
@@ -19,6 +21,7 @@ use App\Livewire\Auth\Register;
 use App\Livewire\Auth\ResetPassword;
 use App\Livewire\Billing\Pricing;
 use App\Livewire\Catalogue\Index as CatalogueIndex;
+use App\Livewire\Company\Team as CompanyTeam;
 use App\Livewire\Dashboard;
 use App\Livewire\Guide;
 use App\Livewire\Import\Index as ImportIndex;
@@ -67,6 +70,7 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/orders', OrderIndex::class)->name('orders');
     Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
     Route::get('/map', MapIndex::class)->name('map');
+    Route::get('/team', CompanyTeam::class)->name('team');
     Route::get('/pricing', Pricing::class)->name('pricing');
 
     Route::post('/logout', function (Request $request) {
@@ -88,6 +92,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
     Route::middleware('auth:admin')->group(function () {
         Route::get('/', AdminDashboard::class)->name('dashboard');
+        Route::get('companies', AdminCompanies::class)->name('companies');
+        Route::get('companies/{uuid}', AdminCompanyShow::class)->name('companies.show');
         Route::get('users', AdminUsers::class)->name('users');
         Route::get('suppliers', AdminSuppliers::class)->name('suppliers');
         Route::get('suppliers/{uuid}', AdminSupplierShow::class)->name('suppliers.show');

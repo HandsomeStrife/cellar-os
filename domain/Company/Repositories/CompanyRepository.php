@@ -6,6 +6,7 @@ namespace Domain\Company\Repositories;
 
 use Domain\Company\Data\CompanyData;
 use Domain\Company\Models\Company;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 
 class CompanyRepository
@@ -13,6 +14,15 @@ class CompanyRepository
     public function find(int $id): ?CompanyData
     {
         return Company::find($id)?->getData();
+    }
+
+    public function paginate(?string $term = null, int $perPage = 20): LengthAwarePaginator
+    {
+        return Company::query()
+            ->when($term !== null && $term !== '', fn ($q) => $q->where('name', 'like', "%{$term}%"))
+            ->orderBy('name')
+            ->paginate($perPage)
+            ->through(fn (Company $company) => $company->getData());
     }
 
     public function findByUuid(string $uuid): ?CompanyData

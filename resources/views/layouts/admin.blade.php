@@ -3,8 +3,9 @@
 @php
     $nav = [
         ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'admin.dashboard'],
+        ['label' => 'Companies', 'icon' => 'building-2', 'route' => 'admin.companies'],
         ['label' => 'Users', 'icon' => 'users', 'route' => 'admin.users'],
-        ['label' => 'Suppliers', 'icon' => 'building-2', 'route' => 'admin.suppliers'],
+        ['label' => 'Suppliers', 'icon' => 'package', 'route' => 'admin.suppliers'],
         ['label' => 'Enquiries', 'icon' => 'mail', 'route' => 'admin.enquiries'],
     ];
     $admin = auth('admin')->user();
