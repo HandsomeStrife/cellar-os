@@ -16,6 +16,9 @@ it('renders the guide with features and journeys', function () {
         ->assertSee('What each plan unlocks');
 });
 
-it('requires authentication for the guide', function () {
-    $this->get(route('guide'))->assertRedirect(route('login'));
+it('is accessible to guests (not behind auth)', function () {
+    $this->get(route('guide'))
+        ->assertOk()
+        ->assertSee('CellarOS guide')
+        ->assertSee('Sign in');
 });

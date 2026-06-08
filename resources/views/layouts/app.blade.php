@@ -113,7 +113,13 @@
                     <x-icon.sun class="hidden size-5 dark:block" />
                 </button>
 
-                {{-- User menu --}}
+                {{-- User menu (or sign-in for guests, e.g. on the public guide) --}}
+                @guest
+                    <div class="flex items-center gap-2">
+                        <x-button :href="route('login')" variant="ghost" size="sm">Sign in</x-button>
+                        <x-button :href="route('register')" size="sm">Get started</x-button>
+                    </div>
+                @else
                 <div x-data="{ open: false }" class="relative">
                     <button x-on:click="open = ! open" class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition hover:bg-accent">
                         <span class="flex size-8 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -143,6 +149,7 @@
                         </form>
                     </div>
                 </div>
+                @endguest
             </header>
 
             {{-- Flash messages --}}

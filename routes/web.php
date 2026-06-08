@@ -26,6 +26,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'landing')->name('home');
 
+// Public product guide (accessible to guests and authenticated users alike).
+Route::get('/guide', Guide::class)->name('guide');
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', Login::class)->name('login');
     Route::get('/register', Register::class)->name('register');
@@ -44,7 +47,6 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
     Route::get('/map', MapIndex::class)->name('map');
     Route::get('/pricing', Pricing::class)->name('pricing');
-    Route::get('/guide', Guide::class)->name('guide');
 
     Route::post('/logout', function (Request $request) {
         Auth::logout();
