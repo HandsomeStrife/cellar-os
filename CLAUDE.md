@@ -20,9 +20,10 @@ These differ from the generic `new-laravel-site` scaffold baseline; reasons reco
 - **Type:** `--font-sans` Hanken Grotesk (UI/body), `--font-display`/`--font-serif` Archivo (headings — `font-serif` is aliased to the display face), `--font-mono` IBM Plex Mono (prices/data/labels). Loaded via the laravel-vite-plugin bunny fonts feature in `vite.config.js`.
 - **Helpers:** `.select-field` styles native `<select>` (claret chevron, no forms plugin); `accent-color` themes native checkboxes; global `prefers-reduced-motion` guard; `.guide-prose` for docs.
 - **Components:** `x-button` (variants incl. `inverse` for image overlays; `focus-visible`), `x-card`, `x-badge`, `x-alert`, `x-stat` (with `tone` + `active`), `x-modal` (`@entangle`), `x-th-sort`, `x-upgrade-gate`, `x-empty-state`, `x-input.{text,email,password,textarea,select,checkbox,search}`, `x-app-logo`. Money via `Domain\Shared\Support\Currency`.
-- **Marketing** (`resources/views/landing.blade.php`): mobile-first, full-bleed hero video, alternating feature sections with **product UI mocks** (not stock-only) and photos, a pricing comparison table (recommended "Most chosen" column), image CTA bands. NO icon-card grids / bento / editorial layouts / em-dashes.
-- **Assets:** hero video at `public/media/hero.{webm,mp4}` + `hero-poster.jpg` (from `cellar-os-hero-v1.mp4`, muted/looping, pauses under reduced motion); curated Pexels imagery in `public/images/` (`CREDITS.txt`).
-- **a11y:** focus-visible rings, aria-labelled icon buttons, scoped pricing table, `<main>` landmarks, ≥40px tap targets, reduced-motion. Keep these when adding UI.
+- **Brand mark:** `x-icon.logo` (the supplied CellarOS glyph, `fill="currentColor"` so it adapts to context) used by `x-app-logo` (which has a `markClass` prop, default `text-primary`). Favicon at `public/cellar-os-logo.svg`, linked from every layout `<head>`.
+- **Marketing** (`resources/views/landing.blade.php`): **always light** (`<script>` removes the dark class), mobile-first. Full-screen hero **video** behind a header that is transparent (white text) until you scroll, then solid — plus a "Scroll" indicator. Alternating feature sections with **product UI mocks** (a mini catalogue table + a purchase-order doc) and photos; a two-column "connected areas" overview; a two-column included checklist; a contact/enquiry section; image CTA bands; footer with UK company info. The landing has **no Livewire/Alpine** — its header scroll state, mobile menu and reduced-motion video are a small vanilla `<script>` at the foot of the file. NO icon-card grids / bento / editorial layouts / em-dashes. The **pricing** comparison table still exists but is hidden behind an `@if(false)` guard (remove it to restore).
+- **Assets:** hero video at `public/media/hero.{webm,mp4}` + `hero-poster.jpg` (optimised from `cellar-os-hero-v2.mp4` via ffmpeg, muted/looping, pauses under reduced motion); curated Pexels imagery in `public/images/` (`CREDITS.txt`, desktop + `-sm` mobile variants).
+- **a11y:** focus-visible rings, aria-labelled icon buttons, scoped/`sr-only` pricing table, `<main>` landmarks, ≥40px tap targets, reduced-motion. Keep these when adding UI.
 - **MySQL** (Cerberus shared instance), not the upstream's Postgres. Postgres `pgEnum` columns are modelled as plain `string` columns cast to PHP backed enums.
 - **bigint auto-increment primary keys + a public `uuid` column** (via `Domain\Shared\Traits\HasUuid`), instead of the upstream's UUID primary keys. This keeps Laravel Cashier's migrations working unmodified and matches the standard `HasUuid` pattern. Look entities up by `uuid` for public/URL use, by `id` internally.
 - **Tests run on SQLite `:memory:`** (Laravel 13 default — fast, no external DB), not a dedicated `cellar_os_test` MySQL database.
@@ -37,7 +38,7 @@ All bounded contexts have a working UI + tests. Modules (each: Livewire in `app/
 
 - **Auth** — login / register (captures company→venue, base currency, profession) / logout / password reset (session, DDD-aligned).
 - **Dashboard** — KPI cards (bottles & inventory value, low/out-of-stock), inventory breakdowns by colour/country/region, recent orders, low-stock alerts, getting-started guide.
-- **Guide** (`/guide`, public) — documentation-style site with its **own** doc layout + sticky sidenav (`layouts/guide.blade.php`), not the app shell. Each section is a real URL (`/guide/{section}`) backed by a prose partial in `resources/views/guide/sections/`; the sidenav config lives in `App\Livewire\Guide::sections()`. Covers every area + user journeys + the plan-feature matrix.
+- **Guide** (`/guide`, public) — documentation-style site with its **own** doc layout + sticky sidenav (`layouts/guide.blade.php`), not the app shell. Each section is a real URL (`/guide/{section}`) backed by a prose partial in `resources/views/guide/sections/`; the sidenav config lives in `App\Livewire\Guide::sections()`. Covers every area + user journeys + the plan-feature matrix + a **Demo logins** page (`/guide/demo-logins`). Written for a layperson — no developer/CLI references.
 - **Suppliers** — card grid CRUD, status toggle.
 - **Catalogue** — sortable/filterable product table, inline price edit, session basket (`order-basket`) that feeds Orders.
 - **Inventory** — per-venue stock (active-venue selector), quantity stepper, archive/restore, file attachments (private disk + authed download). Gated: Starter+ (page), Pro+ (manual add / archive / attachments), Group (2nd+ venue).
@@ -159,10 +160,16 @@ domain/
 │   ├── Models/{InventoryItem,InventoryAttachment}.php
 │   ├── {Data,Repositories}
 │   └── Services/
-└── Billing/
-    ├── Enums/{Plan,Feature}.php
-    ├── Services/                      # Cashier wrappers (to build)
-    └── ...
+├── Billing/
+│   ├── Enums/{Plan,Feature}.php
+│   ├── Services/                      # Cashier wrappers (to build)
+│   └── ...
+└── Enquiry/
+    ├── Models/Enquiry.php
+    ├── Data/EnquiryData.php
+    ├── Enums/EnquiryStatus.php        # New | Read | Archived
+    ├── Repositories/EnquiryRepository.php
+    └── Actions/{StoreEnquiryAction,MarkEnquiryStatusAction,DeleteEnquiryAction}.php
 ```
 
 ---
