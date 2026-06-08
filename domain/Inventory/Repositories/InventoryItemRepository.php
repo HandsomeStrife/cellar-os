@@ -44,4 +44,21 @@ class InventoryItemRepository
     {
         return InventoryItem::active()->where('venue_id', $venueId)->count();
     }
+
+    /**
+     * Active inventory across several venues (for dashboard aggregates).
+     *
+     * @param  array<int, int>  $venueIds
+     */
+    public function forVenues(array $venueIds): Collection
+    {
+        if ($venueIds === []) {
+            return collect();
+        }
+
+        return InventoryItem::active()
+            ->whereIn('venue_id', $venueIds)
+            ->get()
+            ->map(fn (InventoryItem $item) => $item->getData());
+    }
 }

@@ -1,3 +1,5 @@
+@use('Domain\Shared\Support\Currency')
+
 <div class="space-y-6">
     @if(! $canInventory)
         {{-- Whole feature gated (Starter+) --}}
@@ -121,7 +123,7 @@
                                     </div>
                                 </td>
                                 <td class="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                                    {{ $item->last_purchase_price !== null ? '£'.number_format((float) $item->last_purchase_price, 2) : '—' }}
+                                    {{ $item->last_purchase_price !== null ? Currency::format($item->last_purchase_price, $item->last_purchase_currency ?? 'GBP') : '—' }}
                                 </td>
                                 <td class="px-3 py-2.5 text-muted-foreground">
                                     {{ $item->last_received_at?->format('j M Y') ?? '—' }}

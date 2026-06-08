@@ -1,3 +1,5 @@
+@use('Domain\Shared\Support\Currency')
+
 <div class="space-y-6">
     {{-- Toolbar --}}
     <div class="flex flex-wrap items-center gap-3">
@@ -93,7 +95,7 @@
                             <td class="px-3 py-2.5 text-right">
                                 @if($editingPriceId === $product->id)
                                     <div class="flex items-center justify-end gap-1">
-                                        <span class="text-muted-foreground">£</span>
+                                        <span class="text-muted-foreground">{{ Currency::symbol($currency) }}</span>
                                         <input
                                             type="number" step="0.01" min="0"
                                             wire:model="priceInput"
@@ -107,16 +109,21 @@
                                     </div>
                                 @else
                                     <button type="button" wire:click="startEditPrice({{ $product->id }}, '{{ $product->unit_price }}')" class="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground" title="Edit price">
-                                        {{ $product->unit_price !== null ? '£'.number_format((float) $product->unit_price, 2) : '—' }}
+                                        {{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '—' }}
                                         <x-icon.pencil class="size-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                                     </button>
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-right text-muted-foreground">{{ $product->stock }}</td>
                             <td class="px-3 py-2.5 text-right">
-                                <x-button wire:click="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
-                                    <x-icon.plus class="size-4" />
-                                </x-button>
+                                <div class="flex items-center justify-end gap-1">
+                                    <x-button wire:click="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
+                                        <x-icon.plus class="size-4" />
+                                    </x-button>
+                                    <x-button wire:click="deleteProduct({{ $product->id }})" wire:confirm="Delete {{ $product->wine_name }} from the catalogue?" variant="ghost" size="sm" title="Delete wine" class="text-destructive hover:bg-destructive/10">
+                                        <x-icon.trash-2 class="size-4" />
+                                    </x-button>
+                                </div>
                             </td>
                         </tr>
                     @endforeach
@@ -140,7 +147,7 @@
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-medium text-foreground">{{ $line['product']->wine_name }}</p>
                             <p class="text-xs text-muted-foreground">
-                                {{ $line['product']->unit_price !== null ? '£'.number_format((float) $line['product']->unit_price, 2) : '—' }} / bottle
+                                {{ $line['product']->unit_price !== null ? Currency::format($line['product']->unit_price, $currency) : '—' }} / bottle
                             </p>
                         </div>
                         <input
@@ -149,7 +156,7 @@
                             wire:change="setBasketQty({{ $line['product']->id }}, $event.target.value)"
                             class="w-20 rounded-md border border-input bg-background px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
                         />
-                        <div class="w-24 text-right font-medium tabular-nums">£{{ number_format($line['line_total'], 2) }}</div>
+                        <div class="w-24 text-right font-medium tabular-nums">{{ Currency::format($line['line_total'], $currency) }}</div>
                         <button type="button" wire:click="removeFromBasket({{ $line['product']->id }})" class="text-muted-foreground hover:text-destructive" title="Remove">
                             <x-icon.trash-2 class="size-4" />
                         </button>
@@ -159,16 +166,16 @@
 
             <div class="mt-4 flex items-center justify-between border-t border-border pt-4">
                 <span class="text-sm text-muted-foreground">Total ({{ $basketCount }} {{ \Illuminate\Support\Str::plural('wine', $basketCount) }})</span>
-                <span class="font-serif text-xl font-semibold">£{{ number_format($basketTotal, 2) }}</span>
+                <span class="font-serif text-xl font-semibold">{{ Currency::format($basketTotal, $currency) }}</span>
             </div>
 
             <div class="mt-4 flex items-center justify-end gap-2">
                 <x-button wire:click="clearBasket" variant="ghost" size="sm" wire:confirm="Clear the basket?">Clear</x-button>
                 <x-button variant="outline" wire:click="$set('showBasket', false)">Keep browsing</x-button>
-                @if(\Illuminate\Support\Facades\Route::has('orders'))
-                    <x-button :href="route('orders')" wire:navigate>Create order</x-button>
+                @if($canCreateOrders)
+                    <x-button wire:click="createOrders" wire:loading.attr="disabled" wire:target="createOrders">Create purchase orders</x-button>
                 @else
-                    <x-button wire:click="$dispatch('toast', { message: 'Purchase orders arrive with the Orders module — your basket is saved.' })">Create order</x-button>
+                    <x-button :href="route('pricing')" wire:navigate>Upgrade to order</x-button>
                 @endif
             </div>
         @endif

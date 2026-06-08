@@ -11,6 +11,7 @@
         ['label' => 'Import', 'icon' => 'upload', 'route' => 'import'],
         ['label' => 'Map', 'icon' => 'map', 'route' => 'map'],
         ['label' => 'Pricing', 'icon' => 'credit-card', 'route' => 'pricing'],
+        ['label' => 'Guide', 'icon' => 'file-text', 'route' => 'guide'],
     ];
     $user = auth()->user();
 @endphp

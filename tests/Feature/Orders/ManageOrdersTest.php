@@ -6,6 +6,7 @@ use App\Livewire\Orders\Index;
 use App\Mail\PurchaseOrderMail;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Models\Product;
+use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Models\Order;
 use Domain\Order\Models\OrderItem;
@@ -76,6 +77,115 @@ it('prefills the create form from the catalogue basket', function () {
     expect($component->get('lines'))->toHaveCount(1)
         ->and($component->get('lines')[0]['quantity'])->toBe(6)
         ->and($component->get('lines')[0]['wine_name'])->toBe('Test Wine');
+});
+
+it('receives a sent order into venue inventory', function () {
+    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $order = Order::factory()->create([
+        'supplier_id' => $this->supplier->id,
+        'venue_id' => $venue->id,
+        'status' => OrderStatus::Sent->value,
+    ]);
+    OrderItem::factory()->create([
+        'order_id' => $order->id,
+        'product_id' => $this->product->id,
+        'quantity_units' => 12,
+        'unit_price_at_order' => '20.00',
+    ]);
+
+    Livewire::test(Index::class)->call('receive', $order->id);
+
+    expect($order->fresh()->status)->toBe(OrderStatus::Received);
+    $this->assertDatabaseHas('inventory_items', [
+        'venue_id' => $venue->id,
+        'product_id' => $this->product->id,
+        'quantity_units' => 12,
+    ]);
+});
+
+it('does not receive a sent order with no venue', function () {
+    $order = Order::factory()->create([
+        'supplier_id' => $this->supplier->id,
+        'venue_id' => null,
+        'status' => OrderStatus::Sent->value,
+    ]);
+    OrderItem::factory()->create(['order_id' => $order->id, 'product_id' => $this->product->id]);
+
+    Livewire::test(Index::class)->call('receive', $order->id);
+
+    expect($order->fresh()->status)->toBe(OrderStatus::Sent);
+    $this->assertDatabaseCount('inventory_items', 0);
+});
+
+it('rejects receiving an order that is not Sent', function () {
+    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $order = Order::factory()->create([
+        'supplier_id' => $this->supplier->id,
+        'venue_id' => $venue->id,
+        'status' => OrderStatus::Draft->value,
+    ]);
+    OrderItem::factory()->create(['order_id' => $order->id, 'product_id' => $this->product->id]);
+
+    Livewire::test(Index::class)->call('receive', $order->id)->assertStatus(422);
+
+    $this->assertDatabaseCount('inventory_items', 0);
+});
+
+it('does not double-receive (no inventory inflation)', function () {
+    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    $order = Order::factory()->create([
+        'supplier_id' => $this->supplier->id,
+        'venue_id' => $venue->id,
+        'status' => OrderStatus::Sent->value,
+    ]);
+    OrderItem::factory()->create(['order_id' => $order->id, 'product_id' => $this->product->id, 'quantity_units' => 12]);
+
+    Livewire::test(Index::class)->call('receive', $order->id);
+    // Second attempt is rejected because the order is now Received.
+    Livewire::test(Index::class)->call('receive', $order->id)->assertStatus(422);
+
+    $this->assertDatabaseHas('inventory_items', [
+        'venue_id' => $venue->id,
+        'product_id' => $this->product->id,
+        'quantity_units' => 12,
+    ]);
+});
+
+it('tops up an existing inventory line when receiving', function () {
+    $venue = Venue::factory()->create(['user_id' => $this->user->id]);
+    InventoryItem::factory()->create([
+        'venue_id' => $venue->id,
+        'product_id' => $this->product->id,
+        'quantity_units' => 6,
+    ]);
+    $order = Order::factory()->create([
+        'supplier_id' => $this->supplier->id,
+        'venue_id' => $venue->id,
+        'status' => OrderStatus::Sent->value,
+    ]);
+    OrderItem::factory()->create(['order_id' => $order->id, 'product_id' => $this->product->id, 'quantity_units' => 6]);
+
+    Livewire::test(Index::class)->call('receive', $order->id);
+
+    $this->assertDatabaseHas('inventory_items', [
+        'venue_id' => $venue->id,
+        'product_id' => $this->product->id,
+        'quantity_units' => 12,
+    ]);
+});
+
+it('forbids receiving into another user\'s venue', function () {
+    $otherVenue = Venue::factory()->create(['user_id' => User::factory()->create()->id]);
+    $order = Order::factory()->create([
+        'supplier_id' => $this->supplier->id,
+        'venue_id' => $otherVenue->id,
+        'status' => OrderStatus::Sent->value,
+    ]);
+    OrderItem::factory()->create(['order_id' => $order->id, 'product_id' => $this->product->id]);
+
+    Livewire::test(Index::class)->call('receive', $order->id)->assertForbidden();
+
+    $this->assertDatabaseCount('inventory_items', 0);
 });
 
 it('updates an order status', function () {

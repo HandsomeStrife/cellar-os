@@ -12,5 +12,8 @@ class RegisterUserData extends AbstractData
         public string $full_name,
         public string $email,
         public string $password,
+        public ?string $profession = null,
+        public ?string $company_name = null,
+        public string $base_currency = 'GBP',
     ) {}
 }

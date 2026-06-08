@@ -8,6 +8,7 @@ use App\Mail\PurchaseOrderMail;
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Repositories\ProductRepository;
+use Domain\Inventory\Actions\AddInventoryItemAction;
 use Domain\Order\Actions\CreateOrderAction;
 use Domain\Order\Actions\DeleteOrderAction;
 use Domain\Order\Actions\UpdateOrderStatusAction;
@@ -148,6 +149,7 @@ class Index extends Component
         abort_unless($this->entitled(), 403);
 
         $userId = (new UserRepository)->getLoggedInUser()?->id;
+        $currency = (new VenueRepository)->currencyForUser($userId ?? 0);
 
         $this->validate([
             'supplierId' => 'required|integer|exists:suppliers,id',
@@ -166,7 +168,7 @@ class Index extends Component
             wine_name: $line['wine_name'],
             quantity_units: (int) $line['quantity'],
             unit_price_at_order: number_format((float) $line['unit_price'], 2, '.', ''),
-            currency_at_order: 'GBP',
+            currency_at_order: $currency,
         ), $this->lines);
 
         (new CreateOrderAction)->execute(new OrderData(
@@ -196,6 +198,49 @@ class Index extends Component
 
         (new UpdateOrderStatusAction)->execute($id, $enum);
         $this->dispatch('toast', message: 'Status updated.');
+    }
+
+    public function receive(int $id): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        $order = (new OrderRepository)->find($id);
+        abort_if($order === null, 404);
+
+        // Only a Sent order can be received — prevents double-receiving (which
+        // would top-up inventory twice).
+        abort_unless($order->status === OrderStatus::Sent, 422);
+
+        if ($order->venue_id === null) {
+            $this->dispatch('toast', message: 'Assign a venue to this order before receiving it.');
+
+            return;
+        }
+
+        // Defence: the venue must belong to the current user.
+        $userId = (new UserRepository)->getLoggedInUser()?->id;
+        $ownsVenue = (new VenueRepository)->getForUser($userId ?? 0)
+            ->contains(fn ($venue) => $venue->id === $order->venue_id);
+        abort_unless($ownsVenue, 403);
+
+        $addStock = new AddInventoryItemAction;
+
+        foreach ($order->items as $item) {
+            if ($item->product_id === null) {
+                continue;
+            }
+
+            $addStock->execute(
+                venueId: $order->venue_id,
+                productId: $item->product_id,
+                quantity: $item->quantity_units,
+                price: (float) $item->unit_price_at_order,
+                currency: $item->currency_at_order,
+            );
+        }
+
+        (new UpdateOrderStatusAction)->execute($id, OrderStatus::Received);
+        $this->dispatch('toast', message: 'Order received into inventory.');
     }
 
     public function deleteOrder(int $id): void
@@ -266,6 +311,7 @@ class Index extends Component
         return view('livewire.orders.index', [
             'entitled' => $entitled,
             'canEmail' => $this->plan()->can(Feature::SendPurchaseOrderEmail),
+            'currency' => (new VenueRepository)->currencyForUser($userId ?? 0),
             'orders' => $orders,
             'viewing' => $viewing,
             'statuses' => OrderStatus::cases(),

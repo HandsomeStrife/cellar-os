@@ -14,6 +14,7 @@ use App\Livewire\Admin\Users as AdminUsers;
 use App\Livewire\Billing\Pricing;
 use App\Livewire\Catalogue\Index as CatalogueIndex;
 use App\Livewire\Dashboard;
+use App\Livewire\Guide;
 use App\Livewire\Import\Index as ImportIndex;
 use App\Livewire\Inventory\Index as InventoryIndex;
 use App\Livewire\Map\Index as MapIndex;
@@ -43,6 +44,7 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
     Route::get('/map', MapIndex::class)->name('map');
     Route::get('/pricing', Pricing::class)->name('pricing');
+    Route::get('/guide', Guide::class)->name('guide');
 
     Route::post('/logout', function (Request $request) {
         Auth::logout();

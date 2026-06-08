@@ -72,3 +72,35 @@ it('builds normalised ProductData from a mapped row', function () {
 it('returns null for a row without a wine name', function () {
     expect($this->svc->toProductData(['Name' => ''], ['wine_name' => 'Name']))->toBeNull();
 });
+
+it('standardises grape and region aliases', function () {
+    expect($this->svc->parseGrapes('Shiraz, Cab Sauv'))->toBe(['Syrah', 'Cabernet Sauvignon'])
+        ->and($this->svc->standardiseRegion('burgundy'))->toBe('Bourgogne')
+        ->and($this->svc->standardiseRegion('Napa Valley'))->toBe('Napa Valley');
+});
+
+it('geocodes from region then country, deterministically', function () {
+    $byRegion = $this->svc->geocode('Bourgogne', 'France', 'Some Wine');
+    expect($byRegion)->toHaveKeys(['lat', 'lng'])
+        ->and((float) $byRegion['lat'])->toBeGreaterThan(46.0)->toBeLessThan(48.0);
+
+    // Same seed → same coords (deterministic).
+    expect($this->svc->geocode('Bourgogne', 'France', 'Some Wine'))->toBe($byRegion);
+
+    // Falls back to country when region unknown.
+    $byCountry = $this->svc->geocode('Nowhere', 'Italy', 'X');
+    expect((float) $byCountry['lat'])->toBeGreaterThan(40.0)->toBeLessThan(43.0);
+
+    // Unknown region + country → no coords.
+    expect($this->svc->geocode('Nowhere', 'Atlantis', 'X'))->toBe([]);
+});
+
+it('attaches coordinates to an imported product', function () {
+    $product = $this->svc->toProductData(
+        ['Name' => 'Test', 'Country' => 'France', 'Region' => 'Bordeaux'],
+        ['wine_name' => 'Name', 'country' => 'Country', 'region' => 'Region'],
+    );
+
+    expect($product->latitude)->not->toBeNull()
+        ->and($product->longitude)->not->toBeNull();
+});

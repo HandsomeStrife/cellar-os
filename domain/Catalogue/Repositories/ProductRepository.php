@@ -65,6 +65,21 @@ class ProductRepository
     }
 
     /**
+     * @param  array<int, int>  $ids
+     * @return Collection<int, ProductData> keyed by product id
+     */
+    public function findMany(array $ids): Collection
+    {
+        if ($ids === []) {
+            return collect();
+        }
+
+        return Product::whereIn('id', $ids)
+            ->get()
+            ->mapWithKeys(fn (Product $product) => [$product->id => $product->getData()]);
+    }
+
+    /**
      * Distinct, non-empty country names for filter dropdowns.
      *
      * @return array<int, string>

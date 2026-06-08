@@ -53,4 +53,9 @@ class SupplierRepository
     {
         return Supplier::count();
     }
+
+    public function countActive(): int
+    {
+        return Supplier::active()->count();
+    }
 }

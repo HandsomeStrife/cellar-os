@@ -10,6 +10,24 @@
 
             <x-input.email label="Email" name="email" wire:model="email" required />
 
+            <div class="grid gap-4 sm:grid-cols-2">
+                <x-input.text label="Company / venue" name="company_name" wire:model="company_name" hint="Becomes your first venue" />
+                <x-input.select
+                    label="Profession"
+                    name="profession"
+                    :options="collect($professions)->mapWithKeys(fn ($p) => [$p => $p])->all()"
+                    placeholder="Select…"
+                    wire:model="profession"
+                />
+            </div>
+
+            <x-input.select
+                label="Base currency"
+                name="base_currency"
+                :options="collect($currencies)->mapWithKeys(fn ($c) => [$c => $c])->all()"
+                wire:model="base_currency"
+            />
+
             <x-input.password label="Password" name="password" wire:model="password" autocomplete="new-password" required />
 
             <x-input.password label="Confirm password" name="password_confirmation" wire:model="password_confirmation" autocomplete="new-password" required />

@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Livewire\Catalogue\Index;
+use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Models\Product;
+use Domain\Order\Models\Order;
 use Domain\Supplier\Models\Supplier;
 use Domain\User\Models\User;
 use Livewire\Livewire;
@@ -79,6 +81,42 @@ it('validates the inline price', function () {
         ->set('priceInput', 'not-a-number')
         ->call('savePrice')
         ->assertHasErrors(['priceInput' => 'numeric']);
+});
+
+it('deletes a product from the catalogue', function () {
+    $product = Product::factory()->create(['supplier_id' => $this->supplier->id]);
+
+    Livewire::test(Index::class)->call('deleteProduct', $product->id);
+
+    $this->assertDatabaseMissing('products', ['id' => $product->id]);
+});
+
+it('creates one draft order per supplier from the basket', function () {
+    $this->actingAs(User::factory()->create(['plan' => Plan::Starter->value]));
+    $supplierTwo = Supplier::factory()->create();
+    $p1 = Product::factory()->create(['supplier_id' => $this->supplier->id, 'unit_price' => '10.00']);
+    $p2 = Product::factory()->create(['supplier_id' => $supplierTwo->id, 'unit_price' => '20.00']);
+
+    Livewire::test(Index::class)
+        ->call('addToBasket', $p1->id)
+        ->call('addToBasket', $p2->id)
+        ->call('createOrders')
+        ->assertRedirect(route('orders'));
+
+    expect(Order::count())->toBe(2);
+    $this->assertDatabaseHas('orders', ['supplier_id' => $this->supplier->id]);
+    $this->assertDatabaseHas('orders', ['supplier_id' => $supplierTwo->id]);
+});
+
+it('forbids basket checkout for free users', function () {
+    $product = Product::factory()->create(['supplier_id' => $this->supplier->id]);
+
+    Livewire::test(Index::class)
+        ->call('addToBasket', $product->id)
+        ->call('createOrders')
+        ->assertForbidden();
+
+    expect(Order::count())->toBe(0);
 });
 
 it('manages the order basket', function () {

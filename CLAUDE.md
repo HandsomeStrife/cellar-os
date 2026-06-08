@@ -25,13 +25,16 @@ These differ from the generic `new-laravel-site` scaffold baseline; reasons reco
 
 All bounded contexts have a working UI + tests. Modules (each: Livewire in `app/Livewire/<Area>`, domain Actions/Repositories, feature tests, independently reviewed):
 
-- **Auth** — login / register / logout / password reset (session, DDD-aligned).
-- **Dashboard** — KPI stats + getting-started guide.
+- **Auth** — login / register (captures company→venue, base currency, profession) / logout / password reset (session, DDD-aligned).
+- **Dashboard** — KPI cards (bottles & inventory value, low/out-of-stock), inventory breakdowns by colour/country/region, recent orders, low-stock alerts, getting-started guide.
+- **Guide** (`/guide`) — in-app docs: every feature, user journeys, and the plan-feature matrix.
 - **Suppliers** — card grid CRUD, status toggle.
 - **Catalogue** — sortable/filterable product table, inline price edit, session basket (`order-basket`) that feeds Orders.
 - **Inventory** — per-venue stock (active-venue selector), quantity stepper, archive/restore, file attachments (private disk + authed download). Gated: Starter+ (page), Pro+ (manual add / archive / attachments), Group (2nd+ venue).
-- **Import** — CSV/Excel → column mapping → preview → import wizard with `NormaliseService`; remembers supplier mappings; idempotent upsert. Gated Starter+.
-- **Orders** — list + create (from basket or manual lines), status lifecycle, PDF (dompdf), email to supplier (Mailpit). Gated createPOs / sendPOEmail (Starter+).
+- **Import** — CSV/Excel → column mapping → preview → import wizard with `NormaliseService` (colour/grape/region standardisation, price/vintage/format parsing, region/country geocoding for the map); remembers supplier mappings; idempotent upsert. Gated Starter+.
+- **Catalogue** — browse/filter/sort, inline price edit, delete, and a basket that creates one draft PO per supplier.
+- **Orders** — list + create (basket or manual), status lifecycle, PDF (dompdf), email to supplier (Mailpit), and **Receive → inventory** (Sent-only, no double-receive). Gated createPOs / sendPOEmail (Starter+).
+- **Money** — `Domain\Shared\Support\Currency`; values display in the venue's base currency (per-line currency on orders/inventory). No conversion (matches upstream).
 - **Billing** — `/pricing` plan cards, Cashier checkout (swap for existing subs), webhook plan-sync (`UpdateUserPlanFromStripe`, fail-closed without `STRIPE_WEBHOOK_SECRET`).
 - **Map** — `/map` Leaflet + OpenStreetMap (tokenless) global sourcing view.
 - **Admin** — separate `admin` guard at `/admin`: login (throttled), dashboard, user management (plan change, delete). `auth:admin` + intrinsic guards.

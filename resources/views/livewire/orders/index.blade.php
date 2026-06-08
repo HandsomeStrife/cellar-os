@@ -1,3 +1,5 @@
+@use('Domain\Shared\Support\Currency')
+
 <div class="space-y-6">
     @if(! $entitled)
         <x-upgrade-gate
@@ -62,7 +64,7 @@
                                         @endforeach
                                     </select>
                                 </td>
-                                <td class="px-3 py-2.5 text-right tabular-nums">£{{ number_format((float) $order->total, 2) }}</td>
+                                <td class="px-3 py-2.5 text-right tabular-nums">{{ Currency::format($order->total, data_get($order->items, '0.currency_at_order', $currency)) }}</td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $order->created_at?->format('j M Y') }}</td>
                                 <td class="px-3 py-2.5">
                                     <div class="flex items-center justify-end gap-1">
@@ -70,6 +72,11 @@
                                         <a href="{{ route('orders.pdf', $order->id) }}" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Download PDF">
                                             <x-icon.download class="size-4" />
                                         </a>
+                                        @if($order->status === \Domain\Order\Enums\OrderStatus::Sent)
+                                            <button type="button" wire:click="receive({{ $order->id }})" wire:confirm="Receive this order into inventory?" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Receive into inventory">
+                                                <x-icon.package class="size-4" />
+                                            </button>
+                                        @endif
                                         @if($canEmail)
                                             <button type="button" wire:click="sendEmail({{ $order->id }})" wire:confirm="Email this order to the supplier?" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Email to supplier">
                                                 <x-icon.mail class="size-4" />
@@ -113,8 +120,8 @@
                                     <tr>
                                         <td class="px-3 py-2">{{ $item->wine_name }}</td>
                                         <td class="px-3 py-2 text-right">{{ $item->quantity_units }}</td>
-                                        <td class="px-3 py-2 text-right tabular-nums">£{{ number_format((float) $item->unit_price_at_order, 2) }}</td>
-                                        <td class="px-3 py-2 text-right tabular-nums">£{{ number_format($item->quantity_units * (float) $item->unit_price_at_order, 2) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums">{{ Currency::format($item->unit_price_at_order, $item->currency_at_order) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums">{{ Currency::format($item->quantity_units * (float) $item->unit_price_at_order, $item->currency_at_order) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -131,7 +138,7 @@
                         </x-button>
                         <div class="flex items-center gap-2">
                             <span class="text-sm text-muted-foreground">Total</span>
-                            <span class="font-serif text-xl font-semibold">£{{ number_format((float) $viewing->total, 2) }}</span>
+                            <span class="font-serif text-xl font-semibold">{{ Currency::format($viewing->total, data_get($viewing->items, '0.currency_at_order', $currency)) }}</span>
                         </div>
                     </div>
                 </div>
@@ -171,14 +178,14 @@
                         @foreach($lines as $i => $line)
                             <div wire:key="line-{{ $i }}" class="flex items-center gap-3">
                                 <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ $line['wine_name'] }}</span>
-                                <span class="text-xs text-muted-foreground">£{{ number_format((float) $line['unit_price'], 2) }}</span>
+                                <span class="text-xs text-muted-foreground">{{ Currency::format($line['unit_price'], $currency) }}</span>
                                 <input type="number" min="1" value="{{ $line['quantity'] }}" wire:change="setLineQty({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-background px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
                                 <button type="button" wire:click="removeLine({{ $i }})" class="text-muted-foreground hover:text-destructive"><x-icon.x class="size-4" /></button>
                             </div>
                         @endforeach
                         <div class="flex items-center justify-end gap-2 border-t border-border pt-2 text-sm">
                             <span class="text-muted-foreground">Total</span>
-                            <span class="font-semibold">£{{ number_format((float) $linesTotal, 2) }}</span>
+                            <span class="font-semibold">{{ Currency::format($linesTotal, $currency) }}</span>
                         </div>
                     </div>
                 @endif

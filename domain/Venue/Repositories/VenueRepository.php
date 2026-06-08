@@ -37,4 +37,12 @@ class VenueRepository
             ->get()
             ->map(fn (Venue $venue) => $venue->getData());
     }
+
+    /**
+     * The user's base currency (from their first venue), defaulting to GBP.
+     */
+    public function currencyForUser(int $userId): string
+    {
+        return Venue::where('user_id', $userId)->value('base_currency') ?? 'GBP';
+    }
 }

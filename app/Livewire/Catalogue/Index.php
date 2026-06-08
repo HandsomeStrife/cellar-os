@@ -4,9 +4,19 @@ declare(strict_types=1);
 
 namespace App\Livewire\Catalogue;
 
+use Domain\Billing\Enums\Feature;
+use Domain\Billing\Enums\Plan;
+use Domain\Catalogue\Actions\DeleteProductAction;
 use Domain\Catalogue\Actions\UpdateProductPriceAction;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Repositories\ProductRepository;
+use Domain\Order\Actions\CreateOrderAction;
+use Domain\Order\Data\OrderData;
+use Domain\Order\Data\OrderItemData;
+use Domain\Order\Enums\OrderStatus;
+use Domain\User\Repositories\UserRepository;
+use Domain\Venue\Repositories\VenueRepository;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Session;
 use Livewire\Attributes\Title;
@@ -120,6 +130,76 @@ class Index extends Component
         $this->showBasket = false;
     }
 
+    public function deleteProduct(int $id): void
+    {
+        (new DeleteProductAction)->execute($id);
+        unset($this->basket[$id]);
+        $this->dispatch('toast', message: 'Wine removed from the catalogue.');
+    }
+
+    /**
+     * Turn the basket into draft purchase orders, one per supplier
+     * (mirrors the upstream "Create N POs" flow).
+     */
+    public function createOrders()
+    {
+        abort_unless($this->plan()->can(Feature::CreatePurchaseOrders), 403);
+
+        $repository = new ProductRepository;
+        $userId = (new UserRepository)->getLoggedInUser()?->id;
+        $currency = (new VenueRepository)->currencyForUser($userId ?? 0);
+
+        $groups = [];
+        foreach ($this->basket as $productId => $qty) {
+            $product = $repository->find((int) $productId);
+            if ($product === null) {
+                continue;
+            }
+            $groups[$product->supplier_id ?? 0][] = ['product' => $product, 'qty' => (int) $qty];
+        }
+
+        if ($groups === []) {
+            return null;
+        }
+
+        $created = 0;
+        foreach ($groups as $supplierId => $lines) {
+            $items = array_map(fn ($line) => new OrderItemData(
+                id: null,
+                order_id: null,
+                product_id: $line['product']->id,
+                wine_name: $line['product']->wine_name,
+                quantity_units: $line['qty'],
+                unit_price_at_order: number_format((float) ($line['product']->unit_price ?? 0), 2, '.', ''),
+                currency_at_order: $currency,
+            ), $lines);
+
+            (new CreateOrderAction)->execute(new OrderData(
+                id: null,
+                uuid: null,
+                supplier_id: $supplierId ?: null,
+                venue_id: null,
+                created_by: $userId,
+                status: OrderStatus::Draft,
+                total: null,
+                notes: null,
+                items: $items,
+            ));
+            $created++;
+        }
+
+        $this->basket = [];
+        $this->showBasket = false;
+        $this->dispatch('toast', message: $created.' draft '.Str::plural('order', $created).' created.');
+
+        return $this->redirect(route('orders'), navigate: true);
+    }
+
+    private function plan(): Plan
+    {
+        return (new UserRepository)->getLoggedInUser()?->plan ?? Plan::Free;
+    }
+
     public function render()
     {
         $repository = new ProductRepository;
@@ -157,6 +237,8 @@ class Index extends Component
             'basketLines' => $basketLines,
             'basketTotal' => $basketLines->sum('line_total'),
             'basketCount' => $basketLines->count(),
+            'canCreateOrders' => $this->plan()->can(Feature::CreatePurchaseOrders),
+            'currency' => (new VenueRepository)->currencyForUser((new UserRepository)->getLoggedInUser()?->id ?? 0),
         ]);
     }
 }

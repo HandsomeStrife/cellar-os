@@ -8,6 +8,7 @@ use Domain\Order\Data\OrderData;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Models\Order;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class OrderRepository
 {
@@ -50,5 +51,27 @@ class OrderRepository
             OrderStatus::Pending->value,
             OrderStatus::Sent->value,
         ])->count();
+    }
+
+    public function countByStatus(OrderStatus $status): int
+    {
+        return Order::where('status', $status->value)->count();
+    }
+
+    public function totalValue(): float
+    {
+        return (float) Order::sum('total');
+    }
+
+    /**
+     * @return Collection<int, OrderData>
+     */
+    public function recent(int $limit = 5): Collection
+    {
+        return Order::with('items')
+            ->orderByDesc('created_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Order $order) => $order->getData());
     }
 }
