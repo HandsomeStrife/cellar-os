@@ -5,7 +5,7 @@
 <ol>
     <li>Open <strong>Suppliers</strong> and click <strong>New supplier</strong>.</li>
     <li>Enter the name (required), plus optional contact name, email, phone and location.</li>
-    <li>Choose a status — <strong>Active</strong> or <strong>Inactive</strong>.</li>
+    <li>Choose a status, <strong>Active</strong> or <strong>Inactive</strong>.</li>
     <li>Save. The supplier appears as a card.</li>
 </ol>
 
@@ -13,7 +13,7 @@
 <ul>
     <li><strong>Search</strong> the cards by name, contact, email or location.</li>
     <li><strong>Edit</strong> a supplier from its card to update details.</li>
-    <li><strong>Toggle status</strong> by clicking the status badge — handy for pausing a supplier without deleting them.</li>
+    <li><strong>Toggle status</strong> by clicking the status badge, handy for pausing a supplier without deleting them.</li>
     <li><strong>Delete</strong> suppliers you no longer use.</li>
 </ul>
 

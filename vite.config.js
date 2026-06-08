@@ -9,9 +9,9 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.js'],
             refresh: true,
             fonts: [
-                bunny('Inter', { weights: [400, 500, 600, 700] }),
-                bunny('Playfair Display', { weights: [400, 500, 600, 700] }),
-                bunny('JetBrains Mono', { weights: [400, 500] }),
+                bunny('Hanken Grotesk', { weights: [400, 500, 600, 700] }),
+                bunny('Archivo', { weights: [500, 600, 700, 800] }),
+                bunny('IBM Plex Mono', { weights: [400, 500] }),
             ],
         }),
         tailwindcss(),

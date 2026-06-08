@@ -56,7 +56,7 @@
                         @foreach($orders as $order)
                             <tr wire:key="order-{{ $order->id }}" class="hover:bg-accent/40">
                                 <td class="px-3 py-2.5 font-medium">#{{ $order->uuid ? strtoupper(substr($order->uuid, 0, 8)) : $order->id }}</td>
-                                <td class="px-3 py-2.5 text-muted-foreground">{{ $supplierMap[$order->supplier_id]->name ?? '—' }}</td>
+                                <td class="px-3 py-2.5 text-muted-foreground">{{ $supplierMap[$order->supplier_id]->name ?? '–' }}</td>
                                 <td class="px-3 py-2.5">
                                     <select wire:change="setStatus({{ $order->id }}, $event.target.value)" class="rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
                                         @foreach($statuses as $status)
@@ -100,7 +100,7 @@
                     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
                         <div>
                             <span class="text-muted-foreground">Supplier:</span>
-                            <span class="font-medium">{{ $supplierMap[$viewing->supplier_id]->name ?? '—' }}</span>
+                            <span class="font-medium">{{ $supplierMap[$viewing->supplier_id]->name ?? '–' }}</span>
                         </div>
                         <x-badge :color="$viewing->status->getColour()">{{ $viewing->status->getLabel() }}</x-badge>
                     </div>

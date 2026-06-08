@@ -78,7 +78,7 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-muted-foreground">
-                                {{ $product->country ?? '—' }}@if($product->region)<span class="text-xs"> · {{ $product->region }}</span>@endif
+                                {{ $product->country ?? '–' }}@if($product->region)<span class="text-xs"> · {{ $product->region }}</span>@endif
                             </td>
                             <td class="px-3 py-2.5">
                                 @if($product->colour)
@@ -87,7 +87,7 @@
                                         {{ $product->colour->getLabel() }}
                                     </span>
                                 @else
-                                    —
+                                    –
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $product->vintage ?? 'NV' }}</td>
@@ -109,7 +109,7 @@
                                     </div>
                                 @else
                                     <button type="button" wire:click="startEditPrice({{ $product->id }}, '{{ $product->unit_price }}')" class="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground" title="Edit price">
-                                        {{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '—' }}
+                                        {{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '–' }}
                                         <x-icon.pencil class="size-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                                     </button>
                                 @endif
@@ -147,7 +147,7 @@
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-medium text-foreground">{{ $line['product']->wine_name }}</p>
                             <p class="text-xs text-muted-foreground">
-                                {{ $line['product']->unit_price !== null ? Currency::format($line['product']->unit_price, $currency) : '—' }} / bottle
+                                {{ $line['product']->unit_price !== null ? Currency::format($line['product']->unit_price, $currency) : '–' }} / bottle
                             </p>
                         </div>
                         <input

@@ -5,7 +5,7 @@
 <ul>
     <li><strong>Search</strong> by wine name or producer.</li>
     <li><strong>Filter</strong> by country and colour. Filters are kept in the URL, so a filtered view is shareable and bookmarkable.</li>
-    <li><strong>Sort</strong> any column (name, origin, vintage, price, stock) — click the header again to flip the direction.</li>
+    <li><strong>Sort</strong> any column (name, origin, vintage, price, stock), click the header again to flip the direction.</li>
 </ul>
 
 <h2>Editing a price</h2>

@@ -123,10 +123,10 @@
                                     </div>
                                 </td>
                                 <td class="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                                    {{ $item->last_purchase_price !== null ? Currency::format($item->last_purchase_price, $item->last_purchase_currency ?? 'GBP') : '—' }}
+                                    {{ $item->last_purchase_price !== null ? Currency::format($item->last_purchase_price, $item->last_purchase_currency ?? 'GBP') : '–' }}
                                 </td>
                                 <td class="px-3 py-2.5 text-muted-foreground">
-                                    {{ $item->last_received_at?->format('j M Y') ?? '—' }}
+                                    {{ $item->last_received_at?->format('j M Y') ?? '–' }}
                                 </td>
                                 <td class="px-3 py-2.5">
                                     @if($canAttachments)

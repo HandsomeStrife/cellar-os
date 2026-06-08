@@ -12,5 +12,5 @@
 </ul>
 
 <div class="callout">
-    The map uses OpenStreetMap tiles — no API key or token required.
+    The map uses OpenStreetMap tiles, no API key or token required.
 </div>

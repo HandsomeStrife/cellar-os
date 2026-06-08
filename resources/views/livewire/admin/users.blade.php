@@ -23,7 +23,7 @@
                 <tbody class="divide-y divide-border">
                     @foreach($users as $user)
                         <tr wire:key="user-{{ $user->id }}" class="hover:bg-accent/40">
-                            <td class="px-3 py-2.5 font-medium">{{ $user->full_name ?? '—' }}</td>
+                            <td class="px-3 py-2.5 font-medium">{{ $user->full_name ?? '–' }}</td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $user->email }}</td>
                             <td class="px-3 py-2.5">
                                 <select wire:change="setPlan({{ $user->id }}, $event.target.value)" class="rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">

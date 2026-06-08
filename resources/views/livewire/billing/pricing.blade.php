@@ -4,7 +4,7 @@
         <p class="mt-2 text-muted-foreground">Upgrade as your wine programme grows. Cancel anytime.</p>
         @if(! $billingConfigured)
             <div class="mx-auto mt-4 max-w-xl">
-                <x-alert variant="info">Card payments aren't enabled in this environment yet — choosing a plan will let you know.</x-alert>
+                <x-alert variant="info">Card payments aren't enabled in this environment yet, choosing a plan will let you know.</x-alert>
             </div>
         @endif
     </div>

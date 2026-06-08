@@ -6,8 +6,8 @@
 
 <h2>Getting stock in</h2>
 <ul>
-    <li><strong>Receive a purchase order</strong> — the main route; see <a href="{{ url('/guide/orders') }}" wire:navigate>Purchase orders</a>.</li>
-    <li><strong>Add manually</strong> — search the catalogue, set a quantity and (optional) price. Manual add is a <strong>Pro</strong> feature.</li>
+    <li><strong>Receive a purchase order</strong>, the main route; see <a href="{{ url('/guide/orders') }}" wire:navigate>Purchase orders</a>.</li>
+    <li><strong>Add manually</strong>, search the catalogue, set a quantity and (optional) price. Manual add is a <strong>Pro</strong> feature.</li>
 </ul>
 
 <h2>Managing stock</h2>

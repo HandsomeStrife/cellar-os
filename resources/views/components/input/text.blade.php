@@ -4,7 +4,7 @@
 ])
 
 {{--
-    Thin field wrapper. Only `label`/`hint` are declared props — every real
+    Thin field wrapper. Only `label`/`hint` are declared props, every real
     HTML attribute (name, type, placeholder, required, value, wire:model, …)
     flows through $attributes. Minimal usage: <x-input.text name="field_name" />
     `name` is read from the attribute bag to drive label association + inline errors.

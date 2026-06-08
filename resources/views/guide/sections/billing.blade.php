@@ -2,7 +2,7 @@
 <p class="meta">Route: <code>/pricing</code></p>
 
 <h2>Plans</h2>
-<p>Four tiers, each unlocking more — <strong>Free</strong>, <strong>Starter</strong>, <strong>Pro</strong> and <strong>Group</strong>. The pricing page highlights your current plan and lists what each one includes. The full breakdown is in the <a href="{{ url('/guide/plans') }}" wire:navigate>Plan &amp; feature matrix</a>.</p>
+<p>Four tiers, each unlocking more, <strong>Free</strong>, <strong>Starter</strong>, <strong>Pro</strong> and <strong>Group</strong>. The pricing page highlights your current plan and lists what each one includes. The full breakdown is in the <a href="{{ url('/guide/plans') }}" wire:navigate>Plan &amp; feature matrix</a>.</p>
 
 <h2>Upgrading</h2>
 <ol>

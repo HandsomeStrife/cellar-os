@@ -1,4 +1,4 @@
-<p>The dashboard is your home screen — a one-glance summary of your cellar, scoped to your venues.</p>
+<p>The dashboard is your home screen, a one-glance summary of your cellar, scoped to your venues.</p>
 <p class="meta">Route: <code>/dashboard</code></p>
 
 <h2>Headline figures</h2>
@@ -14,14 +14,14 @@
 </dl>
 
 <h2>Stock health</h2>
-<p>Four secondary cards track purchase orders, open orders, <strong>low stock</strong> (fewer than 12 bottles) and <strong>out of stock</strong> — the last two highlight amber/red when there's something to act on.</p>
+<p>Four secondary cards track purchase orders, open orders, <strong>low stock</strong> (fewer than 12 bottles) and <strong>out of stock</strong>, the last two highlight amber/red when there's something to act on.</p>
 
 <h2>Breakdowns &amp; activity</h2>
 <ul>
-    <li><strong>Inventory by colour</strong> and <strong>by country</strong> — proportional bars of where your stock sits.</li>
-    <li><strong>Top regions</strong> — your most-stocked regions by bottle count.</li>
-    <li><strong>Recent orders</strong> — the latest five POs with supplier, line count, total and status.</li>
-    <li><strong>Low-stock alerts</strong> — wines running low, so you know what to re-order.</li>
+    <li><strong>Inventory by colour</strong> and <strong>by country</strong>, proportional bars of where your stock sits.</li>
+    <li><strong>Top regions</strong>, your most-stocked regions by bottle count.</li>
+    <li><strong>Recent orders</strong>, the latest five POs with supplier, line count, total and status.</li>
+    <li><strong>Low-stock alerts</strong>, wines running low, so you know what to re-order.</li>
 </ul>
 
 <div class="callout">

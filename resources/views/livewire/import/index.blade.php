@@ -78,7 +78,7 @@
                                 wire:model="mapping.{{ $field }}"
                                 class="mt-1.5 block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
                             >
-                                <option value="">— skip —</option>
+                                <option value="">– skip –</option>
                                 @foreach($headers as $header)
                                     <option value="{{ $header }}">{{ $header }}</option>
                                 @endforeach
@@ -101,7 +101,7 @@
         @if($step === 3)
             <x-card title="Preview" subtitle="A sample of how your wines will be imported.">
                 @if($preview === [])
-                    <p class="py-6 text-center text-sm text-muted-foreground">Nothing to preview — check your column mapping.</p>
+                    <p class="py-6 text-center text-sm text-muted-foreground">Nothing to preview, check your column mapping.</p>
                 @else
                     <div class="overflow-x-auto">
                         <table class="w-full text-sm">
@@ -119,11 +119,11 @@
                                 @foreach($preview as $p)
                                     <tr>
                                         <td class="py-2 pr-3 font-medium text-foreground">{{ $p->wine_name }}</td>
-                                        <td class="py-2 pr-3 text-muted-foreground">{{ $p->producer ?? '—' }}</td>
-                                        <td class="py-2 pr-3 text-muted-foreground">{{ $p->country ?? '—' }}</td>
-                                        <td class="py-2 pr-3 text-muted-foreground">{{ $p->colour?->getLabel() ?? '—' }}</td>
+                                        <td class="py-2 pr-3 text-muted-foreground">{{ $p->producer ?? '–' }}</td>
+                                        <td class="py-2 pr-3 text-muted-foreground">{{ $p->country ?? '–' }}</td>
+                                        <td class="py-2 pr-3 text-muted-foreground">{{ $p->colour?->getLabel() ?? '–' }}</td>
                                         <td class="py-2 pr-3 text-muted-foreground">{{ $p->vintage ?? 'NV' }}</td>
-                                        <td class="py-2 pr-3 text-right tabular-nums">{{ $p->unit_price !== null ? '£'.number_format((float) $p->unit_price, 2) : '—' }}</td>
+                                        <td class="py-2 pr-3 text-right tabular-nums">{{ $p->unit_price !== null ? '£'.number_format((float) $p->unit_price, 2) : '–' }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

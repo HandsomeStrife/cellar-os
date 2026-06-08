@@ -5,12 +5,12 @@
     $plans = [Plan::Free, ...Plan::paid()];
 @endphp
 
-<p>CellarOS has four plans. Everyone can browse the catalogue and manage suppliers; paid plans unlock importing, ordering, inventory and more. There's no currency conversion — money is shown in your venue's base currency.</p>
+<p>CellarOS has four plans. Everyone can browse the catalogue and manage suppliers; paid plans unlock importing, ordering, inventory and more. There's no currency conversion, money is shown in your venue's base currency.</p>
 
 <h2>At a glance</h2>
 <ul>
     @foreach($plans as $plan)
-        <li><strong>{{ $plan->getLabel() }}</strong> ({{ $plan->monthlyPrice() }}/mo) — {{ $plan->tagline() }}</li>
+        <li><strong>{{ $plan->getLabel() }}</strong> ({{ $plan->monthlyPrice() }}/mo), {{ $plan->tagline() }}</li>
     @endforeach
 </ul>
 
@@ -34,7 +34,7 @@
                 <tr>
                     <td class="px-3 py-2 text-foreground">{{ $feature->label() }}</td>
                     @foreach($plans as $plan)
-                        <td class="px-3 py-2 text-center {{ $plan->can($feature) ? 'text-primary' : 'text-muted-foreground/40' }}">{{ $plan->can($feature) ? '✓' : '—' }}</td>
+                        <td class="px-3 py-2 text-center {{ $plan->can($feature) ? 'text-primary' : 'text-muted-foreground/40' }}">{{ $plan->can($feature) ? '✓' : '–' }}</td>
                     @endforeach
                 </tr>
             @endforeach
@@ -42,4 +42,4 @@
     </table>
 </div>
 
-<p>Upgrade any time from the <a href="{{ route('pricing') }}" wire:navigate>pricing page</a> — see <a href="{{ url('/guide/billing') }}" wire:navigate>Plans &amp; billing</a>.</p>
+<p>Upgrade any time from the <a href="{{ route('pricing') }}" wire:navigate>pricing page</a>, see <a href="{{ url('/guide/billing') }}" wire:navigate>Plans &amp; billing</a>.</p>

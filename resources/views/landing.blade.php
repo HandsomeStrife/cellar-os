@@ -1,78 +1,275 @@
+@use('Domain\Billing\Enums\Plan')
+@use('Domain\Billing\Enums\Feature')
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>CellarOS — the operating system for the modern wine trade</title>
-
+    <title>CellarOS · The operating system for the modern wine trade</title>
+    <meta name="description" content="Manage your wine catalogue, suppliers, purchase orders and stock in one place. Built for importers, merchants and sommeliers.">
     <script>
         if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.documentElement.classList.add('dark');
         }
     </script>
-
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
-    <header class="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-        <x-app-logo :href="route('home')" />
-        <nav class="flex items-center gap-2">
-            <x-button :href="route('login')" variant="ghost" size="md">Sign in</x-button>
-            <x-button :href="route('register')" variant="primary" size="md">Get started</x-button>
-        </nav>
+
+    {{-- Header --}}
+    <header x-data="{ open: false }" class="sticky top-0 z-50 border-b border-border/70 bg-background/85 backdrop-blur">
+        <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3.5 sm:px-8">
+            <x-app-logo :href="route('home')" />
+            <nav class="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
+                <a href="#features" class="transition-colors hover:text-foreground">Features</a>
+                <a href="#pricing" class="transition-colors hover:text-foreground">Pricing</a>
+                <a href="{{ route('guide') }}" class="transition-colors hover:text-foreground">Guide</a>
+            </nav>
+            <div class="flex items-center gap-2">
+                <x-button :href="route('login')" variant="ghost" size="sm" class="hidden sm:inline-flex">Sign in</x-button>
+                <x-button :href="route('register')" size="sm">Get started</x-button>
+                <button x-on:click="open = !open" class="text-muted-foreground md:hidden" aria-label="Menu">
+                    <x-icon.menu class="size-6" x-show="!open" />
+                    <x-icon.x class="size-6" x-show="open" x-cloak />
+                </button>
+            </div>
+        </div>
+        <div x-show="open" x-cloak x-transition class="border-t border-border md:hidden">
+            <nav class="mx-auto flex max-w-6xl flex-col gap-1 px-5 py-3 text-sm">
+                <a href="#features" x-on:click="open=false" class="rounded-md px-2 py-2 hover:bg-accent">Features</a>
+                <a href="#pricing" x-on:click="open=false" class="rounded-md px-2 py-2 hover:bg-accent">Pricing</a>
+                <a href="{{ route('guide') }}" class="rounded-md px-2 py-2 hover:bg-accent">Guide</a>
+                <a href="{{ route('login') }}" class="rounded-md px-2 py-2 hover:bg-accent">Sign in</a>
+            </nav>
+        </div>
     </header>
 
-    <main>
-        {{-- Hero --}}
-        <section class="mx-auto max-w-6xl px-6 pb-16 pt-12 sm:pt-20">
-            <div class="mx-auto max-w-3xl text-center">
-                <span class="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-                    <x-icon.grape class="size-4 text-primary" />
-                    For importers, merchants &amp; sommeliers
-                </span>
-                <h1 class="mt-6 font-serif text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
-                    The operating system for the<br class="hidden sm:block"> modern <span class="text-primary">wine trade</span>.
-                </h1>
-                <p class="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-                    Manage inventory, suppliers and purchase orders, import supplier price lists in seconds,
-                    and see your sourcing on a global map — all in one place.
-                </p>
-                <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-                    <x-button :href="route('register')" variant="primary" size="lg">Start free</x-button>
-                    <x-button :href="route('login')" variant="outline" size="lg">Sign in</x-button>
+    {{-- Hero --}}
+    <section class="relative isolate overflow-hidden">
+        <div class="absolute inset-0 -z-10">
+            <video
+                class="h-full w-full object-cover"
+                autoplay muted loop playsinline
+                poster="/media/hero-poster.jpg"
+            >
+                <source src="/media/hero.webm" type="video/webm">
+                <source src="/media/hero.mp4" type="video/mp4">
+            </video>
+            <div class="absolute inset-0 bg-gradient-to-tr from-[#2a0e18]/90 via-[#2a0e18]/70 to-[#2a0e18]/45"></div>
+        </div>
+
+        <div class="mx-auto flex min-h-[86vh] max-w-6xl flex-col justify-center px-5 py-24 sm:px-8">
+            <p class="font-mono text-xs uppercase tracking-[0.28em] text-white/70">For importers, merchants &amp; sommeliers</p>
+            <h1 class="mt-5 max-w-3xl font-display text-4xl font-semibold leading-[1.05] tracking-tight text-white sm:text-6xl">
+                The operating system for the modern wine trade.
+            </h1>
+            <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/80">
+                Bring your catalogue, suppliers, purchase orders and stock into one calm, fast workspace. Less spreadsheet wrangling, more selling wine.
+            </p>
+            <div class="mt-9 flex flex-wrap items-center gap-3">
+                <x-button :href="route('register')" size="lg">Start free</x-button>
+                <a href="#features" class="inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-base font-medium text-white ring-1 ring-inset ring-white/30 transition hover:bg-white/10">
+                    See how it works
+                    <x-icon.chevron-down class="size-4" />
+                </a>
+            </div>
+            <p class="mt-6 text-sm text-white/60">No card required. Free plan to browse and manage suppliers.</p>
+        </div>
+    </section>
+
+    {{-- Intro --}}
+    <section id="features" class="mx-auto max-w-6xl scroll-mt-20 px-5 py-20 sm:px-8 sm:py-28">
+        <div class="max-w-2xl">
+            <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">One workspace</p>
+            <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Everything the trade runs on, in one place.</h2>
+            <p class="mt-4 text-lg text-muted-foreground">From the first supplier price list to a purchase order on its way, CellarOS keeps the moving parts of a wine business connected, so nothing lives in a spreadsheet you have to remember to update.</p>
+        </div>
+
+        <div class="mt-16 space-y-20 sm:mt-20 sm:space-y-28">
+            {{-- Feature: Catalogue --}}
+            <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
+                <div>
+                    <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Catalogue</p>
+                    <h3 class="mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">Every wine you trade, priced and searchable.</h3>
+                    <p class="mt-4 text-muted-foreground">Filter by country, colour or producer, sort by price or vintage, and edit prices inline. Build an order basket as you browse and turn it into purchase orders in one step.</p>
+                    <ul class="mt-6 space-y-2.5 text-sm">
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Inline price editing with automatic price-per-litre.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Shareable, bookmarkable filtered views.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Basket groups into one purchase order per supplier.</span></li>
+                    </ul>
+                </div>
+                <div class="overflow-hidden rounded-xl border border-border shadow-sm">
+                    <img src="/images/bottles.jpg" alt="Wine bottles on a shelf" class="aspect-[4/3] w-full object-cover" loading="lazy">
                 </div>
             </div>
-        </section>
 
-        {{-- Features --}}
-        <section class="border-t border-border bg-card/40">
-            <div class="mx-auto grid max-w-6xl gap-px overflow-hidden px-6 py-16 sm:grid-cols-2 lg:grid-cols-3">
-                @php
-                    $features = [
-                        ['icon' => 'wine', 'title' => 'Catalogue', 'desc' => 'A filterable, sortable catalogue of every wine you trade, with inline pricing.'],
-                        ['icon' => 'users', 'title' => 'Suppliers', 'desc' => 'Keep supplier contacts, terms and price-list mappings in one tidy place.'],
-                        ['icon' => 'upload', 'title' => 'Smart imports', 'desc' => 'Drop in a CSV or Excel price list and map columns once — we normalise the rest.'],
-                        ['icon' => 'clipboard-list', 'title' => 'Purchase orders', 'desc' => 'Build orders, generate PDFs and email them straight to your suppliers.'],
-                        ['icon' => 'package', 'title' => 'Inventory', 'desc' => 'Track received stock per venue, with attachments for invoices and tasting notes.'],
-                        ['icon' => 'map', 'title' => 'Global sourcing map', 'desc' => 'Visualise where your wines come from, by country and region.'],
-                    ];
-                @endphp
-                @foreach($features as $f)
-                    <div class="bg-card p-6">
-                        <span class="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-                            <x-dynamic-component :component="'icon.'.$f['icon']" class="size-5" />
-                        </span>
-                        <h3 class="mt-4 font-serif text-lg font-semibold">{{ $f['title'] }}</h3>
-                        <p class="mt-1.5 text-sm text-muted-foreground">{{ $f['desc'] }}</p>
-                    </div>
-                @endforeach
+            {{-- Feature: Import --}}
+            <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
+                <div class="overflow-hidden rounded-xl border border-border shadow-sm lg:order-1">
+                    <img src="/images/warehouse.jpg" alt="Wine bottles in storage" class="aspect-[4/3] w-full object-cover" loading="lazy">
+                </div>
+                <div class="lg:order-2">
+                    <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Imports</p>
+                    <h3 class="mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">Drop in a price list, get a clean catalogue.</h3>
+                    <p class="mt-4 text-muted-foreground">Upload a supplier's CSV or Excel file and map the columns once. CellarOS standardises grapes and regions, reads prices, vintages and bottle formats out of messy text, and places each wine on the map.</p>
+                    <ul class="mt-6 space-y-2.5 text-sm">
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Column mappings are remembered per supplier.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Re-importing updates wines instead of duplicating.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Multi-language colour recognition.</span></li>
+                    </ul>
+                </div>
             </div>
-        </section>
-    </main>
 
-    <footer class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-muted-foreground sm:flex-row">
-        <x-app-logo :show-text="true" class="opacity-80" />
-        <p>&copy; {{ date('Y') }} CellarOS. The operating system for the modern wine trade.</p>
+            {{-- Feature: Orders --}}
+            <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
+                <div>
+                    <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Purchase orders</p>
+                    <h3 class="mt-3 font-display text-2xl font-semibold tracking-tight sm:text-3xl">Raise it, send it, receive it.</h3>
+                    <p class="mt-4 text-muted-foreground">Create purchase orders from the catalogue or by hand, generate a clean PO PDF, and email it straight to the supplier. When the wine arrives, receiving the order tops up your venue's inventory automatically.</p>
+                    <ul class="mt-6 space-y-2.5 text-sm">
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Branded PDF purchase orders.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Email to the supplier in one click.</span></li>
+                        <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Receiving flows through to inventory.</span></li>
+                    </ul>
+                </div>
+                <div class="overflow-hidden rounded-xl border border-border shadow-sm">
+                    <img src="/images/cellar.jpg" alt="Wooden wine barrels in a cellar" class="aspect-[4/3] w-full object-cover" loading="lazy">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    {{-- Map / sourcing band (full width image) --}}
+    <section class="relative isolate overflow-hidden">
+        <img src="/images/vineyard.jpg" alt="Aerial view of a vineyard" class="absolute inset-0 -z-10 h-full w-full object-cover" loading="lazy">
+        <div class="absolute inset-0 -z-10 bg-gradient-to-r from-[#1c0a11]/85 to-[#1c0a11]/55"></div>
+        <div class="mx-auto max-w-6xl px-5 py-24 sm:px-8 sm:py-32">
+            <div class="max-w-xl">
+                <p class="font-mono text-xs uppercase tracking-[0.22em] text-white/70">Sourcing</p>
+                <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">See your range on the map.</h2>
+                <p class="mt-4 text-lg text-white/80">Every wine you import is placed by region and country, so your global sourcing reads at a glance, by colour, country and producer.</p>
+            </div>
+        </div>
+    </section>
+
+    {{-- What's included (two-column checklist, not cards) --}}
+    <section class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+        <div class="max-w-2xl">
+            <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Included</p>
+            <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">A complete trade workflow.</h2>
+        </div>
+        <div class="mt-10 grid gap-x-12 gap-y-3.5 text-sm sm:grid-cols-2">
+            @php
+                $included = [
+                    'Supplier management with saved price-list layouts',
+                    'CSV &amp; Excel price-list import with normalisation',
+                    'Searchable, filterable wine catalogue',
+                    'Inline pricing and price-per-litre',
+                    'Purchase orders with PDF and email',
+                    'Per-venue inventory with archive &amp; attachments',
+                    'Global sourcing map',
+                    'Dashboard with stock value and low-stock alerts',
+                    'Multi-currency display (GBP, EUR, USD)',
+                    'Separate admin back-office',
+                ];
+            @endphp
+            @foreach($included as $item)
+                <div class="flex items-start gap-3 border-b border-border/70 pb-3.5">
+                    <x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" />
+                    <span class="text-foreground">{!! $item !!}</span>
+                </div>
+            @endforeach
+        </div>
+    </section>
+
+    {{-- Pricing (comparison table, not a card grid) --}}
+    <section id="pricing" class="border-y border-border bg-card/40 scroll-mt-20">
+        <div class="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
+            <div class="max-w-2xl">
+                <p class="font-mono text-xs uppercase tracking-[0.22em] text-primary">Pricing</p>
+                <h2 class="mt-3 font-display text-3xl font-semibold tracking-tight sm:text-4xl">Start free. Upgrade as you grow.</h2>
+                <p class="mt-4 text-lg text-muted-foreground">Every plan includes the catalogue and supplier management. Paid plans add importing, ordering, inventory and more.</p>
+            </div>
+
+            @php($plans = [Plan::Free, ...Plan::paid()])
+            <div class="mt-12 overflow-x-auto">
+                <table class="w-full min-w-[42rem] border-separate border-spacing-0 text-sm">
+                    <thead>
+                        <tr>
+                            <th class="w-1/3 py-4 pr-4 text-left align-bottom"></th>
+                            @foreach($plans as $plan)
+                                <th class="px-4 py-4 text-left align-bottom">
+                                    <div class="font-display text-lg font-semibold text-foreground">{{ $plan->getLabel() }}</div>
+                                    <div class="mt-1 font-mono text-sm text-muted-foreground">{{ $plan->monthlyPrice() }}<span class="text-xs">/mo</span></div>
+                                </th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="border-t border-border py-3 pr-4 text-foreground">Catalogue &amp; suppliers</td>
+                            @foreach($plans as $plan)
+                                <td class="border-t border-border px-4 py-3 text-primary"><x-icon.check class="size-4" /></td>
+                            @endforeach
+                        </tr>
+                        @foreach(Feature::cases() as $feature)
+                            <tr>
+                                <td class="border-t border-border py-3 pr-4 text-foreground">{{ $feature->label() }}</td>
+                                @foreach($plans as $plan)
+                                    <td class="border-t border-border px-4 py-3">
+                                        @if($plan->can($feature))
+                                            <x-icon.check class="size-4 text-primary" />
+                                        @else
+                                            <span class="text-muted-foreground/40">·</span>
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                        <tr>
+                            <td class="py-5 pr-4"></td>
+                            @foreach($plans as $plan)
+                                <td class="px-4 py-5">
+                                    <x-button :href="route('register')" :variant="$plan === Plan::Free ? 'outline' : 'primary'" size="sm">
+                                        {{ $plan === Plan::Free ? 'Start free' : 'Choose '.$plan->getLabel() }}
+                                    </x-button>
+                                </td>
+                            @endforeach
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    {{-- Final CTA --}}
+    <section class="relative isolate overflow-hidden">
+        <img src="/images/pour.jpg" alt="Pouring a glass of wine" class="absolute inset-0 -z-10 h-full w-full object-cover" loading="lazy">
+        <div class="absolute inset-0 -z-10 bg-[#1c0a11]/80"></div>
+        <div class="mx-auto max-w-6xl px-5 py-24 text-center sm:px-8 sm:py-32">
+            <h2 class="mx-auto max-w-2xl font-display text-3xl font-semibold tracking-tight text-white sm:text-5xl">Put your wine business on solid ground.</h2>
+            <p class="mx-auto mt-5 max-w-xl text-lg text-white/80">Create an account in under a minute and import your first price list today.</p>
+            <div class="mt-9 flex flex-wrap items-center justify-center gap-3">
+                <x-button :href="route('register')" size="lg">Start free</x-button>
+                <x-button :href="route('guide')" variant="ghost" size="lg" class="text-white ring-1 ring-inset ring-white/30 hover:bg-white/10 hover:text-white">Read the guide</x-button>
+            </div>
+        </div>
+    </section>
+
+    {{-- Footer --}}
+    <footer class="border-t border-border">
+        <div class="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+            <x-app-logo :href="route('home')" />
+            <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                <a href="#features" class="hover:text-foreground">Features</a>
+                <a href="#pricing" class="hover:text-foreground">Pricing</a>
+                <a href="{{ route('guide') }}" class="hover:text-foreground">Guide</a>
+                <a href="{{ route('login') }}" class="hover:text-foreground">Sign in</a>
+            </nav>
+            <p class="text-sm text-muted-foreground">&copy; {{ date('Y') }} CellarOS</p>
+        </div>
     </footer>
+
 </body>
 </html>
