@@ -76,7 +76,7 @@
                             </x-input.label>
                             <select
                                 wire:model="mapping.{{ $field }}"
-                                class="mt-1.5 block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                class="select-field mt-1.5 block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
                             >
                                 <option value="">– skip –</option>
                                 @foreach($headers as $header)

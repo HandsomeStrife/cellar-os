@@ -33,6 +33,15 @@
                     <span class="hidden font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground sm:inline">Guide</span>
                 </div>
                 <nav class="flex items-center gap-2 text-sm">
+                    <button
+                        x-data
+                        x-on:click="document.documentElement.classList.toggle('dark'); localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light'"
+                        aria-label="Toggle theme"
+                        class="flex size-9 items-center justify-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    >
+                        <x-icon.moon class="size-5 dark:hidden" />
+                        <x-icon.sun class="hidden size-5 dark:block" />
+                    </button>
                     @auth
                         <x-button :href="route('dashboard')" variant="ghost" size="sm">Dashboard</x-button>
                     @else

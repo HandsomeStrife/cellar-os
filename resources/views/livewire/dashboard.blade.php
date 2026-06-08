@@ -29,28 +29,8 @@
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <x-stat label="Purchase orders" :value="number_format($orderCount)" icon="clipboard-list" />
         <x-stat label="Open orders" :value="number_format($openOrderCount)" icon="clock" />
-        <div @class(['rounded-lg border bg-card p-5 shadow-sm', 'border-amber-400/50' => $lowStockCount > 0, 'border-border' => $lowStockCount === 0])>
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="text-sm font-medium text-muted-foreground">Low stock</p>
-                    <p class="mt-2 font-serif text-3xl font-semibold {{ $lowStockCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground' }}">{{ number_format($lowStockCount) }}</p>
-                </div>
-                <span class="flex size-10 shrink-0 items-center justify-center rounded-md {{ $lowStockCount > 0 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-secondary text-muted-foreground' }}">
-                    <x-icon.circle-alert class="size-5" />
-                </span>
-            </div>
-        </div>
-        <div @class(['rounded-lg border bg-card p-5 shadow-sm', 'border-destructive/50' => $outOfStockCount > 0, 'border-border' => $outOfStockCount === 0])>
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="text-sm font-medium text-muted-foreground">Out of stock</p>
-                    <p class="mt-2 font-serif text-3xl font-semibold {{ $outOfStockCount > 0 ? 'text-destructive' : 'text-foreground' }}">{{ number_format($outOfStockCount) }}</p>
-                </div>
-                <span class="flex size-10 shrink-0 items-center justify-center rounded-md {{ $outOfStockCount > 0 ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-muted-foreground' }}">
-                    <x-icon.circle-x class="size-5" />
-                </span>
-            </div>
-        </div>
+        <x-stat label="Low stock" :value="number_format($lowStockCount)" icon="circle-alert" tone="warning" :active="$lowStockCount > 0" />
+        <x-stat label="Out of stock" :value="number_format($outOfStockCount)" icon="circle-x" tone="danger" :active="$outOfStockCount > 0" />
     </div>
 
     @if($inventoryBottles > 0)
@@ -119,7 +99,7 @@
 
         <div class="grid gap-4 lg:grid-cols-2">
             {{-- Recent orders --}}
-            <x-card title="Recent orders">
+            <x-card>
                 <x-slot:header>
                     <div class="flex items-center justify-between">
                         <h3 class="font-serif text-lg font-semibold">Recent orders</h3>

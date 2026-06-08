@@ -113,6 +113,14 @@
                         </span>
                         <span class="ml-2 font-mono text-xs text-muted-foreground">cellaros.app/catalogue</span>
                     </div>
+                    {{-- Faux toolbar, sells the "filter + basket" claims --}}
+                    <div class="flex items-center gap-2 border-b border-border px-4 py-2.5 text-xs">
+                        <span class="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-muted-foreground">France <x-icon.chevron-down class="size-3" /></span>
+                        <span class="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-muted-foreground">All colours <x-icon.chevron-down class="size-3" /></span>
+                        <span class="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 font-medium text-primary">
+                            <x-icon.clipboard-list class="size-3.5" /> Basket 3
+                        </span>
+                    </div>
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-border text-left font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -140,7 +148,10 @@
                                         </span>
                                     </td>
                                     <td class="px-4 py-2.5 text-muted-foreground">{{ $origin }}</td>
-                                    <td class="px-4 py-2.5 text-right font-mono tabular-nums text-foreground">{{ $price }}</td>
+                                    <td class="px-4 py-2.5 text-right">
+                                        <div class="font-mono tabular-nums text-foreground">{{ $price }}</div>
+                                        @if($loop->first)<div class="font-mono text-[10px] text-muted-foreground">£38.00/L</div>@endif
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -177,8 +188,37 @@
                         <li class="flex items-start gap-3"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /><span>Receiving flows through to inventory.</span></li>
                     </ul>
                 </div>
-                <div class="overflow-hidden rounded-xl border border-border shadow-sm">
-                    <img src="/images/cellar.jpg" alt="Wooden wine barrels in a cellar" class="aspect-[4/3] w-full object-cover" loading="lazy">
+                {{-- Product preview: a purchase order --}}
+                <div class="overflow-hidden rounded-xl border border-border bg-card shadow-md">
+                    <div class="flex items-center justify-between border-b border-border px-5 py-3.5">
+                        <div>
+                            <div class="font-display font-semibold text-foreground">PO #A1F3C9</div>
+                            <div class="font-mono text-xs text-muted-foreground">Domaine Laroche</div>
+                        </div>
+                        <x-badge color="blue">Sent</x-badge>
+                    </div>
+                    <div class="space-y-2.5 px-5 py-4 text-sm">
+                        <div class="flex items-center justify-between border-b border-border pb-2.5">
+                            <span class="text-foreground">Chablis Premier Cru <span class="text-muted-foreground">× 12</span></span>
+                            <span class="font-mono tabular-nums text-foreground">£342.00</span>
+                        </div>
+                        <div class="flex items-center justify-between border-b border-border pb-2.5">
+                            <span class="text-foreground">Sancerre Les Monts <span class="text-muted-foreground">× 6</span></span>
+                            <span class="font-mono tabular-nums text-foreground">£132.00</span>
+                        </div>
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="font-medium text-muted-foreground">Total</span>
+                            <span class="font-display text-lg font-semibold tabular-nums text-foreground">£474.00</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 border-t border-border bg-secondary/40 px-5 py-3">
+                        <span class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">
+                            <x-icon.mail class="size-3.5" /> Email to supplier
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground">
+                            <x-icon.download class="size-3.5" /> PDF
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -219,7 +259,7 @@
                 ];
             @endphp
             @foreach($included as $item)
-                <div class="flex items-start gap-3 border-b border-border/70 pb-3.5">
+                <div class="flex items-start gap-3 border-b border-border/70 pb-3.5 [&:last-child]:border-0 sm:[&:nth-last-child(-n+2)]:border-0">
                     <x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" />
                     <span class="text-foreground">{!! $item !!}</span>
                 </div>
@@ -238,14 +278,14 @@
 
             @php($plans = [Plan::Free, ...Plan::paid()])
             @php($featured = \Domain\Billing\Enums\Plan::Pro)
-            @php($tint = fn ($plan) => $plan === $featured ? ' bg-primary/[0.05]' : '')
+            @php($tint = fn ($plan) => $plan === $featured ? ' bg-primary/[0.06] border-x border-primary/25' : '')
             <div class="mt-12 overflow-x-auto pb-2">
                 <table class="w-full min-w-[44rem] border-separate border-spacing-0 text-sm">
                     <thead>
                         <tr>
                             <th scope="col" class="w-1/3 py-4 pr-4 text-left align-bottom"><span class="sr-only">Feature</span></th>
                             @foreach($plans as $plan)
-                                <th scope="col" class="rounded-t-lg px-4 py-4 text-left align-bottom{{ $tint($plan) }}">
+                                <th scope="col" class="rounded-t-lg px-4 py-4 text-left align-bottom{{ $tint($plan) }}{{ $plan === $featured ? ' border-t-2 border-primary' : '' }}">
                                     @if($plan === $featured)
                                         <span class="mb-1.5 inline-block font-mono text-[10px] uppercase tracking-wide text-primary">Most chosen</span>
                                     @endif
@@ -281,8 +321,8 @@
                         <tr>
                             <td class="py-5 pr-4"></td>
                             @foreach($plans as $plan)
-                                <td class="rounded-b-lg px-4 py-5{{ $tint($plan) }}">
-                                    <x-button :href="route('register')" :variant="$plan === Plan::Free ? 'outline' : 'primary'" size="md">
+                                <td class="rounded-b-lg px-4 py-5{{ $tint($plan) }}{{ $plan === $featured ? ' border-b border-primary/25' : '' }}">
+                                    <x-button :href="route('register')" :variant="$plan === $featured ? 'primary' : 'outline'" size="md">
                                         {{ $plan === Plan::Free ? 'Start free' : 'Choose '.$plan->getLabel() }}
                                     </x-button>
                                 </td>

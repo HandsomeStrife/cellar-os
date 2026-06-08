@@ -7,7 +7,7 @@
     </div>
 
     @if($users->total() === 0)
-        <x-card><p class="py-8 text-center text-sm text-muted-foreground">No users found.</p></x-card>
+        <x-card><x-empty-state icon="users" title="No users found" message="No accounts match your search." /></x-card>
     @else
         <div class="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
             <table class="w-full text-sm">
