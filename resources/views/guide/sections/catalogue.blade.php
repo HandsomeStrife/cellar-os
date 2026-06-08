@@ -1,0 +1,23 @@
+<p>The catalogue is every wine you trade, in one sortable, filterable table. It's also where you build orders.</p>
+<p class="meta">Route: <code>/catalogue</code></p>
+
+<h2>Finding wines</h2>
+<ul>
+    <li><strong>Search</strong> by wine name or producer.</li>
+    <li><strong>Filter</strong> by country and colour. Filters are kept in the URL, so a filtered view is shareable and bookmarkable.</li>
+    <li><strong>Sort</strong> any column (name, origin, vintage, price, stock) — click the header again to flip the direction.</li>
+</ul>
+
+<h2>Editing a price</h2>
+<p>Click a price to edit it inline; press Enter to save. CellarOS recalculates the price-per-litre from the bottle format automatically.</p>
+
+<h2>The order basket</h2>
+<ol>
+    <li>Click <strong>+</strong> on a wine to add it to the basket (click again to increase the quantity).</li>
+    <li>Open the <strong>Basket</strong> to adjust quantities, see line and grand totals, or clear it.</li>
+    <li>Click <strong>Create purchase orders</strong>. CellarOS groups the basket <strong>by supplier</strong> and creates one draft PO per supplier, then takes you to <a href="{{ url('/guide/orders') }}" wire:navigate>Orders</a>.</li>
+</ol>
+<p class="meta">Creating orders requires the <strong>Starter</strong> plan or above.</p>
+
+<h2>Deleting a wine</h2>
+<p>Use the trash icon on a row to remove a wine from the catalogue. The basket persists as you browse, so you won't lose your selection.</p>

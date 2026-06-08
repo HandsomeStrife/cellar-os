@@ -27,7 +27,7 @@ All bounded contexts have a working UI + tests. Modules (each: Livewire in `app/
 
 - **Auth** — login / register (captures company→venue, base currency, profession) / logout / password reset (session, DDD-aligned).
 - **Dashboard** — KPI cards (bottles & inventory value, low/out-of-stock), inventory breakdowns by colour/country/region, recent orders, low-stock alerts, getting-started guide.
-- **Guide** (`/guide`) — in-app docs: every feature, user journeys, and the plan-feature matrix.
+- **Guide** (`/guide`, public) — documentation-style site with its **own** doc layout + sticky sidenav (`layouts/guide.blade.php`), not the app shell. Each section is a real URL (`/guide/{section}`) backed by a prose partial in `resources/views/guide/sections/`; the sidenav config lives in `App\Livewire\Guide::sections()`. Covers every area + user journeys + the plan-feature matrix.
 - **Suppliers** — card grid CRUD, status toggle.
 - **Catalogue** — sortable/filterable product table, inline price edit, session basket (`order-basket`) that feeds Orders.
 - **Inventory** — per-venue stock (active-venue selector), quantity stepper, archive/restore, file attachments (private disk + authed download). Gated: Starter+ (page), Pro+ (manual add / archive / attachments), Group (2nd+ venue).

@@ -26,8 +26,12 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'landing')->name('home');
 
-// Public product guide (accessible to guests and authenticated users alike).
+// Public documentation-style guide. One Livewire page with a sticky sidenav;
+// each section is a real URL (e.g. /guide/catalogue, /guide/orders).
 Route::get('/guide', Guide::class)->name('guide');
+Route::get('/guide/{section}', Guide::class)
+    ->where('section', '[a-z0-9-]+')
+    ->name('guide.section');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', Login::class)->name('login');

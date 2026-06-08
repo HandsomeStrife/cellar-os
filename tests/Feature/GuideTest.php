@@ -5,20 +5,53 @@ declare(strict_types=1);
 use App\Livewire\Guide;
 use Domain\User\Models\User;
 
-it('renders the guide with features and journeys', function () {
-    $this->actingAs(User::factory()->create());
-
+it('renders the guide index (welcome) for guests', function () {
     $this->get(route('guide'))
         ->assertOk()
         ->assertSeeLivewire(Guide::class)
-        ->assertSee('CellarOS guide')
-        ->assertSee('User journey')
-        ->assertSee('What each plan unlocks');
+        ->assertSee('Welcome')
+        ->assertSee('Using CellarOS')   // sidenav group
+        ->assertSee('quick start');
 });
 
-it('is accessible to guests (not behind auth)', function () {
-    $this->get(route('guide'))
+it('renders a specific section as its own URL', function () {
+    $this->get(route('guide.section', 'catalogue'))
         ->assertOk()
-        ->assertSee('CellarOS guide')
+        ->assertSee('The order basket')   // catalogue section content
+        ->assertSee('Purchase orders');   // sidenav link
+});
+
+it('renders the plan matrix section', function () {
+    $this->get(route('guide.section', 'plans'))
+        ->assertOk()
+        ->assertSee('Feature matrix')
+        ->assertSee('Import supplier price lists');
+});
+
+it('falls back to welcome for an unknown section (no 404)', function () {
+    $this->get(route('guide.section', 'does-not-exist'))
+        ->assertOk()
+        ->assertSee('Welcome');
+});
+
+it('is reachable without authentication and shows sign-in chrome', function () {
+    $this->get(route('guide.section', 'orders'))
+        ->assertOk()
         ->assertSee('Sign in');
+});
+
+it('shows the dashboard link in the header for authenticated users', function () {
+    $this->actingAs(User::factory()->create());
+
+    $this->get(route('guide'))->assertOk()->assertSee('Dashboard');
+});
+
+it('exposes a section for every sidenav entry', function () {
+    foreach (Guide::sections() as $group) {
+        foreach ($group['items'] as $slug => $entry) {
+            $this->get(route('guide.section', $slug))
+                ->assertOk()
+                ->assertSee($entry['title']);
+        }
+    }
 });
