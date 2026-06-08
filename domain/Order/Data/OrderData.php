@@ -18,6 +18,7 @@ class OrderData extends AbstractData
     public function __construct(
         public ?int $id,
         public ?string $uuid,
+        public ?int $company_id,
         public ?int $supplier_id,
         public ?int $venue_id,
         public ?int $created_by,
@@ -33,6 +34,7 @@ class OrderData extends AbstractData
         return new self(
             id: $model->id,
             uuid: $model->uuid,
+            company_id: $model->company_id,
             supplier_id: $model->supplier_id,
             venue_id: $model->venue_id,
             created_by: $model->created_by,

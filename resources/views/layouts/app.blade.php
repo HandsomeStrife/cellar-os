@@ -16,7 +16,7 @@
     $user = auth()->user();
 
     // Team management is for owners/managers only.
-    if (in_array($user?->role, ['owner', 'manager'], true)) {
+    if ($user?->role?->canManageTeam()) {
         array_splice($nav, 7, 0, [['label' => 'Team', 'icon' => 'user', 'route' => 'team']]);
     }
 @endphp

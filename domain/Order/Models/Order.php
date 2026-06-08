@@ -18,6 +18,7 @@ class Order extends Model
     use HasUuid;
 
     protected $fillable = [
+        'company_id',
         'supplier_id',
         'venue_id',
         'created_by',

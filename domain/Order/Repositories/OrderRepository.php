@@ -12,9 +12,14 @@ use Illuminate\Support\Collection;
 
 class OrderRepository
 {
-    public function find(int $id): ?OrderData
+    /**
+     * Find an order only if it belongs to the given company (tenant guard).
+     * There is intentionally no unscoped find() — every lookup must be
+     * tenant-scoped so an order can't leak across companies.
+     */
+    public function findForCompany(int $id, int $companyId): ?OrderData
     {
-        return Order::with('items')->find($id)?->getData();
+        return Order::with('items')->where('company_id', $companyId)->find($id)?->getData();
     }
 
     public function findByUuid(string $uuid): ?OrderData
@@ -22,53 +27,64 @@ class OrderRepository
         return Order::with('items')->where('uuid', $uuid)->first()?->getData();
     }
 
-    public function paginate(int $perPage = 20): LengthAwarePaginator
+    public function paginate(int $companyId, int $perPage = 20): LengthAwarePaginator
     {
         return Order::with('items')
+            ->where('company_id', $companyId)
             ->orderBy('created_at', 'desc')
             ->paginate($perPage)
             ->through(fn (Order $order) => $order->getData());
     }
 
-    public function byStatus(OrderStatus $status, int $perPage = 20): LengthAwarePaginator
+    public function byStatus(int $companyId, OrderStatus $status, int $perPage = 20): LengthAwarePaginator
     {
         return Order::with('items')
+            ->where('company_id', $companyId)
             ->where('status', $status->value)
             ->orderBy('created_at', 'desc')
             ->paginate($perPage)
             ->through(fn (Order $order) => $order->getData());
     }
 
-    public function count(): int
+    public function count(int $companyId): int
+    {
+        return Order::where('company_id', $companyId)->count();
+    }
+
+    /**
+     * Platform-wide order count — for the admin overview only (not tenant-scoped).
+     */
+    public function countAll(): int
     {
         return Order::count();
     }
 
-    public function countOpen(): int
+    public function countOpen(int $companyId): int
     {
-        return Order::whereIn('status', [
+        return Order::where('company_id', $companyId)->whereIn('status', [
             OrderStatus::Draft->value,
             OrderStatus::Pending->value,
             OrderStatus::Sent->value,
         ])->count();
     }
 
-    public function countByStatus(OrderStatus $status): int
+    public function countByStatus(int $companyId, OrderStatus $status): int
     {
-        return Order::where('status', $status->value)->count();
+        return Order::where('company_id', $companyId)->where('status', $status->value)->count();
     }
 
-    public function totalValue(): float
+    public function totalValue(int $companyId): float
     {
-        return (float) Order::sum('total');
+        return (float) Order::where('company_id', $companyId)->sum('total');
     }
 
     /**
      * @return Collection<int, OrderData>
      */
-    public function recent(int $limit = 5): Collection
+    public function recent(int $companyId, int $limit = 5): Collection
     {
         return Order::with('items')
+            ->where('company_id', $companyId)
             ->orderByDesc('created_at')
             ->limit($limit)
             ->get()

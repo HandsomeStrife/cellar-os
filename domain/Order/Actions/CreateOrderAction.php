@@ -15,6 +15,7 @@ class CreateOrderAction extends AbstractAction
     {
         return DB::transaction(function () use ($data) {
             $order = Order::create([
+                'company_id' => $data->company_id,
                 'supplier_id' => $data->supplier_id,
                 'venue_id' => $data->venue_id,
                 'created_by' => $data->created_by,

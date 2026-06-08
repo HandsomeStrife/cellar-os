@@ -24,7 +24,7 @@ class Dashboard extends Component
             'userCount' => (new UserRepository)->count(),
             'supplierCount' => (new SupplierRepository)->count(),
             'productCount' => (new ProductRepository)->count(),
-            'orderCount' => (new OrderRepository)->count(),
+            'orderCount' => (new OrderRepository)->countAll(),
         ]);
     }
 }

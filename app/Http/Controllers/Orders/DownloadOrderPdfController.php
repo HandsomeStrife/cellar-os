@@ -18,10 +18,12 @@ class DownloadOrderPdfController
     public function __invoke(int $id): Response
     {
         // Same entitlement as the rest of the Orders feature.
-        $plan = (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::Free;
+        $company = (new CompanyRepository)->getLoggedInCompany();
+        $plan = $company?->plan ?? Plan::Free;
         abort_unless($plan->can(Feature::CreatePurchaseOrders), 403);
 
-        $order = (new OrderRepository)->find($id);
+        // Tenant guard: the order must belong to the current company.
+        $order = $company ? (new OrderRepository)->findForCompany($id, $company->id) : null;
         abort_if($order === null, 404);
 
         $supplier = $order->supplier_id ? (new SupplierRepository)->find($order->supplier_id) : null;

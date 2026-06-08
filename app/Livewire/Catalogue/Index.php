@@ -179,6 +179,7 @@ class Index extends Component
             (new CreateOrderAction)->execute(new OrderData(
                 id: null,
                 uuid: null,
+                company_id: $user?->company_id,
                 supplier_id: $supplierId ?: null,
                 venue_id: null,
                 created_by: $userId,

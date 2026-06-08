@@ -30,7 +30,7 @@ class UserData extends AbstractData
             company_id: $model->company_id,
             full_name: $model->full_name,
             email: $model->email,
-            role: Role::from($model->role),
+            role: $model->role,
             has_password: $model->password !== null,
             created_at: $model->created_at?->toImmutable(),
         );

@@ -27,7 +27,7 @@ it('lets an owner invite a member and emails a setup link', function () {
     $member = User::where('email', 'sam@team.test')->first();
     expect($member)->not->toBeNull()
         ->and($member->company_id)->toBe($company->id)
-        ->and($member->role)->toBe(Role::Member->value)
+        ->and($member->role)->toBe(Role::Member)
         ->and($member->password)->toBeNull();
 
     $this->assertDatabaseHas('user_venue', ['user_id' => $member->id, 'venue_id' => $venue->id]);
@@ -80,6 +80,33 @@ it('forbids removing yourself', function () {
     Livewire::test(Team::class)->call('remove', $owner->id)->assertStatus(422);
 
     $this->assertDatabaseHas('users', ['id' => $owner->id]);
+});
+
+it('prevents the last owner from demoting themselves', function () {
+    [$company, $owner] = makeTenant(Plan::Group);
+    $this->actingAs($owner);
+
+    Livewire::test(Team::class)
+        ->call('startEdit', $owner->id)
+        ->set('editRole', Role::Manager->value)
+        ->call('saveEdit');
+
+    expect($owner->fresh()->role)->toBe(Role::Owner);
+});
+
+it('allows demoting an owner when another owner remains', function () {
+    [$company, $owner] = makeTenant(Plan::Group);
+    $second = User::factory()->role(Role::Owner)->create(['company_id' => $company->id]);
+    $this->actingAs($owner);
+
+    Livewire::test(Team::class)
+        ->call('startEdit', $second->id)
+        ->set('editName', $second->full_name)
+        ->set('editRole', Role::Manager->value)
+        ->call('saveEdit')
+        ->assertHasNoErrors();
+
+    expect($second->fresh()->role)->toBe(Role::Manager);
 });
 
 it('forbids managing a user from another company', function () {

@@ -7,6 +7,7 @@ use App\Livewire\Admin\CompanyShow;
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
 use Domain\Company\Models\Company;
+use Domain\Order\Models\Order;
 use Domain\User\Enums\Role;
 use Domain\User\Models\User;
 use Domain\User\Notifications\UserInviteNotification;
@@ -47,9 +48,27 @@ it('adds a user to a company and sends an invite', function () {
     $user = User::where('email', 'hire@co.test')->first();
     expect($user)->not->toBeNull()
         ->and($user->company_id)->toBe($company->id)
-        ->and($user->role)->toBe(Role::Manager->value);
+        ->and($user->role)->toBe(Role::Manager);
 
     Notification::assertSentTo($user, UserInviteNotification::class);
+});
+
+it('deletes a company and cascades its users, venues and orders', function () {
+    $this->actingAs(Admin::factory()->create(), 'admin');
+    [$company, $owner, $venue] = makeTenant(Plan::Pro);
+    $order = Order::factory()->create([
+        'company_id' => $company->id,
+        'venue_id' => $venue->id,
+    ]);
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->call('deleteCompany')
+        ->assertRedirect(route('admin.companies'));
+
+    $this->assertDatabaseMissing('companies', ['id' => $company->id]);
+    $this->assertDatabaseMissing('users', ['id' => $owner->id]);
+    $this->assertDatabaseMissing('venues', ['id' => $venue->id]);
+    $this->assertDatabaseMissing('orders', ['id' => $order->id]);
 });
 
 it('forbids a non-admin from company management actions', function () {

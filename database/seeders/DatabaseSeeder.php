@@ -359,6 +359,7 @@ class DatabaseSeeder extends Seeder
         $order = Order::firstOrCreate(
             ['venue_id' => $venue->id, 'created_by' => $user->id, 'notes' => $notes],
             [
+                'company_id' => $venue->company_id,
                 'supplier_id' => $this->suppliers[$supplier]->id,
                 'status' => $status,
                 'total' => 0,

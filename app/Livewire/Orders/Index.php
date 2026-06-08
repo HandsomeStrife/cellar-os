@@ -176,6 +176,7 @@ class Index extends Component
         (new CreateOrderAction)->execute(new OrderData(
             id: null,
             uuid: null,
+            company_id: $user?->company_id,
             supplier_id: $this->supplierId,
             venue_id: $this->venueId,
             created_by: $userId,
@@ -194,6 +195,7 @@ class Index extends Component
     public function setStatus(int $id, string $status): void
     {
         abort_unless($this->entitled(), 403);
+        $this->guardOwnsOrder($id);
 
         $enum = OrderStatus::tryFrom($status);
         abort_if($enum === null, 422);
@@ -206,8 +208,7 @@ class Index extends Component
     {
         abort_unless($this->entitled(), 403);
 
-        $order = (new OrderRepository)->find($id);
-        abort_if($order === null, 404);
+        $order = $this->guardOwnsOrder($id);
 
         // Only a Sent order can be received — prevents double-receiving (which
         // would top-up inventory twice).
@@ -247,6 +248,7 @@ class Index extends Component
     public function deleteOrder(int $id): void
     {
         abort_unless($this->entitled(), 403);
+        $this->guardOwnsOrder($id);
 
         (new DeleteOrderAction)->execute($id);
         $this->viewingId = null;
@@ -257,8 +259,7 @@ class Index extends Component
     {
         abort_unless($this->plan()->can(Feature::SendPurchaseOrderEmail), 403);
 
-        $order = (new OrderRepository)->find($id);
-        abort_if($order === null, 404);
+        $order = $this->guardOwnsOrder($id);
 
         $supplier = $order->supplier_id ? (new SupplierRepository)->find($order->supplier_id) : null;
 
@@ -281,19 +282,32 @@ class Index extends Component
         $this->dispatch('toast', message: 'Order emailed to '.$supplier->email.'.');
     }
 
+    /**
+     * Ensure the order belongs to the current user's company (tenant guard).
+     */
+    private function guardOwnsOrder(int $id): OrderData
+    {
+        $companyId = $this->currentUser()?->company_id;
+        $order = $companyId ? (new OrderRepository)->findForCompany($id, $companyId) : null;
+        abort_if($order === null, 403);
+
+        return $order;
+    }
+
     public function render()
     {
         $entitled = $this->entitled();
+        $companyId = $this->currentUser()?->company_id ?? 0;
         $orders = null;
         $viewing = null;
 
         if ($entitled) {
             $repo = new OrderRepository;
             $status = OrderStatus::tryFrom($this->statusFilter);
-            $orders = $status !== null ? $repo->byStatus($status) : $repo->paginate();
+            $orders = $status !== null ? $repo->byStatus($companyId, $status) : $repo->paginate($companyId);
 
             if ($this->viewingId !== null) {
-                $viewing = $repo->find($this->viewingId);
+                $viewing = $repo->findForCompany($this->viewingId, $companyId);
             }
         }
 

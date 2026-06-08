@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Admin;
 
 use Domain\Billing\Enums\Plan;
+use Domain\Company\Actions\DeleteCompanyAction;
 use Domain\Company\Actions\SetCompanyPlanAction;
 use Domain\Company\Repositories\CompanyRepository;
 use Domain\User\Actions\CreateCompanyUserAction;
@@ -92,10 +93,36 @@ class CompanyShow extends Component
     public function removeUser(int $userId): void
     {
         $this->ensureAdmin();
-        $this->guardCompanyUser($userId);
+        $user = $this->guardCompanyUser($userId);
+
+        // Don't strip a company of its last owner (use Delete company instead).
+        if ($user->role === Role::Owner && $this->ownerCount() <= 1) {
+            $this->dispatch('toast', message: 'A company must keep at least one owner. Delete the company instead.');
+
+            return;
+        }
 
         (new DeleteUserAction)->execute($userId);
         $this->dispatch('toast', message: 'User removed.');
+    }
+
+    private function ownerCount(): int
+    {
+        return (new UserRepository)->forCompany($this->companyId)
+            ->filter(fn ($u) => $u->role === Role::Owner)
+            ->count();
+    }
+
+    public function deleteCompany()
+    {
+        $this->ensureAdmin();
+
+        // Cancels any Stripe subscription, then cascades users/venues/orders.
+        (new DeleteCompanyAction)->execute($this->companyId);
+
+        session()->flash('success', 'Company deleted.');
+
+        return $this->redirectRoute('admin.companies', navigate: true);
     }
 
     private function guardCompanyUser(int $userId): UserData

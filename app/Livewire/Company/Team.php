@@ -103,6 +103,13 @@ class Team extends Component
         // Actor must outrank (or equal) both the current and the target role.
         abort_unless($actor->role->canAssignRole($member->role) && $actor->role->canAssignRole($newRole), 403);
 
+        // Never leave the company without an owner (who alone can manage billing).
+        if ($member->role === Role::Owner && $newRole !== Role::Owner && $this->ownerCount() <= 1) {
+            $this->dispatch('toast', message: 'A company must keep at least one owner.');
+
+            return;
+        }
+
         (new UpdateCompanyUserAction)->execute($member->id, $this->editName, $newRole);
         (new SyncUserVenuesAction)->execute($member->id, $this->venueAssignment($newRole));
 
@@ -128,8 +135,22 @@ class Team extends Component
         abort_if($member->id === $actor->id, 422);
         abort_unless($actor->role->canAssignRole($member->role), 403);
 
+        // Never remove the last owner.
+        if ($member->role === Role::Owner && $this->ownerCount() <= 1) {
+            $this->dispatch('toast', message: 'A company must keep at least one owner.');
+
+            return;
+        }
+
         (new DeleteUserAction)->execute($member->id);
         $this->dispatch('toast', message: 'Member removed.');
+    }
+
+    private function ownerCount(): int
+    {
+        return (new UserRepository)->forCompany($this->currentUser()?->company_id ?? 0)
+            ->filter(fn (UserData $u) => $u->role === Role::Owner)
+            ->count();
     }
 
     private function requireManager(): UserData

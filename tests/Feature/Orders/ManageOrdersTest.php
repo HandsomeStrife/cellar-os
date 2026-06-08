@@ -82,6 +82,7 @@ it('prefills the create form from the catalogue basket', function () {
 it('receives a sent order into venue inventory', function () {
     $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     $order = Order::factory()->create([
+        'company_id' => $this->user->company_id,
         'supplier_id' => $this->supplier->id,
         'venue_id' => $venue->id,
         'status' => OrderStatus::Sent->value,
@@ -105,6 +106,7 @@ it('receives a sent order into venue inventory', function () {
 
 it('does not receive a sent order with no venue', function () {
     $order = Order::factory()->create([
+        'company_id' => $this->user->company_id,
         'supplier_id' => $this->supplier->id,
         'venue_id' => null,
         'status' => OrderStatus::Sent->value,
@@ -120,6 +122,7 @@ it('does not receive a sent order with no venue', function () {
 it('rejects receiving an order that is not Sent', function () {
     $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     $order = Order::factory()->create([
+        'company_id' => $this->user->company_id,
         'supplier_id' => $this->supplier->id,
         'venue_id' => $venue->id,
         'status' => OrderStatus::Draft->value,
@@ -134,6 +137,7 @@ it('rejects receiving an order that is not Sent', function () {
 it('does not double-receive (no inventory inflation)', function () {
     $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
     $order = Order::factory()->create([
+        'company_id' => $this->user->company_id,
         'supplier_id' => $this->supplier->id,
         'venue_id' => $venue->id,
         'status' => OrderStatus::Sent->value,
@@ -159,6 +163,7 @@ it('tops up an existing inventory line when receiving', function () {
         'quantity_units' => 6,
     ]);
     $order = Order::factory()->create([
+        'company_id' => $this->user->company_id,
         'supplier_id' => $this->supplier->id,
         'venue_id' => $venue->id,
         'status' => OrderStatus::Sent->value,
@@ -177,6 +182,7 @@ it('tops up an existing inventory line when receiving', function () {
 it('forbids receiving into another user\'s venue', function () {
     $otherVenue = Venue::factory()->create(['company_id' => User::factory()->create()->company_id]);
     $order = Order::factory()->create([
+        'company_id' => $this->user->company_id,
         'supplier_id' => $this->supplier->id,
         'venue_id' => $otherVenue->id,
         'status' => OrderStatus::Sent->value,
@@ -189,7 +195,7 @@ it('forbids receiving into another user\'s venue', function () {
 });
 
 it('updates an order status', function () {
-    $order = Order::factory()->create(['supplier_id' => $this->supplier->id]);
+    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $this->supplier->id]);
 
     Livewire::test(Index::class)->call('setStatus', $order->id, OrderStatus::Sent->value);
 
@@ -197,7 +203,7 @@ it('updates an order status', function () {
 });
 
 it('deletes an order', function () {
-    $order = Order::factory()->create(['supplier_id' => $this->supplier->id]);
+    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $this->supplier->id]);
 
     Livewire::test(Index::class)->set('viewingId', $order->id)->call('deleteOrder', $order->id);
 
@@ -205,7 +211,7 @@ it('deletes an order', function () {
 });
 
 it('downloads a purchase order PDF', function () {
-    $order = Order::factory()->create(['supplier_id' => $this->supplier->id]);
+    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $this->supplier->id]);
     OrderItem::factory()->create(['order_id' => $order->id, 'product_id' => $this->product->id]);
 
     $response = $this->get(route('orders.pdf', $order->id));
@@ -216,7 +222,7 @@ it('downloads a purchase order PDF', function () {
 
 it('emails the order to the supplier and marks it sent', function () {
     Mail::fake();
-    $order = Order::factory()->create(['supplier_id' => $this->supplier->id]);
+    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $this->supplier->id]);
     OrderItem::factory()->create(['order_id' => $order->id, 'product_id' => $this->product->id]);
 
     Livewire::test(Index::class)->call('sendEmail', $order->id);
@@ -228,7 +234,7 @@ it('emails the order to the supplier and marks it sent', function () {
 it('does not email when the supplier has no address', function () {
     Mail::fake();
     $supplier = Supplier::factory()->create(['email' => null]);
-    $order = Order::factory()->create(['supplier_id' => $supplier->id]);
+    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $supplier->id]);
 
     Livewire::test(Index::class)->call('sendEmail', $order->id);
 
@@ -236,7 +242,7 @@ it('does not email when the supplier has no address', function () {
 });
 
 it('blocks the PDF download for free users', function () {
-    $order = Order::factory()->create(['supplier_id' => $this->supplier->id]);
+    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $this->supplier->id]);
     $this->actingAs(userOnPlan(Plan::Free));
 
     $this->get(route('orders.pdf', $order->id))->assertForbidden();
@@ -277,7 +283,7 @@ it('accepts the user\'s own venue', function () {
 });
 
 it('rejects an invalid status value', function () {
-    $order = Order::factory()->create(['supplier_id' => $this->supplier->id]);
+    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $this->supplier->id]);
 
     Livewire::test(Index::class)->call('setStatus', $order->id, 'Bogus')->assertStatus(422);
 });

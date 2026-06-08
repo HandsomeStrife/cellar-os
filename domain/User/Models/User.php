@@ -7,6 +7,7 @@ namespace Domain\User\Models;
 use Database\Factories\UserFactory;
 use Domain\Shared\Traits\HasUuid;
 use Domain\User\Data\UserData;
+use Domain\User\Enums\Role;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -36,6 +37,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => Role::class,
         ];
     }
 

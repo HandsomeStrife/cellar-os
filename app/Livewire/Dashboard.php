@@ -25,6 +25,7 @@ class Dashboard extends Component
     public function render()
     {
         $user = $this->currentUser();
+        $companyId = $user?->company_id ?? 0;
 
         $productRepo = new ProductRepository;
         $supplierRepo = new SupplierRepository;
@@ -88,7 +89,7 @@ class Dashboard extends Component
 
         // Recent orders with supplier names (compose across contexts).
         $supplierNames = $supplierRepo->all()->mapWithKeys(fn ($s) => [$s->id => $s->name]);
-        $recentOrders = $orderRepo->recent(5)->map(fn ($o) => [
+        $recentOrders = $orderRepo->recent($companyId, 5)->map(fn ($o) => [
             'uuid' => $o->uuid,
             'id' => $o->id,
             'supplier' => $supplierNames[$o->supplier_id] ?? '—',
@@ -111,8 +112,8 @@ class Dashboard extends Component
             'inventoryValue' => $value,
             'inventoryLabels' => $labels,
             // orders
-            'orderCount' => $orderRepo->count(),
-            'openOrderCount' => $orderRepo->countOpen(),
+            'orderCount' => $orderRepo->count($companyId),
+            'openOrderCount' => $orderRepo->countOpen($companyId),
             'lowStockCount' => $low,
             'outOfStockCount' => $out,
             // breakdowns

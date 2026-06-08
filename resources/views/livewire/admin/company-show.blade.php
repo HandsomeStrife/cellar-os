@@ -71,6 +71,16 @@
         </form>
     </x-card>
 
+    {{-- Danger zone --}}
+    <x-card title="Danger zone">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-sm text-muted-foreground">Permanently delete this company, its users, venues, inventory and orders. Cancels any active subscription. This cannot be undone.</p>
+            <x-button wire:click="deleteCompany" wire:confirm="Delete {{ $company?->name }} and ALL its data? This cannot be undone." variant="danger" size="sm">
+                <x-icon.trash-2 class="size-4" /> Delete company
+            </x-button>
+        </div>
+    </x-card>
+
     {{-- Venues --}}
     <x-card title="Venues">
         @if($venues->isEmpty())
