@@ -21,6 +21,31 @@ These differ from the generic `new-laravel-site` scaffold baseline; reasons reco
 
 ---
 
+## Implemented features
+
+All bounded contexts have a working UI + tests. Modules (each: Livewire in `app/Livewire/<Area>`, domain Actions/Repositories, feature tests, independently reviewed):
+
+- **Auth** — login / register / logout / password reset (session, DDD-aligned).
+- **Dashboard** — KPI stats + getting-started guide.
+- **Suppliers** — card grid CRUD, status toggle.
+- **Catalogue** — sortable/filterable product table, inline price edit, session basket (`order-basket`) that feeds Orders.
+- **Inventory** — per-venue stock (active-venue selector), quantity stepper, archive/restore, file attachments (private disk + authed download). Gated: Starter+ (page), Pro+ (manual add / archive / attachments), Group (2nd+ venue).
+- **Import** — CSV/Excel → column mapping → preview → import wizard with `NormaliseService`; remembers supplier mappings; idempotent upsert. Gated Starter+.
+- **Orders** — list + create (from basket or manual lines), status lifecycle, PDF (dompdf), email to supplier (Mailpit). Gated createPOs / sendPOEmail (Starter+).
+- **Billing** — `/pricing` plan cards, Cashier checkout (swap for existing subs), webhook plan-sync (`UpdateUserPlanFromStripe`, fail-closed without `STRIPE_WEBHOOK_SECRET`).
+- **Map** — `/map` Leaflet + OpenStreetMap (tokenless) global sourcing view.
+- **Admin** — separate `admin` guard at `/admin`: login (throttled), dashboard, user management (plan change, delete). `auth:admin` + intrinsic guards.
+
+Plan gating: in-component (`Plan::can(Feature)`) + the `feature:<key>` route middleware (redirects to `pricing`); UI shows `x-upgrade-gate`.
+
+### Demo data & E2E
+
+`php artisan migrate:fresh --seed` (or `db:seed`, idempotent) creates:
+- Admin: `admin@cellaros.test` / `password` (at `/admin`)
+- User: `demo@cellaros.test` / `password` (Pro plan) — 3 suppliers, 10 geo-located wines, inventory, a draft order.
+
+E2E: `npx playwright install chromium` once, then `npx playwright test` (auth setup logs in the demo user; `global-setup` seeds the dev DB — set `E2E_SKIP_SEED=1` to skip). Reports/auth state are gitignored.
+
 ## Development commands
 
 The site is managed by the Cerberus CLI and runs in a Sail container named `cellar-os-app`.
