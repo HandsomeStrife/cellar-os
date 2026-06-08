@@ -414,15 +414,20 @@
 
     {{-- Footer --}}
     <footer class="border-t border-border">
-        <div class="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-            <x-app-logo :href="route('home')" />
-            <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-                <a href="#features" class="hover:text-foreground">Features</a>
-                <a href="#contact" class="hover:text-foreground">Contact</a>
-                <a href="{{ route('guide') }}" class="hover:text-foreground">Guide</a>
-                <a href="{{ route('login') }}" class="hover:text-foreground">Sign in</a>
-            </nav>
-            <p class="text-sm text-muted-foreground">&copy; {{ date('Y') }} CellarOS</p>
+        <div class="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+            <div class="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                <x-app-logo :href="route('home')" />
+                <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
+                    <a href="#features" class="hover:text-foreground">Features</a>
+                    <a href="#contact" class="hover:text-foreground">Contact</a>
+                    <a href="{{ route('guide') }}" class="hover:text-foreground">Guide</a>
+                    <a href="{{ route('login') }}" class="hover:text-foreground">Sign in</a>
+                </nav>
+            </div>
+            <div class="mt-8 border-t border-border pt-6 text-xs leading-relaxed text-muted-foreground">
+                <p>&copy; {{ date('Y') }} CellarOS Ltd. All rights reserved.</p>
+                <p class="mt-1">CellarOS Ltd is a company registered in England &amp; Wales, company number 17203985. Registered office: 46 Stonard Road, London, England, N13 4DL.</p>
+            </div>
         </div>
     </footer>
 
