@@ -10,7 +10,7 @@
 <p>The demo environment ships with ready-made accounts so you can explore CellarOS from a few different starting points. Every account uses the password <code>password</code>.</p>
 
 <div class="callout">
-    These are seeded demo accounts for evaluation only. Run <code>php artisan migrate:fresh --seed</code> to (re)create them. Don't use them for real data.
+    These are sample accounts for trying out CellarOS. They share demo data, so please don't store anything you want to keep in them.
 </div>
 
 <h2>User accounts</h2>
