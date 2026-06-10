@@ -2,7 +2,7 @@ services:
   laravel.test:
     container_name: cellar-os-app
     build:
-      context: ./vendor/laravel/sail/runtimes/8.5
+      context: ./docker/8.5
       dockerfile: Dockerfile
       args:
         WWWGROUP: '${WWWGROUP}'

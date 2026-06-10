@@ -134,12 +134,19 @@
                                     @if($document->status === \Domain\Supplier\Enums\SupplierDocumentStatus::Failed && $document->analysis_notes)
                                         <p class="mt-1 text-xs text-destructive">{{ $document->analysis_notes }}</p>
                                     @endif
+                                    @php($pc = $parsedCounts[$document->id] ?? [])
+                                    @if(($pc['proposed'] ?? 0) + ($pc['approved'] ?? 0) > 0)
+                                        <p class="mt-1 text-xs text-muted-foreground">{{ $pc['proposed'] ?? 0 }} proposed · {{ $pc['approved'] ?? 0 }} approved</p>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-2.5"><x-badge :color="$document->status->getColour()">{{ $document->status->getLabel() }}</x-badge></td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $document->created_at?->format('j M Y') }}</td>
                                 <td class="px-3 py-2.5 text-right">
                                     <div class="flex items-center justify-end gap-1">
                                         <x-button wire:click="analyse({{ $document->id }})" variant="outline" size="sm">Analyse</x-button>
+                                        @if(($pc['proposed'] ?? 0) > 0)
+                                            <x-button wire:click="approveDocument({{ $document->id }})" wire:confirm="Add all proposed wines to the catalogue?" size="sm">Approve all</x-button>
+                                        @endif
                                         <x-button :href="route('admin.supplier-documents.download', $document->id)" variant="ghost" size="sm" aria-label="Download">
                                             <x-icon.download class="size-4" />
                                         </x-button>

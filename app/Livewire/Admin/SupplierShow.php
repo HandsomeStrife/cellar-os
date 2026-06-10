@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Admin;
 
+use Domain\Supplier\Actions\ApproveAllForDocumentAction;
 use Domain\Supplier\Actions\CreateSupplierUserAction;
 use Domain\Supplier\Actions\DeleteSupplierDocumentAction;
 use Domain\Supplier\Actions\DeleteSupplierUserAction;
@@ -13,6 +14,7 @@ use Domain\Supplier\Actions\UpdateSupplierAction;
 use Domain\Supplier\Data\SupplierData;
 use Domain\Supplier\Enums\SupplierStatus;
 use Domain\Supplier\Jobs\AnalyseSupplierDocumentJob;
+use Domain\Supplier\Repositories\ParsedWineRepository;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
 use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\Supplier\Repositories\SupplierUserRepository;
@@ -198,8 +200,21 @@ class SupplierShow extends Component
         $document = (new SupplierDocumentRepository)->find($documentId);
         abort_unless($document !== null && $document->supplier_id === $this->supplierId, 403);
 
-        AnalyseSupplierDocumentJob::dispatch($documentId);
+        AnalyseSupplierDocumentJob::dispatch($documentId, full: true);
         $this->dispatch('toast', message: 'Analysis queued.');
+    }
+
+    public function approveDocument(int $documentId): void
+    {
+        $this->ensureAdmin();
+
+        $document = (new SupplierDocumentRepository)->find($documentId);
+        abort_unless($document !== null && $document->supplier_id === $this->supplierId, 403);
+
+        // Bulk approve from the admin list has no row-level review surface, so
+        // flagged rows are skipped rather than committed unseen.
+        $count = (new ApproveAllForDocumentAction)->execute($documentId, skipFlagged: true);
+        $this->dispatch('toast', message: "{$count} unflagged wine(s) added to the catalogue.");
     }
 
     public function deleteDocument(int $documentId): void
@@ -220,10 +235,14 @@ class SupplierShow extends Component
 
     public function render()
     {
+        $documents = (new SupplierDocumentRepository)->forSupplier($this->supplierId);
+        $parsedRepo = new ParsedWineRepository;
+
         return view('livewire.admin.supplier-show', [
             'supplier' => (new SupplierRepository)->find($this->supplierId),
             'users' => (new SupplierUserRepository)->forSupplier($this->supplierId),
-            'documents' => (new SupplierDocumentRepository)->forSupplier($this->supplierId),
+            'documents' => $documents,
+            'parsedCounts' => $documents->mapWithKeys(fn ($d) => [$d->id => $parsedRepo->countsForDocument($d->id)])->all(),
             'statuses' => SupplierStatus::options(),
         ]);
     }

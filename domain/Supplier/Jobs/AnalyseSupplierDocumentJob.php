@@ -19,9 +19,10 @@ use Throwable;
  * Drives a supplier document through its analysis lifecycle:
  *   AwaitingAnalysis -> Analysing -> Analysed | Failed
  *
- * The LLM extraction itself lives behind DocumentAnalysisService. Until that is
- * implemented the service throws and the document lands on Failed with the
- * reason recorded — proving the whole pipeline is wired.
+ * DocumentAnalysisService does the LLM parsing, stores the proposed wines (review
+ * queue) + the learned recipe, and returns a summary; this job just moves the
+ * status and records the summary (or the failure reason). Monster lists run many
+ * LLM calls, so the job is allowed to run long and is not retried.
  */
 class AnalyseSupplierDocumentJob implements ShouldQueue
 {
@@ -30,16 +31,27 @@ class AnalyseSupplierDocumentJob implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
-    public function __construct(public int $documentId) {}
+    // Monster lists run many LLM calls; allow a long (but finite) run. The
+    // database queue's retry_after MUST exceed this or a second worker re-pops
+    // the job mid-run (double cost) — see config/queue.php.
+    public int $timeout = 1800;
+
+    public int $tries = 1;
+
+    public function __construct(
+        public int $documentId,
+        public bool $full = false,
+        public ?string $model = null,
+    ) {}
 
     public function handle(DocumentAnalysisService $service): void
     {
         $document = (new MarkDocumentAnalysingAction)->execute($this->documentId);
 
         try {
-            $service->analyse($document);
+            $summary = $service->analyse($document, $this->full, $this->model);
 
-            (new MarkDocumentAnalysedAction)->execute($this->documentId);
+            (new MarkDocumentAnalysedAction)->execute($this->documentId, $summary['notes']);
         } catch (Throwable $e) {
             (new MarkDocumentFailedAction)->execute($this->documentId, $e->getMessage());
         }

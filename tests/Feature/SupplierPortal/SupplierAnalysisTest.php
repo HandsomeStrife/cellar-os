@@ -25,15 +25,18 @@ it('transitions a document through the lifecycle actions', function () {
         ->and($document->fresh()->analysis_notes)->toBe('boom');
 });
 
-it('runs the analysis job and lands on failed with the stub note', function () {
-    // The DocumentAnalysisService is a documented stub until the LLM pipeline
-    // exists, so the lifecycle currently ends at Failed — proving the wiring.
-    $document = SupplierDocument::factory()->create(['status' => SupplierDocumentStatus::AwaitingAnalysis->value]);
+it('fails closed when the underlying file is missing', function () {
+    // The analysis job is wired to DocumentAnalysisService; if the stored file
+    // can't be read it lands on Failed with the reason recorded.
+    $document = SupplierDocument::factory()->create([
+        'status' => SupplierDocumentStatus::AwaitingAnalysis->value,
+        'storage_path' => 'supplier-documents/does-not-exist.csv',
+    ]);
 
     (new AnalyseSupplierDocumentJob($document->id))->handle(
         app(DocumentAnalysisService::class)
     );
 
     expect($document->fresh()->status)->toBe(SupplierDocumentStatus::Failed)
-        ->and($document->fresh()->analysis_notes)->toContain('not yet implemented');
+        ->and($document->fresh()->analysis_notes)->toContain('could not be found');
 });

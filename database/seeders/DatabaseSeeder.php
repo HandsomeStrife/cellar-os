@@ -6,16 +6,21 @@ namespace Database\Seeders;
 
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
+use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Models\Product;
 use Domain\Company\Models\Company;
 use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Models\Order;
+use Domain\Supplier\Enums\ParsedWineStatus;
+use Domain\Supplier\Enums\ParseMode;
 use Domain\Supplier\Enums\SupplierDocumentStatus;
 use Domain\Supplier\Enums\SupplierStatus;
+use Domain\Supplier\Models\ParsedWine;
 use Domain\Supplier\Models\Supplier;
 use Domain\Supplier\Models\SupplierDocument;
+use Domain\Supplier\Models\SupplierParseProfile;
 use Domain\Supplier\Models\SupplierUser;
 use Domain\User\Enums\Role;
 use Domain\User\Models\User;
@@ -24,6 +29,7 @@ use Domain\Venue\Models\Venue;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class DatabaseSeeder extends Seeder
 {
@@ -189,6 +195,72 @@ class DatabaseSeeder extends Seeder
         DB::table('company_supplier')->insertOrIgnore([
             'company_id' => $company->id, 'supplier_id' => $private->id, 'created_at' => now(), 'updated_at' => now(),
         ]);
+
+        $this->seedParsedDocument($company, $owner, $private);
+    }
+
+    /**
+     * A buyer-uploaded, already-analysed document for a private supplier with a
+     * few proposed wines awaiting review — showcases the parse → review → approve
+     * flow (and the learned recipe) without needing a live LLM call.
+     */
+    private function seedParsedDocument(Company $company, User $owner, Supplier $supplier): void
+    {
+        $wines = [
+            ['Borough Reserve Claret', 'France', 'Bordeaux', WineColour::Red, 2020, '18.50', ['Cabernet Sauvignon', 'Merlot']],
+            ['Borough White Burgundy', 'France', 'Bourgogne', WineColour::White, 2022, '22.00', ['Chardonnay']],
+            ['Borough Provence Rosé', 'France', 'Provence', WineColour::Rose, 2023, '14.75', ['Grenache']],
+        ];
+
+        // A real CSV on disk so "Re-analyse" works against the demo document.
+        $csv = "Wine,Vintage,Price,Country,Colour\n".implode("\n", array_map(
+            fn (array $w) => "{$w[0]},{$w[4]},{$w[5]},{$w[1]},{$w[3]->value}",
+            $wines,
+        ))."\n";
+        Storage::disk('local')->put('supplier-documents/demo-borough-spring-2026.csv', $csv);
+
+        $document = SupplierDocument::firstOrCreate(
+            ['supplier_id' => $supplier->id, 'file_name' => 'borough-spring-2026.csv'],
+            [
+                'uploaded_by_company_id' => $company->id,
+                'uploaded_by_user_id' => $owner->id,
+                'title' => 'Borough spring 2026 list',
+                'file_type' => 'text/csv',
+                'file_size' => strlen($csv),
+                'storage_path' => 'supplier-documents/demo-borough-spring-2026.csv',
+                'status' => SupplierDocumentStatus::Analysed->value,
+                'analysis_notes' => 'Parsed 3 wine(s). Reused saved mapping.',
+                'analysed_at' => now()->subDay(),
+            ],
+        );
+
+        SupplierParseProfile::firstOrCreate(
+            ['supplier_id' => $supplier->id, 'mode' => ParseMode::Tabular->value, 'company_id' => $company->id],
+            [
+                'recipe' => ['mapping' => ['wine_name' => 'Wine', 'vintage' => 'Vintage', 'unit_price' => 'Price', 'country' => 'Country', 'colour' => 'Colour']],
+                'model' => 'claude-opus-4-8',
+                'confidence' => 0.95,
+                'source_document_id' => $document->id,
+                'is_active' => true,
+            ],
+        );
+
+        foreach ($wines as $i => $w) {
+            [$name, $country, $region, $colour, $vintage, $price, $grape] = $w;
+            $payload = (new ProductData(
+                id: null, uuid: null, supplier_id: $supplier->id, raw_upload_id: null,
+                wine_name: $name, producer: 'Borough Wine Co', country: $country, region: $region, sub_region: null,
+                grape: $grape, colour: $colour, vintage: $vintage,
+                format_ml: 750, case_size: 6, unit_price: $price,
+                price_per_litre: number_format((float) $price / 0.75, 2, '.', ''), stock: 0,
+                latitude: null, longitude: null,
+            ))->toArray();
+
+            ParsedWine::firstOrCreate(
+                ['supplier_document_id' => $document->id, 'supplier_id' => $supplier->id, 'source_ref' => 'row '.($i + 2)],
+                ['payload' => $payload, 'status' => ParsedWineStatus::Proposed->value, 'confidence' => 0.95],
+            );
+        }
     }
 
     /**

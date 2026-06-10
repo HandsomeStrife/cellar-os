@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    /*
+     * Anthropic (Claude) — powers supplier-document portfolio parsing
+     * (Domain\Supplier\Services\DocumentAnalysisService). Without a key the
+     * parser fails closed and the document lands on Failed with a clear reason.
+     */
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-opus-4-8'),
+    ],
+
 ];

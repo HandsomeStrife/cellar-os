@@ -52,6 +52,9 @@
                             <td class="px-3 py-2.5 text-right">
                                 <div class="flex items-center justify-end gap-1">
                                     <x-button wire:click="analyse({{ $document->id }})" variant="outline" size="sm">Analyse</x-button>
+                                    @if($document->status === \Domain\Supplier\Enums\SupplierDocumentStatus::Analysed)
+                                        <x-button :href="route('suppliers.documents.review', [$uuid, $document->id])" wire:navigate variant="primary" size="sm">Review</x-button>
+                                    @endif
                                     <x-button :href="route('suppliers.documents.download', $document->id)" variant="ghost" size="sm" aria-label="Download"><x-icon.download class="size-4" /></x-button>
                                     <x-button wire:click="delete({{ $document->id }})" wire:confirm="Remove this document?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" aria-label="Delete"><x-icon.trash-2 class="size-4" /></x-button>
                                 </div>

@@ -35,6 +35,7 @@ use App\Livewire\SupplierPortal\Auth\ResetPassword as SupplierResetPassword;
 use App\Livewire\SupplierPortal\Dashboard as SupplierDashboard;
 use App\Livewire\SupplierPortal\Documents as SupplierDocuments;
 use App\Livewire\SupplierPortal\Profile as SupplierProfile;
+use App\Livewire\Suppliers\DocumentReview as BuyerSupplierDocumentReview;
 use App\Livewire\Suppliers\Documents as BuyerSupplierDocuments;
 use App\Livewire\Suppliers\Index as SupplierIndex;
 use Illuminate\Http\Request;
@@ -67,6 +68,7 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/suppliers', SupplierIndex::class)->name('suppliers');
     Route::get('/suppliers/documents/{id}/download', SupplierDocumentDownloadController::class)->name('suppliers.documents.download');
     Route::get('/suppliers/{uuid}/documents', BuyerSupplierDocuments::class)->name('suppliers.documents');
+    Route::get('/suppliers/{uuid}/documents/{documentId}/review', BuyerSupplierDocumentReview::class)->name('suppliers.documents.review');
     Route::get('/catalogue', CatalogueIndex::class)->name('catalogue');
     Route::get('/import', ImportIndex::class)->name('import');
     Route::get('/inventory', InventoryIndex::class)->name('inventory');
