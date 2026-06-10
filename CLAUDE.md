@@ -53,6 +53,7 @@ All bounded contexts have a working UI + tests. Modules (each: Livewire in `app/
 - **Billing** — `/pricing` plan cards, Cashier checkout (swap for existing subs), webhook plan-sync (`UpdateUserPlanFromStripe`, fail-closed without `STRIPE_WEBHOOK_SECRET`).
 - **Map** — `/map` Leaflet + OpenStreetMap (tokenless) global sourcing view (excludes private suppliers' wines).
 - **Admin** — separate `admin` guard at `/admin`: login (throttled), dashboard, user management (plan change, delete), enquiry review (status + delete). `auth:admin` + intrinsic guards.
+- **Golden snapshots + ingestion API** — canonical trade data (PUBLIC suppliers, their catalogues, GLOBAL parse recipes, wine_facts — never tenant data) is exportable/restorable so `migrate:fresh` never costs a parse: `wine:export-golden` / `wine:import-golden` (JSON on the private disk; import order suppliers → wines → facts-exact-restore → recipes; everything `updateOrCreate`-idempotent, malformed rows skipped not fatal). The same payload format ships over HTTP via **`/api/ingest/{suppliers,wines,facts,parse-profiles,status}`** (Sanctum bearer tokens issued to ADMINS via `api:issue-token` — `ability:ingestion`, 90-day default expiry, `api:revoke-tokens`; throttled; private suppliers/company data structurally unreachable). `wine:push-golden {url}` pushes a local snapshot to a remote — so documents are parsed locally (LLM key + review UI here) and the remote never needs an LLM key. Import actions: `ImportListedSuppliersAction`, `ImportParseProfilesAction`, `ImportCatalogueWinesAction` (via `UpsertProductAction`, so facts contribution comes free), `ImportWineFactsAction`.
 - **Enquiries** — public contact form on the landing (plain `<form>` → `EnquiryController@store` → `StoreEnquiryAction`, throttled), stored in `enquiries`; reviewed at `/admin/enquiries`. The marketing **pricing** section is currently hidden behind an `@if(false)` guard in `landing.blade.php` (restore by removing the guard); the contact section took its place.
 
 Plan gating: in-component (`Plan::can(Feature)`) + the `feature:<key>` route middleware (redirects to `pricing`); UI shows `x-upgrade-gate`.
@@ -93,6 +94,13 @@ docker exec cellar-os-app composer <cmd>
 # host PHP is 8.3, so host ./vendor/bin/{pest,pint} dies on the platform check)
 docker exec cellar-os-app ./vendor/bin/pest   # unit + feature (SQLite :memory:)
 docker exec cellar-os-app ./vendor/bin/pint   # PSR-12 formatting
+
+# Golden snapshots — the DB is DISPOSABLE for canonical trade data. Parsed
+# catalogues/recipes/facts survive any migrate:fresh without re-parsing:
+docker exec cellar-os-app php artisan wine:export-golden   # canonical data → storage/app/private/golden/*.json
+docker exec cellar-os-app php artisan wine:import-golden   # restore after a reset (idempotent, zero LLM spend)
+docker exec cellar-os-app php artisan wine:push-golden https://remote.example --token=…  # push to a remote's ingestion API
+docker exec cellar-os-app php artisan api:issue-token admin@cellaros.test  # ingestion API token (90d default; api:revoke-tokens)
 npx playwright test               # E2E (needs `npx playwright install chromium` once)
 ```
 

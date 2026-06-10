@@ -10,6 +10,7 @@ use Domain\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 /**
  * Administrators are an entirely separate authentication domain from end
@@ -18,6 +19,7 @@ use Illuminate\Notifications\Notifiable;
  */
 class Admin extends Authenticatable
 {
+    use HasApiTokens;
     use HasFactory;
     use HasUuid;
     use Notifiable;

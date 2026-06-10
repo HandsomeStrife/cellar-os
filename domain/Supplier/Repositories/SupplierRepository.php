@@ -52,6 +52,17 @@ class SupplierRepository
             ->map(fn (Supplier $supplier) => $supplier->getData());
     }
 
+    /**
+     * Public (Listed/Onboarded) suppliers as name => id, for resolving
+     * golden-snapshot / ingestion payload references.
+     *
+     * @return array<string, int>
+     */
+    public function publicNameMap(): array
+    {
+        return Supplier::whereNull('created_by_company_id')->pluck('id', 'name')->all();
+    }
+
     public function isConnectedToCompany(int $supplierId, int $companyId): bool
     {
         $supplier = Supplier::find($supplierId);

@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    // Token for wine:push-golden — pushing golden snapshots to a remote CellarOS.
+    'cellaros' => [
+        'ingest_token' => env('CELLAROS_INGEST_TOKEN'),
+    ],
+
     /*
      * Anthropic (Claude) — powers supplier-document portfolio parsing
      * (Domain\Supplier\Services\DocumentAnalysisService). Without a key the
