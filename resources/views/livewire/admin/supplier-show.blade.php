@@ -110,6 +110,32 @@
         </form>
     </x-card>
 
+    {{-- CRM notes — relationship log, list-access intel, chase-ups. Admin-only. --}}
+    <x-card title="Notes" subtitle="Relationship log — visible to admins only.">
+        <form wire:submit="addNote" class="flex items-start gap-2">
+            <div class="grow">
+                <x-input.textarea name="newNote" wire:model="newNote" rows="2" placeholder="e.g. Spoke to sales — priced list arrives quarterly by email; chase in September." />
+            </div>
+            <x-button type="submit" size="sm">Add note</x-button>
+        </form>
+
+        @if($notes->isNotEmpty())
+            <ul class="mt-4 space-y-3">
+                @foreach($notes as $note)
+                    <li wire:key="note-{{ $note->id }}" class="flex items-start justify-between gap-3 rounded-md border border-border bg-secondary/30 p-3">
+                        <div>
+                            <p class="whitespace-pre-line text-sm">{{ $note->note }}</p>
+                            <p class="mt-1 text-xs text-muted-foreground">{{ $note->created_at?->format('j M Y, H:i') }}</p>
+                        </div>
+                        <x-button wire:click="deleteNote({{ $note->id }})" wire:confirm="Remove this note?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" aria-label="Delete note">
+                            <x-icon.trash-2 class="size-4" />
+                        </x-button>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </x-card>
+
     {{-- Documents --}}
     <x-card title="Portfolios & price sheets">
         @if($documents->isEmpty())

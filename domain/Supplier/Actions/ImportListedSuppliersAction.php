@@ -7,6 +7,7 @@ namespace Domain\Supplier\Actions;
 use Domain\Shared\Actions\AbstractAction;
 use Domain\Supplier\Enums\SupplierStatus;
 use Domain\Supplier\Models\Supplier;
+use Domain\Supplier\Models\SupplierNote;
 use Illuminate\Support\Carbon;
 
 /**
@@ -45,10 +46,11 @@ class ImportListedSuppliersAction extends AbstractAction
             }
 
             try {
-                Supplier::updateOrCreate(
+                $supplier = Supplier::updateOrCreate(
                     ['name' => $name, 'created_by_company_id' => null],
                     $attributes,
                 );
+                $this->restoreNotes($supplier->id, $row['notes'] ?? []);
                 $count++;
             } catch (\Throwable) {
                 // malformed row — skip, never abort the import
@@ -58,5 +60,32 @@ class ImportListedSuppliersAction extends AbstractAction
         $ids = Supplier::whereNull('created_by_company_id')->pluck('id', 'name')->all();
 
         return ['count' => $count, 'ids' => $ids];
+    }
+
+    /**
+     * Restore CRM notes, deduplicated by text (re-imports never duplicate).
+     *
+     * @param  array<int, array<string, mixed>>  $notes
+     */
+    private function restoreNotes(int $supplierId, mixed $notes): void
+    {
+        foreach (is_array($notes) ? $notes : [] as $row) {
+            $text = trim((string) ($row['note'] ?? ''));
+
+            if ($text === '') {
+                continue;
+            }
+
+            $note = SupplierNote::firstOrCreate(['supplier_id' => $supplierId, 'note' => $text]);
+
+            if ($note->wasRecentlyCreated && ! empty($row['created_at'])) {
+                try {
+                    $note->created_at = Carbon::parse((string) $row['created_at']);
+                    $note->save();
+                } catch (\Throwable) {
+                    // keep the insert timestamp
+                }
+            }
+        }
     }
 }

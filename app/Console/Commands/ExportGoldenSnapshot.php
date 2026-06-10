@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Supplier\Models\Supplier;
+use Domain\Supplier\Models\SupplierNote;
 use Domain\Supplier\Models\SupplierParseProfile;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
@@ -34,6 +35,11 @@ class ExportGoldenSnapshot extends Command
         $suppliers = Supplier::whereNull('created_by_company_id')->orderBy('name')->get();
         $supplierNames = $suppliers->pluck('name', 'id');
 
+        $notesBySupplier = SupplierNote::whereIn('supplier_id', $supplierNames->keys())
+            ->orderBy('created_at')
+            ->get()
+            ->groupBy('supplier_id');
+
         $supplierRows = $suppliers->map(fn (Supplier $s) => [
             'name' => $s->name,
             'contact' => $s->contact,
@@ -47,6 +53,10 @@ class ExportGoldenSnapshot extends Command
             'website' => $s->website,
             'status' => $s->status?->value ?? 'Active',
             'onboarded_at' => $s->onboarded_at?->toIso8601String(),
+            'notes' => ($notesBySupplier[$s->id] ?? collect())->map(fn (SupplierNote $n) => [
+                'note' => $n->note,
+                'created_at' => $n->created_at?->toIso8601String(),
+            ])->values()->all(),
         ])->values();
 
         $wineRows = Product::whereIn('supplier_id', $supplierNames->keys())

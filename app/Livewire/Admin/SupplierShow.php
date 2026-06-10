@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace App\Livewire\Admin;
 
+use Domain\Admin\Repositories\AdminRepository;
+use Domain\Supplier\Actions\AddSupplierNoteAction;
 use Domain\Supplier\Actions\ApproveAllForDocumentAction;
 use Domain\Supplier\Actions\CreateSupplierUserAction;
 use Domain\Supplier\Actions\DeleteSupplierDocumentAction;
+use Domain\Supplier\Actions\DeleteSupplierNoteAction;
 use Domain\Supplier\Actions\DeleteSupplierUserAction;
 use Domain\Supplier\Actions\MakeSupplierPublicAction;
 use Domain\Supplier\Actions\MarkSupplierOnboardedAction;
@@ -16,6 +19,7 @@ use Domain\Supplier\Enums\SupplierStatus;
 use Domain\Supplier\Jobs\AnalyseSupplierDocumentJob;
 use Domain\Supplier\Repositories\ParsedWineRepository;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
+use Domain\Supplier\Repositories\SupplierNoteRepository;
 use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\Supplier\Repositories\SupplierUserRepository;
 use Illuminate\Support\Facades\Auth;
@@ -179,6 +183,36 @@ class SupplierShow extends Component
         $this->dispatch('toast', message: 'User removed.');
     }
 
+    // CRM note (admin-only relationship log).
+    #[Validate('required|string|max:2000')]
+    public string $newNote = '';
+
+    public function addNote(): void
+    {
+        $this->ensureAdmin();
+        $this->validate(['newNote' => 'required|string|max:2000']);
+
+        (new AddSupplierNoteAction)->execute(
+            $this->supplierId,
+            trim($this->newNote),
+            (new AdminRepository)->getLoggedInAdmin()?->id,
+        );
+
+        $this->newNote = '';
+        $this->dispatch('toast', message: 'Note added.');
+    }
+
+    public function deleteNote(int $noteId): void
+    {
+        $this->ensureAdmin();
+
+        $note = (new SupplierNoteRepository)->find($noteId);
+        abort_unless($note !== null && $note->supplier_id === $this->supplierId, 403);
+
+        (new DeleteSupplierNoteAction)->execute($noteId);
+        $this->dispatch('toast', message: 'Note removed.');
+    }
+
     public function makePublic(): void
     {
         $this->ensureAdmin();
@@ -242,6 +276,7 @@ class SupplierShow extends Component
             'supplier' => (new SupplierRepository)->find($this->supplierId),
             'users' => (new SupplierUserRepository)->forSupplier($this->supplierId),
             'documents' => $documents,
+            'notes' => (new SupplierNoteRepository)->forSupplier($this->supplierId),
             'parsedCounts' => $documents->mapWithKeys(fn ($d) => [$d->id => $parsedRepo->countsForDocument($d->id)])->all(),
             'statuses' => SupplierStatus::options(),
         ]);
