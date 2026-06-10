@@ -103,12 +103,18 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-muted-foreground">
+                                {{-- Country and region render independently so own + enriched values mix correctly. --}}
                                 @if($product->country)
-                                    {{ $product->country }}@if($product->region)<span class="text-xs"> · {{ $product->region }}</span>@elseif(isset($fill['region'])) <x-enriched-fact class="text-xs">{{ $fill['region'] }}</x-enriched-fact>@endif
+                                    {{ $product->country }}
                                 @elseif(isset($fill['country']))
-                                    <x-enriched-fact>{{ $fill['country'] }}@if(isset($fill['region']))<span class="text-xs"> · {{ $fill['region'] }}</span>@endif</x-enriched-fact>
+                                    <x-enriched-fact>{{ $fill['country'] }}</x-enriched-fact>
                                 @else
                                     –
+                                @endif
+                                @if($product->region)
+                                    <span class="text-xs"> · {{ $product->region }}</span>
+                                @elseif(isset($fill['region']))
+                                    <span class="text-xs">· </span><x-enriched-fact class="text-xs">{{ $fill['region'] }}</x-enriched-fact>
                                 @endif
                             </td>
                             <td class="px-3 py-2.5">

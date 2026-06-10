@@ -31,7 +31,7 @@ function productData(array $overrides = []): ProductData
 it('normalises wine identity across accents, case and punctuation', function () {
     expect(WineIdentity::keyFor('Château Palmer', 'Alter Égo'))
         ->toBe(WineIdentity::keyFor('chateau  PALMER,', 'Alter Ego!'))
-        ->and(WineIdentity::keyFor('Château Palmer', 'Alter Égo'))->toBe('chateau palmer alter ego');
+        ->and(WineIdentity::keyFor('Château Palmer', 'Alter Égo'))->toBe('chateau palmer|alter ego');
 });
 
 it('refuses an identity without a producer (too ambiguous to share facts)', function () {
@@ -48,7 +48,7 @@ it('contributes facts on product upsert with per-field provenance, never overwri
     // Supplier A knows the origin but not the varietals.
     (new UpsertProductAction)->execute(productData(['supplier_id' => $a->id, 'country' => 'France', 'region' => 'Bordeaux']));
 
-    $fact = WineFact::firstWhere('identity_key', 'domaine verdier clos de test');
+    $fact = WineFact::firstWhere('identity_key', 'domaine verdier|clos de test');
     expect($fact)->not->toBeNull()
         ->and($fact->country)->toBe('France')
         ->and($fact->grape)->toBeNull()
@@ -123,7 +123,7 @@ it('withholds a contested fact from enrichment (suppliers disagree on colour)', 
     (new UpsertProductAction)->execute(productData(['supplier_id' => Supplier::factory()->create()->id, 'colour' => 'White', 'grape' => ['Chardonnay']]));
     (new UpsertProductAction)->execute(productData(['supplier_id' => Supplier::factory()->create()->id, 'colour' => 'Red']));
 
-    $fact = WineFact::firstWhere('identity_key', 'domaine verdier clos de test');
+    $fact = WineFact::firstWhere('identity_key', 'domaine verdier|clos de test');
     expect(array_keys($fact->field_conflicts))->toBe(['colour']);
 
     $this->actingAs($user);
@@ -158,12 +158,12 @@ it('refuses placeholder producers as identities', function () {
 it('survives a contribution against an existing identity without breaking the upsert', function () {
     // Pre-create the fact with the same identity — contribution becomes a
     // fill rather than an insert; the upsert must succeed regardless.
-    WineFact::factory()->create(['identity_key' => 'domaine verdier clos de test', 'wine_name' => 'Clos de Test', 'producer' => 'Domaine Verdier', 'country' => null, 'region' => null, 'grape' => null, 'colour' => null]);
+    WineFact::factory()->create(['identity_key' => 'domaine verdier|clos de test', 'wine_name' => 'Clos de Test', 'producer' => 'Domaine Verdier', 'country' => null, 'region' => null, 'grape' => null, 'colour' => null]);
 
     $product = (new UpsertProductAction)->execute(productData(['supplier_id' => Supplier::factory()->create()->id, 'grape' => ['Gamay']]));
 
     expect($product->id)->not->toBeNull()
-        ->and(WineFact::firstWhere('identity_key', 'domaine verdier clos de test')->grape)->toBe(['Gamay'])
+        ->and(WineFact::firstWhere('identity_key', 'domaine verdier|clos de test')->grape)->toBe(['Gamay'])
         ->and(WineFact::count())->toBe(1);
 });
 

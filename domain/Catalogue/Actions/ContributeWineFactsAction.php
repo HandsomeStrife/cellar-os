@@ -10,6 +10,7 @@ use Domain\Catalogue\Support\WineIdentity;
 use Domain\Shared\Actions\AbstractAction;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 /**
@@ -29,9 +30,30 @@ class ContributeWineFactsAction extends AbstractAction
 
     public function execute(ProductData $product): void
     {
+        // Never write the global facts table inside a caller's transaction
+        // (e.g. the import wizard's): a deadlock there would kill the whole
+        // import while this catch hides it, and cross-tenant lock contention
+        // would serialise unrelated companies' imports. Defer to post-commit.
+        if (DB::transactionLevel() > 0) {
+            DB::afterCommit(fn () => $this->safeContribute($product));
+
+            return;
+        }
+
+        $this->safeContribute($product);
+    }
+
+    private function safeContribute(ProductData $product): void
+    {
         try {
             $this->contribute($product);
-        } catch (QueryException) {
+        } catch (QueryException $e) {
+            if (! $this->isUniqueViolation($e)) {
+                report($e);
+
+                return;
+            }
+
             // Unique-key race: another contribution created this identity
             // between firstOrNew and save — retry once as a fill.
             try {
@@ -42,6 +64,11 @@ class ContributeWineFactsAction extends AbstractAction
         } catch (Throwable $e) {
             report($e);
         }
+    }
+
+    private function isUniqueViolation(QueryException $e): bool
+    {
+        return in_array((string) $e->getCode(), ['23000', '23505', '19'], true);
     }
 
     private function contribute(ProductData $product): void
@@ -62,7 +89,7 @@ class ContributeWineFactsAction extends AbstractAction
 
         $sources = $fact->field_sources ?? [];
         $conflicts = $fact->field_conflicts ?? [];
-        $changed = ! $fact->exists;
+        $changed = false;
 
         foreach (self::FACT_FIELDS as $field) {
             $incoming = $product->{$field};
@@ -78,16 +105,17 @@ class ContributeWineFactsAction extends AbstractAction
                     'observed_at' => Carbon::now()->toIso8601String(),
                 ];
                 $changed = true;
-            } elseif (! $this->sameValue($fact->{$field}, $incoming)) {
+            } elseif (! isset($conflicts[$field]) && ! $this->sameValue($fact->{$field}, $incoming)) {
                 // Disagreement: keep the stored value but flag the field as
                 // contested so it is no longer displayed as a reliable fact.
-                $conflicts[$field] = ($conflicts[$field] ?? 0) + 1;
+                // Existence is the signal — repeats don't rewrite the row.
+                $conflicts[$field] = 1;
                 $changed = true;
             }
         }
 
         if (! $changed) {
-            return; // pure re-observation — skip the write entirely
+            return; // nothing learned (incl. all-empty new wines) — no write
         }
 
         $fact->field_sources = $sources;
@@ -101,6 +129,11 @@ class ContributeWineFactsAction extends AbstractAction
         return $value === null || $value === '' || $value === [];
     }
 
+    /**
+     * Values agree when their accent-folded normalisations match — the same
+     * folding the identity uses, so "Côtes du Rhône" vs "Cotes du Rhone" is
+     * agreement, not a permanent conflict.
+     */
     private function sameValue(mixed $stored, mixed $incoming): bool
     {
         $normalise = function (mixed $value): string {
@@ -108,13 +141,13 @@ class ContributeWineFactsAction extends AbstractAction
                 $value = $value->value;
             }
             if (is_array($value)) {
-                $value = array_map(fn ($v) => mb_strtolower(trim((string) $v)), $value);
+                $value = array_map(fn ($v) => WineIdentity::normalise((string) $v), $value);
                 sort($value);
 
-                return json_encode($value) ?: '';
+                return json_encode($value, JSON_INVALID_UTF8_SUBSTITUTE) ?: implode('|', $value);
             }
 
-            return mb_strtolower(trim((string) $value));
+            return WineIdentity::normalise((string) $value);
         };
 
         return $normalise($stored) === $normalise($incoming);

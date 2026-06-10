@@ -129,6 +129,28 @@ class DatabaseSeeder extends Seeder
                 ],
             );
         }
+
+        // Varietals for the New World listing, so the wine-facts store has
+        // something to share with the sparser duplicate listing below.
+        $this->products['Marlborough Sauvignon Blanc']->update(['grape' => ['Sauvignon Blanc']]);
+
+        // The SAME wine listed by a second supplier with complementary gaps —
+        // showcases wine-facts gap-filling: this listing omits grape/colour/
+        // region, so the catalogue renders them enriched ("another vendor")
+        // from the New World Selections listing's facts.
+        Product::firstOrCreate(
+            ['wine_name' => 'Marlborough Sauvignon Blanc', 'supplier_id' => $this->suppliers['Bordeaux Imports']->id],
+            [
+                'producer' => 'Cloudy Bay',
+                'country' => 'New Zealand',
+                'vintage' => 2023,
+                'unit_price' => '20.50',
+                'price_per_litre' => number_format(20.50 / 0.75, 2, '.', ''),
+                'format_ml' => 750,
+                'case_size' => 6,
+                'stock' => 18,
+            ],
+        );
     }
 
     /** Free plan, just signed up: a company + owner + venue but no stock or orders yet. */

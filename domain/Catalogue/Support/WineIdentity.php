@@ -7,12 +7,15 @@ namespace Domain\Catalogue\Support;
 use Illuminate\Support\Str;
 
 /**
- * Computes the cross-supplier identity of a wine: a normalised producer+name
+ * Computes the cross-supplier identity of a wine: a normalised producer|name
  * key ("Château PALMER" ≡ "Chateau Palmer"). Vintage and format are EXCLUDED —
  * the facts this keys (grape, colour, origin) are stable across vintages.
  *
  * A producer is REQUIRED: matching on wine name alone would merge every
- * supplier's "Chablis" into one identity and cross-contaminate facts.
+ * supplier's "Chablis" into one identity and cross-contaminate facts. The
+ * producer and name segments are joined with a separator that survives
+ * normalisation, so ("Château", "Margaux Rouge") and ("Château Margaux",
+ * "Rouge") stay distinct wines.
  */
 class WineIdentity
 {
@@ -21,23 +24,26 @@ class WineIdentity
 
     public static function keyFor(?string $producer, ?string $wineName): ?string
     {
-        $producer = trim((string) $producer);
-        $wineName = trim((string) $wineName);
+        $producerKey = self::normalise($producer);
+        $nameKey = self::normalise($wineName);
 
-        if ($producer === '' || $wineName === '') {
+        if ($producerKey === '' || $nameKey === '' || in_array($producerKey, self::PLACEHOLDER_PRODUCERS, true)) {
             return null;
         }
 
-        $producerKey = preg_replace('/\s+/', ' ', trim(preg_replace('/[^a-z0-9 ]+/', ' ', Str::ascii(mb_strtolower($producer))) ?? ''));
+        return mb_substr($producerKey.'|'.$nameKey, 0, 250);
+    }
 
-        if ($producerKey === '' || in_array($producerKey, self::PLACEHOLDER_PRODUCERS, true)) {
-            return null;
-        }
+    /**
+     * Accent-folded, lowercased, punctuation-stripped text — used for identity
+     * keys AND for value-equality checks (so "Côtes du Rhône" agrees with
+     * "Cotes du Rhone" instead of flagging a conflict).
+     */
+    public static function normalise(?string $value): string
+    {
+        $value = Str::ascii(mb_strtolower(trim((string) $value)));
+        $value = preg_replace('/[^a-z0-9 ]+/', ' ', $value) ?? '';
 
-        $key = Str::ascii(mb_strtolower($producer.' '.$wineName));
-        $key = preg_replace('/[^a-z0-9 ]+/', ' ', $key) ?? '';
-        $key = preg_replace('/\s+/', ' ', trim($key)) ?? '';
-
-        return $key === '' ? null : mb_substr($key, 0, 250);
+        return preg_replace('/\s+/', ' ', trim($value)) ?? '';
     }
 }
