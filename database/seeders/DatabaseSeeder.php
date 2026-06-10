@@ -6,6 +6,7 @@ namespace Database\Seeders;
 
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
+use Domain\Catalogue\Actions\ContributeWineFactsAction;
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Models\Product;
@@ -57,6 +58,10 @@ class DatabaseSeeder extends Seeder
         $this->seedGroupUser();
 
         $this->seedSupplierPortal();
+
+        // Shared wine-facts store: every seeded product contributes its
+        // objective attributes (idempotent fill-don't-overwrite).
+        Product::query()->each(fn (Product $product) => (new ContributeWineFactsAction)->execute($product->getData()));
     }
 
     private function seedAdmin(): void

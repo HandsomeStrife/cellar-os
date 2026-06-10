@@ -118,7 +118,7 @@ Each bounded context is self-contained — `Models/`, `Actions/`, `Data/`, `Repo
 | `Admin` | **Separate** back-office administrators (own guard) | `admins`, `admin_password_reset_tokens` |
 | `Venue` | Trading locations owned by a company; users get access via the `user_venue` pivot | `venues` |
 | `Supplier` | Wine suppliers (tiered: private/listed/onboarded) + buyer↔supplier connections + venue allocations; the supplier portal (profile, portal logins, uploaded portfolios + analysis lifecycle); import column mappings | `suppliers`, `company_supplier`, `supplier_venue`, `supplier_users`, `supplier_password_reset_tokens`, `supplier_documents` |
-| `Catalogue` | Wine products with full attributes + geo | `products` |
+| `Catalogue` | Wine products with full attributes + geo; the shared **wine facts** knowledge store | `products`, `wine_facts` |
 | `Import` | Raw uploaded supplier price lists (CSV/Excel) | `raw_uploads` |
 | `Order` | Purchase orders + line items (unit-based: 1 unit = 1 bottle) | `orders`, `order_items` |
 | `Inventory` | Received stock per venue + file attachments | `inventory_items`, `inventory_attachments` |
@@ -405,6 +405,7 @@ bigint PKs + unique `uuid` columns on public entities. Key points:
 - `supplier_parse_profiles` — the learned parse "recipe" per supplier+mode (`recipe` JSON: column mapping for tabular, structure+examples for PDF); `company_id` null = global (portal/admin-learned), set = that buyer's own; `is_active` latest-wins per scope.
 - `parsed_wines` — the parse review queue: `payload` (a normalised ProductData snapshot), `status` (proposed/approved/rejected), `confidence`, `flag`, `source_ref` (row/page provenance).
 - `products` — full wine attributes; `grape` is JSON; `colour` cast to `WineColour`; geo `latitude`/`longitude`; indexes on `(country, region)` and `colour`.
+- `wine_facts` — the cross-supplier **wine knowledge store** (attributes ONLY — grape/colour/country/region/sub_region; **never prices**), keyed on `identity_key` = normalised producer+name (`Domain\Catalogue\Support\WineIdentity` — producer REQUIRED, placeholder producers refused, vintage/format excluded). Populated automatically by `UpsertProductAction` → `ContributeWineFactsAction` (best-effort: failures never break an import; **fill-don't-overwrite**; a disagreeing observation marks the field contested in `field_conflicts` and contested fields are withheld from display). Per-field provenance lives in `field_sources` — internal audit only, deliberately excluded from `WineFactData` and never shown to buyers. The catalogue gap-fills missing attributes from facts at render time (display-only — products are never mutated) with the `x-enriched-fact` marker ("Populated from another vendor's information" — the source vendor is never named). Backfill: `php artisan wine:facts-backfill` (idempotent; the seeder contributes automatically).
 - `orders` / `order_items` — `status` cast to `OrderStatus`; ordering is **unit-based** (`quantity_units`, 1 unit = 1 bottle); `unit_price_at_order` / `currency_at_order` snapshot the price at order time.
 - `inventory_items` — unique on `(venue_id, product_id)`; archive support (`is_archived`, `archived_at`).
 - `inventory_attachments` — metadata in DB, files on the local `public` disk (`storage/app/public`, swap to S3-compatible later).

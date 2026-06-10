@@ -41,6 +41,12 @@ class UpsertProductAction extends AbstractAction
             ],
         );
 
-        return $product->getData();
+        $result = $product->getData();
+
+        // Every imported wine teaches the shared facts store (attributes only,
+        // never prices) so sparser suppliers' lists can be gap-filled.
+        (new ContributeWineFactsAction)->execute($result);
+
+        return $result;
     }
 }

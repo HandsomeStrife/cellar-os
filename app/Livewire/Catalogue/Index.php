@@ -8,8 +8,11 @@ use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Actions\DeleteProductAction;
 use Domain\Catalogue\Actions\UpdateProductPriceAction;
+use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Repositories\ProductRepository;
+use Domain\Catalogue\Repositories\WineFactRepository;
+use Domain\Catalogue\Support\WineIdentity;
 use Domain\Company\Repositories\CompanyRepository;
 use Domain\Order\Actions\CreateOrderAction;
 use Domain\Order\Data\OrderData;
@@ -252,6 +255,57 @@ class Index extends Component
         return (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::Free;
     }
 
+    /**
+     * For the page's products, fill missing grape/colour/country/region from
+     * the shared wine-facts store. Returns product_id => [field => value].
+     *
+     * @param  array<int, ProductData>  $products
+     * @return array<int, array<string, mixed>>
+     */
+    private function enrichments(array $products): array
+    {
+        $keys = [];
+        foreach ($products as $product) {
+            $key = WineIdentity::keyFor($product->producer, $product->wine_name);
+            if ($key !== null) {
+                $keys[$product->id] = $key;
+            }
+        }
+
+        $facts = (new WineFactRepository)->forIdentities(array_values($keys));
+
+        $enriched = [];
+        foreach ($products as $product) {
+            $fact = $facts[$keys[$product->id] ?? ''] ?? null;
+            if ($fact === null) {
+                continue;
+            }
+
+            // Contested fields (suppliers disagree) are withheld entirely.
+            $usable = fn (string $field) => ! in_array($field, $fact->conflicted_fields, true);
+
+            $fill = [];
+            if (($product->grape ?? []) === [] && ($fact->grape ?? []) !== [] && $usable('grape')) {
+                $fill['grape'] = $fact->grape;
+            }
+            if ($product->colour === null && $fact->colour !== null && $usable('colour')) {
+                $fill['colour'] = $fact->colour;
+            }
+            if (($product->country ?? '') === '' && ($fact->country ?? '') !== '' && $usable('country')) {
+                $fill['country'] = $fact->country;
+            }
+            if (($product->region ?? '') === '' && ($fact->region ?? '') !== '' && $usable('region')) {
+                $fill['region'] = $fact->region;
+            }
+
+            if ($fill !== []) {
+                $enriched[$product->id] = $fill;
+            }
+        }
+
+        return $enriched;
+    }
+
     public function render()
     {
         $repository = new ProductRepository;
@@ -275,6 +329,11 @@ class Index extends Component
             direction: $this->direction,
             supplierIds: $supplierIds,
         );
+
+        // Gap-fill missing attributes from the shared wine-facts store (grape,
+        // colour, origin — never prices). Enriched values are marked in the UI
+        // as populated from another vendor's data; the source is never named.
+        $enriched = $this->enrichments($products->items());
 
         // Resolve basket lines into product DTOs + line totals — only for wines
         // from connected suppliers (a tampered basket can't leak others' pricing).
@@ -300,6 +359,7 @@ class Index extends Component
 
         return view('livewire.catalogue.index', [
             'products' => $products,
+            'enriched' => $enriched,
             'countries' => $repository->countries($connectedIds),
             'colours' => WineColour::cases(),
             'connectedSuppliers' => $connected,

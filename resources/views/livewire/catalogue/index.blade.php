@@ -87,15 +87,29 @@
                 </thead>
                 <tbody class="divide-y divide-border">
                     @foreach($products as $product)
+                        @php($fill = $enriched[$product->id] ?? [])
                         <tr wire:key="product-{{ $product->id }}" class="hover:bg-accent/40">
                             <td class="px-3 py-2.5">
                                 <div class="font-medium text-foreground">{{ $product->wine_name }}</div>
                                 @if($product->producer)
                                     <div class="text-xs text-muted-foreground">{{ $product->producer }}</div>
                                 @endif
+                                @if($product->grape)
+                                    <div class="text-xs text-muted-foreground">{{ implode(', ', $product->grape) }}</div>
+                                @elseif(isset($fill['grape']))
+                                    <div class="text-xs text-muted-foreground">
+                                        <x-enriched-fact>{{ implode(', ', $fill['grape']) }}</x-enriched-fact>
+                                    </div>
+                                @endif
                             </td>
                             <td class="px-3 py-2.5 text-muted-foreground">
-                                {{ $product->country ?? '–' }}@if($product->region)<span class="text-xs"> · {{ $product->region }}</span>@endif
+                                @if($product->country)
+                                    {{ $product->country }}@if($product->region)<span class="text-xs"> · {{ $product->region }}</span>@elseif(isset($fill['region'])) <x-enriched-fact class="text-xs">{{ $fill['region'] }}</x-enriched-fact>@endif
+                                @elseif(isset($fill['country']))
+                                    <x-enriched-fact>{{ $fill['country'] }}@if(isset($fill['region']))<span class="text-xs"> · {{ $fill['region'] }}</span>@endif</x-enriched-fact>
+                                @else
+                                    –
+                                @endif
                             </td>
                             <td class="px-3 py-2.5">
                                 @if($product->colour)
@@ -103,6 +117,13 @@
                                         <span class="size-3 rounded-full ring-1 ring-border" style="background-color: {{ $product->colour->getSwatch() }}"></span>
                                         {{ $product->colour->getLabel() }}
                                     </span>
+                                @elseif(isset($fill['colour']))
+                                    <x-enriched-fact>
+                                        <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                            <span class="size-3 rounded-full ring-1 ring-border" style="background-color: {{ $fill['colour']->getSwatch() }}"></span>
+                                            {{ $fill['colour']->getLabel() }}
+                                        </span>
+                                    </x-enriched-fact>
                                 @else
                                     –
                                 @endif
