@@ -150,6 +150,111 @@ it('only previews the first chunk of a large PDF until the full run is confirmed
         ->and($doc->fresh()->analysis_notes)->toContain('Preview');
 });
 
+it('studies a structured PDF once, then pattern-parses the WHOLE document with zero extraction tokens', function () {
+    Storage::fake('local');
+    $supplier = Supplier::factory()->create();
+    Storage::disk('local')->put('supplier-documents/big.pdf', 'dummy');
+
+    $doc = SupplierDocument::factory()->create([
+        'supplier_id' => $supplier->id, 'file_name' => 'big.pdf', 'file_type' => 'application/pdf',
+        'storage_path' => 'supplier-documents/big.pdf', 'status' => SupplierDocumentStatus::AwaitingAnalysis->value,
+    ]);
+
+    // A 30-page "monster" whose rows match machine rules (Raeburn-style zones).
+    $coordRows = [];
+    foreach ([1, 15, 30] as $page) {
+        $coordRows[] = [
+            'page' => $page, 'y' => 100.0,
+            'cells' => [
+                ['text' => "Wine {$page}", 'x0' => 260.0, 'x1' => 300.0],
+                ['text' => 'r', 'x0' => 444.0, 'x1' => 450.0],
+                ['text' => '2021', 'x0' => 464.0, 'x1' => 480.0],
+                ['text' => '75/6', 'x0' => 489.0, 'x1' => 500.0],
+            ],
+        ];
+    }
+
+    app()->instance(DocumentTextExtractor::class, new FakeDocumentTextExtractor(pages: 30, rows: $coordRows));
+    $fake = new FakeClaudeClient;
+    $fake->rules = [
+        'zones' => [
+            ['field' => 'wine_name', 'x_min' => '250', 'x_max' => '430'],
+            ['field' => 'colour', 'x_min' => '430', 'x_max' => '460'],
+            ['field' => 'vintage', 'x_min' => '460', 'x_max' => '485'],
+            ['field' => 'format_ml', 'x_min' => '485', 'x_max' => '540'],
+        ],
+        'require' => ['wine_name', 'format_ml'],
+        'colour_map' => [['code' => 'r', 'colour' => 'Red']],
+        'format_unit' => 'cl',
+    ];
+    fakeClaude($fake);
+
+    // Even as a "preview" request (full:false), pattern parsing runs the whole
+    // document — it costs nothing.
+    runAnalysis($doc->id, full: false);
+
+    expect($doc->fresh()->status)->toBe(SupplierDocumentStatus::Analysed)
+        ->and($doc->fresh()->analysis_notes)->toContain('Pattern-parsed')
+        ->and($fake->extractCalls)->toBe(0)        // ZERO LLM extraction calls
+        ->and($fake->deriveRulesCalls)->toBe(1);   // one study call
+
+    $wines = ParsedWine::where('supplier_document_id', $doc->id)->get();
+    expect($wines)->toHaveCount(3)
+        ->and($wines->first()->payload['colour'])->toBe('Red')
+        ->and($wines->first()->payload['format_ml'])->toBe(750)   // 75/6 → 75cl → 750ml
+        ->and($wines->first()->payload['case_size'])->toBe(6)
+        ->and($wines->first()->source_ref)->toBe('p1')
+        ->and($wines->last()->source_ref)->toBe('p30');
+
+    // The reusable recipe stores the machine rules.
+    $profile = SupplierParseProfile::where('supplier_id', $supplier->id)->first();
+    expect($profile->recipe['strategy'])->toBe('pattern')
+        ->and($profile->recipe['rules']['format_unit'])->toBe('cl');
+
+    // A second document reuses the rules without re-studying.
+    Storage::disk('local')->put('supplier-documents/big2.pdf', 'dummy');
+    $doc2 = SupplierDocument::factory()->create([
+        'supplier_id' => $supplier->id, 'file_name' => 'big2.pdf', 'file_type' => 'application/pdf',
+        'storage_path' => 'supplier-documents/big2.pdf', 'status' => SupplierDocumentStatus::AwaitingAnalysis->value,
+    ]);
+    runAnalysis($doc2->id);
+    expect($fake->deriveRulesCalls)->toBe(1)
+        ->and(ParsedWine::where('supplier_document_id', $doc2->id)->count())->toBe(3);
+});
+
+it('falls back to LLM extraction when learned rules match nothing on a new document', function () {
+    Storage::fake('local');
+    $supplier = Supplier::factory()->create();
+    Storage::disk('local')->put('supplier-documents/odd.pdf', 'dummy');
+
+    $doc = SupplierDocument::factory()->create([
+        'supplier_id' => $supplier->id, 'file_name' => 'odd.pdf', 'file_type' => 'application/pdf',
+        'storage_path' => 'supplier-documents/odd.pdf', 'status' => SupplierDocumentStatus::AwaitingAnalysis->value,
+    ]);
+
+    // An existing pattern recipe whose zones don't fit this document at all.
+    SupplierParseProfile::factory()->create([
+        'supplier_id' => $supplier->id, 'company_id' => null, 'mode' => ParseMode::Document->value,
+        'recipe' => ['strategy' => 'pattern', 'rules' => [
+            'zones' => [['field' => 'wine_name', 'x_min' => '900', 'x_max' => '999']],
+            'require' => ['wine_name'],
+        ]],
+    ]);
+
+    // Coordinate rows all OUTSIDE the zone → zero matches → LLM fallback.
+    $coordRows = [['page' => 1, 'y' => 10.0, 'cells' => [['text' => 'Some Wine £9.00', 'x0' => 50.0, 'x1' => 90.0]]]];
+    app()->instance(DocumentTextExtractor::class, new FakeDocumentTextExtractor(pages: 2, rows: $coordRows));
+    $fake = new FakeClaudeClient(wines: [['wine_name' => 'Fallback Wine', 'unit_price' => '9.00']]);
+    fakeClaude($fake);
+
+    runAnalysis($doc->id);
+
+    expect($fake->extractCalls)->toBeGreaterThan(0);
+    expect(ParsedWine::where('supplier_document_id', $doc->id)->get()->pluck('payload.wine_name')->all())->toContain('Fallback Wine');
+    // The recipe was re-learned as an LLM profile.
+    expect(SupplierParseProfile::where('supplier_id', $supplier->id)->where('is_active', true)->first()->recipe['strategy'])->toBe('llm');
+});
+
 // ----------------------------------------------------------------- review ----
 
 it('approves proposed wines into the catalogue (idempotent) via the review screen', function () {

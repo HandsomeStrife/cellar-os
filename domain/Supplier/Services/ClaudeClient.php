@@ -148,6 +148,117 @@ class ClaudeClient
     }
 
     /**
+     * PDF: study a sample of coordinate-extracted rows ONCE and write the
+     * machine rules (zones / regex / maps) that parse this document for free.
+     * The rendered sample shows each cell as [startX]text so zone boundaries
+     * can be proposed. Returns feasible=false when the layout defeats
+     * deterministic parsing (the caller falls back to LLM extraction).
+     *
+     * @return array{feasible: bool, rules: array<string, mixed>, confidence: float, notes: string}
+     */
+    public function deriveRules(string $renderedRows, ?string $model = null): array
+    {
+        $fields = implode(', ', self::FIELDS);
+
+        $system = <<<SYS
+            You are studying a wine trade price list extracted from a PDF as rows of
+            cells, each cell prefixed with its [startX] coordinate. Write MACHINE RULES
+            that a deterministic parser will execute on every row:
+
+            - zones: assign a column to a field by its start-x range (x_min inclusive,
+              x_max exclusive). Use field "ignore" for narrative/noise columns.
+              Target fields: {$fields}.
+            - row_regex: optional PCRE body (NO delimiters) with named groups
+              (?<field>...) from the target fields, matched against the row's
+              non-ignored text joined by spaces. Captures override zone values.
+            - require: fields that must be non-empty for a row to count as a wine
+              (e.g. wine_name + unit_price for a priced table, wine_name + format_ml
+              for a stock list).
+            - carry: fields whose value carries down from previous rows when blank
+              (country/region/producer printed once per group).
+            - section_regex: optional PCRE body with a named group (?<value>...) that
+              identifies section-header rows (e.g. ^[A-Z' ]+:$); section_field is
+              where the current section value lands.
+            - colour_map: style shorthands → one of: Red, White, Rosé, Orange,
+              Sparkling, Dessert, Fortified (e.g. r→Red, w→White, sp→Sparkling).
+            - format_unit: unit for bare numeric bottle sizes ("75" meaning 75cl → "cl").
+
+            Set feasible="no" if columns are too garbled/interleaved for reliable
+            deterministic parsing — be honest; a wrong "yes" silently corrupts data.
+            CRITICAL test: mentally concatenate the cells that would fall in your
+            wine_name zone for a few sample rows. If that text would mix in words
+            from OTHER columns (producer, region, vintage, grape interleaving with
+            the name, e.g. "2024 PLAIMONT, LE wine FRANCE"), the wine names are
+            corrupted and you MUST answer feasible="no" — clean tail columns
+            (price/size/abv) alone do not make a document feasible.
+            Use "" or [] for anything unused. All numbers as strings.
+            SYS;
+
+        $zoneFields = array_merge(self::FIELDS, ['ignore']);
+        $colours = ['Red', 'White', 'Rosé', 'Orange', 'Sparkling', 'Dessert', 'Fortified'];
+
+        $schema = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'properties' => [
+                'feasible' => ['type' => 'string', 'enum' => ['yes', 'no']],
+                'zones' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'properties' => [
+                            'field' => ['type' => 'string', 'enum' => $zoneFields],
+                            'x_min' => ['type' => 'string'],
+                            'x_max' => ['type' => 'string'],
+                        ],
+                        'required' => ['field', 'x_min', 'x_max'],
+                    ],
+                ],
+                'row_regex' => ['type' => 'string'],
+                'require' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::FIELDS]],
+                'carry' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::FIELDS]],
+                'section_regex' => ['type' => 'string'],
+                'section_field' => ['type' => 'string'],
+                'colour_map' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'properties' => [
+                            'code' => ['type' => 'string'],
+                            'colour' => ['type' => 'string', 'enum' => $colours],
+                        ],
+                        'required' => ['code', 'colour'],
+                    ],
+                ],
+                'format_unit' => ['type' => 'string', 'enum' => ['cl', 'ml', 'l', '']],
+                'confidence' => ['type' => 'number'],
+                'notes' => ['type' => 'string'],
+            ],
+            'required' => ['feasible', 'zones', 'row_regex', 'require', 'carry', 'section_regex', 'section_field', 'colour_map', 'format_unit', 'confidence', 'notes'],
+        ];
+
+        $out = $this->call($system, "Sample rows:\n\n".$renderedRows, $schema, $model, 4000);
+
+        return [
+            'feasible' => ($out['feasible'] ?? 'no') === 'yes',
+            'rules' => [
+                'zones' => $out['zones'] ?? [],
+                'row_regex' => (string) ($out['row_regex'] ?? ''),
+                'require' => $out['require'] ?? [],
+                'carry' => $out['carry'] ?? [],
+                'section_regex' => (string) ($out['section_regex'] ?? ''),
+                'section_field' => (string) ($out['section_field'] ?? ''),
+                'colour_map' => $out['colour_map'] ?? [],
+                'format_unit' => (string) ($out['format_unit'] ?? ''),
+            ],
+            'confidence' => (float) ($out['confidence'] ?? 0),
+            'notes' => (string) ($out['notes'] ?? ''),
+        ];
+    }
+
+    /**
      * PDF: extract wine rows from one page-range chunk, guided by the recipe and
      * the section context carried from the previous chunk (so header-inherited
      * country/region/producer survive chunk boundaries).

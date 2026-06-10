@@ -13,7 +13,10 @@ use Domain\Supplier\Services\DocumentTextExtractor;
  */
 class FakeDocumentTextExtractor extends DocumentTextExtractor
 {
-    public function __construct(public int $pages = 2, public string $text = 'fake page text') {}
+    /**
+     * @param  array<int, array{page: int, y: float, cells: array<int, array{text: string, x0: float, x1: float}>}>  $rows
+     */
+    public function __construct(public int $pages = 2, public string $text = 'fake page text', public array $rows = []) {}
 
     public function pageCount(string $absolutePath): int
     {
@@ -23,5 +26,14 @@ class FakeDocumentTextExtractor extends DocumentTextExtractor
     public function pageText(string $absolutePath, int $from, int $to): string
     {
         return $this->text;
+    }
+
+    public function pageRows(string $absolutePath, int $from, int $to): array
+    {
+        // Serve only the requested page range, like the real extractor.
+        return array_values(array_filter(
+            $this->rows,
+            fn (array $row) => $row['page'] >= $from && $row['page'] <= $to,
+        ));
     }
 }

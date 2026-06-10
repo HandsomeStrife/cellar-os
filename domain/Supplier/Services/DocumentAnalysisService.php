@@ -41,6 +41,7 @@ class DocumentAnalysisService
         private DocumentTextExtractor $extractor = new DocumentTextExtractor,
         private NormaliseService $normalise = new NormaliseService,
         private SupplierParseProfileRepository $profiles = new SupplierParseProfileRepository,
+        private PatternParseService $pattern = new PatternParseService,
     ) {}
 
     /**
@@ -127,26 +128,43 @@ class DocumentAnalysisService
             );
         }
 
-        // Recipe: reuse the supplier's, else profile the first couple of pages.
+        // Recipe: reuse the supplier's, else STUDY the document once. The study
+        // first tries to write machine rules (pattern strategy — every later
+        // parse is free); only when the layout defeats that does it fall back
+        // to an LLM-extraction profile.
         $profile = $this->profiles->activeForSupplier($document->supplier_id, ParseMode::Document, $document->uploaded_by_company_id);
         $recipe = $profile?->recipe ?? [];
         $confidence = $profile?->confidence ?? 0.0;
         $recipeChanged = false;
 
         if ($recipe === []) {
-            // Sample the opening pages PLUS one from the middle — monster lists
-            // often front-load a contents/producer index that looks nothing like
-            // the actual wine listing.
-            $sample = $this->extractor->pageText($path, 1, min(2, $pages));
+            [$recipe, $confidence] = $this->study($path, $pages, $model);
+            $recipeChanged = true;
+        }
 
-            if ($pages > 6) {
-                $mid = intdiv($pages, 2);
-                $sample .= "\n\n[... a page from the middle of the document ...]\n\n"
-                    .$this->extractor->pageText($path, $mid, $mid);
+        $strategy = $recipe['strategy'] ?? (isset($recipe['rules']) ? 'pattern' : 'llm');
+
+        if ($strategy === 'pattern') {
+            $result = $this->patternParse($document, $path, $pages, $recipe, $confidence);
+
+            if ($result !== null) {
+                [$proposed, $residue] = $result;
+                $this->persist($document, ParseMode::Document, $recipe, $confidence, $proposed, $model, $recipeChanged);
+
+                return $this->summary(
+                    ParseMode::Document,
+                    $proposed,
+                    false,
+                    "Pattern-parsed {$pages} page(s) deterministically (no extraction tokens)."
+                        .($residue > 0 ? " {$residue} unmatched line(s) skipped." : ''),
+                    $model,
+                );
             }
 
-            $derived = $this->claude->deriveProfile($sample, $model);
-            $recipe = ['structure' => $derived['structure'], 'notes' => $derived['notes']];
+            // The learned rules matched nothing on this document — re-study as
+            // an LLM-extraction profile instead.
+            $derived = $this->claude->deriveProfile($this->profileSample($path, $pages), $model);
+            $recipe = ['strategy' => 'llm', 'structure' => $derived['structure'], 'notes' => $derived['notes']];
             $confidence = $derived['confidence'];
             $recipeChanged = true;
         }
@@ -178,6 +196,103 @@ class DocumentAnalysisService
             : "Extracted across {$pages} page(s).";
 
         return $this->summary(ParseMode::Document, $proposed, $preview, $notes, $model);
+    }
+
+    /**
+     * Study an unseen document once: try to derive machine rules (pattern
+     * strategy — re-parses become free); fall back to an LLM-extraction
+     * profile when the layout defeats deterministic parsing.
+     *
+     * @return array{0: array<string, mixed>, 1: float} [recipe, confidence]
+     */
+    private function study(string $path, int $pages, ?string $model): array
+    {
+        // Sample coordinate rows from the document's BODY (monster lists
+        // front-load contents/index pages that look nothing like the listing).
+        $mid = max(1, intdiv($pages, 2));
+        $sampleRows = $this->extractor->pageRows($path, $mid, min($mid + 2, $pages));
+
+        if ($sampleRows !== []) {
+            $derived = $this->claude->deriveRules($this->pattern->renderForStudy($sampleRows), $model);
+            $rules = $this->pattern->sanitise($derived['rules']);
+
+            $usable = $derived['feasible'] && ($rules['zones'] !== [] || $rules['row_regex'] !== '');
+
+            if ($usable) {
+                // Dry-run the rules against the sample before adopting them.
+                $trial = $this->pattern->parse($sampleRows, $derived['rules']);
+
+                if ($trial['matched'] > 0) {
+                    return [
+                        ['strategy' => 'pattern', 'rules' => $derived['rules'], 'notes' => $derived['notes']],
+                        $derived['confidence'],
+                    ];
+                }
+            }
+        }
+
+        $derived = $this->claude->deriveProfile($this->profileSample($path, $pages), $model);
+
+        return [
+            ['strategy' => 'llm', 'structure' => $derived['structure'], 'notes' => $derived['notes']],
+            $derived['confidence'],
+        ];
+    }
+
+    /**
+     * Opening pages plus one from the middle, for LLM-extraction profiling.
+     */
+    private function profileSample(string $path, int $pages): string
+    {
+        $sample = $this->extractor->pageText($path, 1, min(2, $pages));
+
+        if ($pages > 6) {
+            $mid = intdiv($pages, 2);
+            $sample .= "\n\n[... a page from the middle of the document ...]\n\n"
+                .$this->extractor->pageText($path, $mid, $mid);
+        }
+
+        return $sample;
+    }
+
+    /**
+     * Run the stored machine rules over the WHOLE document (deterministic, no
+     * tokens — so no preview gating). Returns null when the rules match
+     * nothing, signalling the caller to fall back to LLM extraction.
+     *
+     * @param  array<string, mixed>  $recipe
+     * @return array{0: array<int, array{payload: array<string, mixed>, confidence: float, flag: string|null, source_ref?: string}>, 1: int}|null [proposed, residue]
+     */
+    private function patternParse(SupplierDocumentData $document, string $path, int $pages, array $recipe, float $confidence): ?array
+    {
+        $proposed = [];
+        $residue = 0;
+        $matched = 0;
+        $state = [];
+
+        for ($from = 1; $from <= $pages; $from += 50) {
+            $rows = $this->extractor->pageRows($path, $from, min($from + 49, $pages));
+            $result = $this->pattern->parse($rows, (array) ($recipe['rules'] ?? []), $state);
+            $state = $result['state'];
+
+            $matched += $result['matched'];
+            $residue += $result['residue'];
+
+            foreach ($result['rows'] as $raw) {
+                $page = $raw['_page'] ?? null;
+                unset($raw['_page']);
+
+                $product = $this->normalise->toProductData($raw, $this->identityMapping(), $document->supplier_id);
+                $checked = $this->vet($product, $confidence);
+
+                if ($checked !== null) {
+                    $checked['source_ref'] = $page !== null ? 'p'.$page : null;
+                    $proposed[] = $checked;
+                }
+            }
+        }
+
+        return $matched === 0 ? null : [$proposed, $residue];
     }
 
     /**

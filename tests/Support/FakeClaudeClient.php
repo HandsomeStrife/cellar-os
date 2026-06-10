@@ -48,6 +48,23 @@ class FakeClaudeClient extends ClaudeClient
         return ['structure' => 'fake structure', 'notes' => 'fake', 'confidence' => $this->confidence];
     }
 
+    /** @var array<string, mixed> canned machine rules; empty = not feasible (LLM path) */
+    public array $rules = [];
+
+    public int $deriveRulesCalls = 0;
+
+    public function deriveRules(string $renderedRows, ?string $model = null): array
+    {
+        $this->deriveRulesCalls++;
+
+        return [
+            'feasible' => $this->rules !== [],
+            'rules' => $this->rules,
+            'confidence' => $this->confidence,
+            'notes' => 'fake rules',
+        ];
+    }
+
     public function extractWines(string $chunkText, array $recipe, array $carrySection, ?string $model = null): array
     {
         $this->extractCalls++;

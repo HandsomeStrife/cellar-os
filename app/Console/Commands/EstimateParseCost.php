@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use Domain\Supplier\Enums\ParseMode;
 use Domain\Supplier\Exceptions\ResponseTruncatedException;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
+use Domain\Supplier\Repositories\SupplierParseProfileRepository;
 use Domain\Supplier\Services\ClaudeClient;
 use Domain\Supplier\Services\DocumentTextExtractor;
 use Illuminate\Console\Command;
@@ -44,10 +46,24 @@ class EstimateParseCost extends Command
             return self::SUCCESS;
         }
 
+        // A supplier with a learned pattern recipe parses deterministically.
+        $profile = (new SupplierParseProfileRepository)->activeForSupplier(
+            $document->supplier_id,
+            ParseMode::Document,
+            $document->uploaded_by_company_id,
+        );
+
+        if ($profile !== null && ($profile->recipe['strategy'] ?? null) === 'pattern') {
+            $this->info('This supplier has a learned PATTERN recipe — parsing runs deterministically and costs nothing.');
+
+            return self::SUCCESS;
+        }
+
         $pages = $extractor->pageCount($path);
         $chunks = (int) ceil($pages / self::CHUNK_PAGES);
 
         $this->info("{$document->file_name}: {$pages} pages → {$chunks} extraction chunks.");
+        $this->line('Note: if the layout is machine-parseable, the first analyse writes free pattern rules (~$0.05 study) and the LLM costs below never apply.');
 
         // Exact input-side text volume (free).
         $fullText = '';
