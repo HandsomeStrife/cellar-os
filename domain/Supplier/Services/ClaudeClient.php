@@ -24,6 +24,19 @@ class ClaudeClient
         'grape', 'colour', 'vintage', 'format_ml', 'case_size', 'unit_price', 'stock',
     ];
 
+    /** USD per MILLION tokens [input, output] per supported model. */
+    public const PRICES = [
+        'claude-opus-4-8' => [5.0, 25.0],
+        'claude-sonnet-4-6' => [3.0, 15.0],
+        'claude-haiku-4-5' => [1.0, 5.0],
+    ];
+
+    /** @var array{input: int, output: int} tokens accumulated across this instance's calls */
+    private array $usage = ['input' => 0, 'output' => 0];
+
+    /** @var array{input: int, output: int}|null tokens of the most recent call */
+    public ?array $last_usage = null;
+
     private ?Client $client = null;
 
     public function __construct(private ?string $apiKey = null, private ?string $defaultModel = null)
@@ -232,6 +245,10 @@ class ClaudeClient
             outputConfig: OutputConfig::with(format: JSONOutputFormat::with(schema: $schema)),
         );
 
+        $this->last_usage = ['input' => $message->usage->inputTokens, 'output' => $message->usage->outputTokens];
+        $this->usage['input'] += $message->usage->inputTokens;
+        $this->usage['output'] += $message->usage->outputTokens;
+
         if ($message->stopReason === 'max_tokens') {
             throw new ResponseTruncatedException('The response was cut off (chunk too dense).');
         }
@@ -244,6 +261,37 @@ class ClaudeClient
         }
 
         return $decoded;
+    }
+
+    /**
+     * Tokens spent across this instance's calls (input/output).
+     *
+     * @return array{input: int, output: int}
+     */
+    public function usageTotals(): array
+    {
+        return $this->usage;
+    }
+
+    /**
+     * Cost in USD of the accumulated usage at a model's prices.
+     */
+    public function usageCost(?string $model = null): float
+    {
+        [$in, $out] = self::PRICES[$model ?: $this->defaultModel] ?? self::PRICES['claude-opus-4-8'];
+
+        return ($this->usage['input'] / 1_000_000) * $in + ($this->usage['output'] / 1_000_000) * $out;
+    }
+
+    /**
+     * Exact input-token count for a text (the count-tokens endpoint is free).
+     */
+    public function countTokens(string $text, ?string $model = null): int
+    {
+        return $this->client()->messages->countTokens(
+            messages: [['role' => 'user', 'content' => $text]],
+            model: $model ?: $this->defaultModel,
+        )->inputTokens;
     }
 
     private function client(): Client

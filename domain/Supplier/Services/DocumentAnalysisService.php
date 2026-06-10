@@ -108,7 +108,7 @@ class DocumentAnalysisService
         // Keep the manual import wizard's remembered mapping in sync.
         (new SaveColumnMappingAction)->execute($document->supplier_id, $mapping);
 
-        return $this->summary(ParseMode::Tabular, $proposed, false, $notes);
+        return $this->summary(ParseMode::Tabular, $proposed, false, $notes, $model);
     }
 
     /**
@@ -117,6 +117,15 @@ class DocumentAnalysisService
     private function analyseDocument(SupplierDocumentData $document, string $path, bool $full, ?string $model): array
     {
         $pages = $this->extractor->pageCount($path);
+
+        // A PDF with no text layer is a scan/image — pdftotext yields nothing
+        // and the parser would silently produce zero wines. Fail with a clear
+        // reason instead (OCR is a future enhancement).
+        if (trim($this->extractor->pageText($path, 1, min(3, $pages))) === '') {
+            throw new RuntimeException(
+                'This PDF appears to be a scanned/image document (no text layer). OCR is not yet supported — please upload a text-based PDF or a spreadsheet.'
+            );
+        }
 
         // Recipe: reuse the supplier's, else profile the first couple of pages.
         $profile = $this->profiles->activeForSupplier($document->supplier_id, ParseMode::Document, $document->uploaded_by_company_id);
@@ -168,7 +177,7 @@ class DocumentAnalysisService
             ? 'Preview of pages 1-'.$lastPage." (of {$pages}). Approve to import, or run the full extraction."
             : "Extracted across {$pages} page(s).";
 
-        return $this->summary(ParseMode::Document, $proposed, $preview, $notes);
+        return $this->summary(ParseMode::Document, $proposed, $preview, $notes, $model);
     }
 
     /**
@@ -343,16 +352,22 @@ class DocumentAnalysisService
      * @param  array<int, array{flag: string|null}>  $proposed
      * @return array{mode: string, stored: int, preview: bool, notes: string}
      */
-    private function summary(ParseMode $mode, array $proposed, bool $preview, string $notes): array
+    private function summary(ParseMode $mode, array $proposed, bool $preview, string $notes, ?string $model = null): array
     {
         $flagged = count(array_filter($proposed, fn ($r) => $r['flag'] !== null));
         $count = count($proposed);
+
+        // Record the real token spend so users can calibrate future runs.
+        $usage = $this->claude->usageTotals();
+        $cost = $usage['input'] + $usage['output'] > 0
+            ? sprintf(' Tokens: %s in / %s out (~$%.2f).', number_format($usage['input']), number_format($usage['output']), $this->claude->usageCost($model))
+            : '';
 
         return [
             'mode' => $mode->value,
             'stored' => $count,
             'preview' => $preview,
-            'notes' => "Parsed {$count} wine(s)".($flagged > 0 ? ", {$flagged} flagged for review" : '').'. '.$notes,
+            'notes' => "Parsed {$count} wine(s)".($flagged > 0 ? ", {$flagged} flagged for review" : '').'. '.$notes.$cost,
         ];
     }
 }

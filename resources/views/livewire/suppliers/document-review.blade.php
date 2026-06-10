@@ -63,7 +63,7 @@
                 @endif
                 <x-button wire:click="saveRecipe" variant="outline" class="w-full" size="sm">Save corrections to recipe</x-button>
                 <div>
-                    <x-input.select name="model" label="Model (re-run)" :options="['claude-opus-4-8' => 'Opus 4.8 (best)', 'claude-sonnet-4-6' => 'Sonnet 4.6 (cheaper)']" wire:model="model" />
+                    <x-input.select name="model" label="Model (re-run)" :options="['claude-opus-4-8' => 'Opus 4.8 (best)', 'claude-sonnet-4-6' => 'Sonnet 4.6 (cheaper)', 'claude-haiku-4-5' => 'Haiku 4.5 (cheapest)']" wire:model="model" />
                     <x-button wire:click="reanalyse" variant="ghost" size="sm" class="mt-1">Re-analyse</x-button>
                 </div>
             </div>
