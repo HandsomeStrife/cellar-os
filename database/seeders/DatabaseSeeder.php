@@ -109,45 +109,77 @@ class DatabaseSeeder extends Seeder
             ->limit($n)
             ->get();
 
+        // STARTER — getting going: one supplier, first orders, a little stock.
         $starter = $this->company('Tasting Room Wines', Plan::Starter);
         $starterOwner = $this->owner($starter, 'starter@cellaros.test', 'Marcus Trent');
         $starterVenue = $this->venue($starter, 'The Tasting Room', 'Bristol');
         $this->connectSupplier($starter, $first, [$starterVenue]);
-        $w = $wines($first, 2);
-        if ($w->count() >= 2) {
+        $w = $wines($first, 5);
+        if ($w->count() >= 5) {
             $this->inventory($starterVenue, $w[0], 18, 6);
+            $this->inventory($starterVenue, $w[3], 12, 9);
             $this->order($starterOwner, $starterVenue, $first, OrderStatus::Draft, 'First order: by-the-glass restock.', [[$w[0], 12], [$w[1], 6]]);
+            $this->order($starterOwner, $starterVenue, $first, OrderStatus::Sent, 'Topping up the house pours.', [[$w[2], 6], [$w[4], 6]]);
         }
 
+        // PRO — fully operational single venue: three suppliers, stock across
+        // the cellar, orders at every point of the lifecycle, low-stock alerts.
         $pro = $this->company('Cellar Door Group', Plan::Pro);
         $proOwner = $this->owner($pro, 'demo@cellaros.test', 'Demo Sommelier');
         $proVenue = $this->venue($pro, 'The Cellar Door', 'London');
         $this->connectSupplier($pro, $first, [$proVenue]);
         $this->connectSupplier($pro, $second, [$proVenue]);
         $this->connectSupplier($pro, $third, [$proVenue]);
-        $a = $wines($first, 3);
-        $b = $wines($second, 2);
-        if ($a->count() >= 3 && $b->count() >= 2) {
+        $a = $wines($first, 8);
+        $b = $wines($second, 6);
+        $c = $wines($third, 3);
+        if ($a->count() >= 8 && $b->count() >= 6) {
+            // A working cellar: mixed quantities and ages…
             $this->inventory($proVenue, $a[0], 24, 5);
+            $this->inventory($proVenue, $a[3], 18, 12);
+            $this->inventory($proVenue, $a[5], 36, 3);
             $this->inventory($proVenue, $b[0], 18, 12);
-            $this->order($proOwner, $proVenue, $first, OrderStatus::Sent, 'Cellar restock for the autumn list.', [[$a[1], 12], [$a[2], 6]]);
-            $this->order($proOwner, $proVenue, $second, OrderStatus::Received, 'Received: fine wine allocation.', [[$b[1], 6]]);
+            $this->inventory($proVenue, $b[2], 30, 8);
+            // …including two on low stock, so the dashboard alerts have teeth.
+            $this->inventory($proVenue, $a[6], 2, 25);
+            $this->inventory($proVenue, $b[4], 3, 30);
+
+            $this->order($proOwner, $proVenue, $first, OrderStatus::Draft, 'Autumn list: building the next order.', [[$a[1], 12], [$a[2], 6], [$a[7], 6]]);
+            $this->order($proOwner, $proVenue, $first, OrderStatus::Sent, 'Cellar restock for the autumn list.', [[$a[4], 12], [$a[6], 12]]);
+            $this->order($proOwner, $proVenue, $second, OrderStatus::Sent, 'Fine wine allocation request.', [[$b[1], 6], [$b[3], 6]]);
+            $this->order($proOwner, $proVenue, $second, OrderStatus::Received, 'Received: fine wine allocation.', [[$b[5], 6]]);
+        }
+        if ($c->count() >= 3) {
+            $this->order($proOwner, $proVenue, $third, OrderStatus::Received, 'Received: mixed case for the tasting menu.', [[$c[0], 6], [$c[1], 6], [$c[2], 6]]);
         }
 
+        // GROUP — two venues with their own suppliers, stock and orders; the
+        // member only ever sees Riverside.
         $group = $this->company('Anand Restaurant Group', Plan::Group);
         $groupOwner = $this->owner($group, 'group@cellaros.test', 'Priya Anand');
+        $member = $this->teammate($group, 'group.member@cellaros.test', 'Leo Carter', Role::Member);
         $hq = $this->venue($group, 'Group HQ Cellar', 'Manchester');
         $riverside = $this->venue($group, 'Riverside Brasserie', 'Leeds');
+        $this->connectSupplier($group, $first, [$hq, $riverside]);
         $this->connectSupplier($group, $second, [$hq]);
         $this->connectSupplier($group, $third, [$riverside]);
-        $g = $wines($second, 1);
-        $r = $wines($third, 1);
-        if ($g->isNotEmpty()) {
+        $g = $wines($second, 4);
+        $r = $wines($third, 3);
+        $f = $wines($first, 12);
+        if ($g->count() >= 4) {
             $this->inventory($hq, $g[0], 36, 4);
-            $this->order($groupOwner, $hq, $second, OrderStatus::Received, 'HQ: flagship restock.', [[$g[0], 12]]);
+            $this->inventory($hq, $g[1], 24, 12);
+            $this->order($groupOwner, $hq, $second, OrderStatus::Received, 'HQ: flagship restock.', [[$g[2], 12]]);
+            $this->order($groupOwner, $hq, $second, OrderStatus::Sent, 'HQ: cellar plan for December.', [[$g[3], 12], [$g[0], 6]]);
         }
-        if ($r->isNotEmpty()) {
+        if ($f->count() >= 12) {
+            $this->inventory($hq, $f[9], 48, 6);
+            $this->order($groupOwner, $hq, $first, OrderStatus::Draft, 'HQ: considering the new arrivals.', [[$f[10], 12]]);
+        }
+        if ($r->count() >= 3) {
             $this->inventory($riverside, $r[0], 30, 7);
+            $this->inventory($riverside, $r[1], 12, 14);
+            $this->order($member, $riverside, $third, OrderStatus::Draft, 'Riverside: summer list ideas.', [[$r[2], 12]]);
         }
     }
 }

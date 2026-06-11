@@ -8,6 +8,14 @@
     <li><strong>Sort</strong> any column (name, origin, vintage, price, stock), click the header again to flip the direction.</li>
 </ul>
 
+<h2>Filled-in wine details</h2>
+<p>Your supplier's own information always comes first. When their list leaves a gap — a missing grape variety, colour or origin — CellarOS fills it in from elsewhere and clearly says so:</p>
+<ul>
+    <li>A <strong>book icon</strong> means the detail comes from the <strong>Liv-ex LWIN wine database</strong>, the wine trade's shared reference of more than 200,000 wines.</li>
+    <li>A <strong>sparkle icon</strong> means another supplier on CellarOS lists the same wine and provided the detail (we never say which supplier).</li>
+</ul>
+<p>Hover over the dotted underline to see where a value came from. Nothing your supplier provides is ever changed or overwritten — these fills only appear where their list said nothing, and if different sources disagree about a detail, CellarOS leaves it blank rather than guess.</p>
+
 <h2>Editing a price</h2>
 <p>Click a price to edit it inline; press Enter to save. CellarOS recalculates the price-per-litre from the bottle format automatically.</p>
 
