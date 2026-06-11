@@ -98,7 +98,7 @@
                                     <div class="text-xs text-muted-foreground">{{ implode(', ', $product->grape) }}</div>
                                 @elseif(isset($fill['grape']))
                                     <div class="text-xs text-muted-foreground">
-                                        <x-enriched-fact>{{ implode(', ', $fill['grape']) }}</x-enriched-fact>
+                                        <x-enriched-fact :source="$fill['grape']['source']">{{ implode(', ', $fill['grape']['value']) }}</x-enriched-fact>
                                     </div>
                                 @endif
                             </td>
@@ -107,14 +107,14 @@
                                 @if($product->country)
                                     {{ $product->country }}
                                 @elseif(isset($fill['country']))
-                                    <x-enriched-fact>{{ $fill['country'] }}</x-enriched-fact>
+                                    <x-enriched-fact :source="$fill['country']['source']">{{ $fill['country']['value'] }}</x-enriched-fact>
                                 @else
                                     –
                                 @endif
                                 @if($product->region)
                                     <span class="text-xs"> · {{ $product->region }}</span>
                                 @elseif(isset($fill['region']))
-                                    <span class="text-xs">· </span><x-enriched-fact class="text-xs">{{ $fill['region'] }}</x-enriched-fact>
+                                    <span class="text-xs">· </span><x-enriched-fact class="text-xs" :source="$fill['region']['source']">{{ $fill['region']['value'] }}</x-enriched-fact>
                                 @endif
                             </td>
                             <td class="px-3 py-2.5">
@@ -124,10 +124,10 @@
                                         {{ $product->colour->getLabel() }}
                                     </span>
                                 @elseif(isset($fill['colour']))
-                                    <x-enriched-fact>
+                                    <x-enriched-fact :source="$fill['colour']['source']">
                                         <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                            <span class="size-3 rounded-full ring-1 ring-border" style="background-color: {{ $fill['colour']->getSwatch() }}"></span>
-                                            {{ $fill['colour']->getLabel() }}
+                                            <span class="size-3 rounded-full ring-1 ring-border" style="background-color: {{ $fill['colour']['value']->getSwatch() }}"></span>
+                                            {{ $fill['colour']['value']->getLabel() }}
                                         </span>
                                     </x-enriched-fact>
                                 @else

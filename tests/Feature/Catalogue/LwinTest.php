@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Catalogue\Index;
+use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Models\Lwin;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Catalogue\Services\LwinMatchService;
+use Domain\Supplier\Actions\ConnectCompanyToSupplierAction;
 use Domain\Supplier\Models\Supplier;
 use Domain\Supplier\Services\ClaudeClient;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\Support\FakeClaudeClient;
 
 function lwinFixtureCsv(): string
@@ -105,4 +111,73 @@ it('rejects model picks that are not in the candidate list', function () {
     (new LwinMatchService($fake))->match(withLlm: true);
 
     expect($product->fresh()->lwin)->toBeNull(); // invalid pick discarded
+});
+
+it('gap-fills the catalogue from LWIN with a distinct source label, supplier data first', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('lwin/lwin-database.csv', lwinFixtureCsv());
+    $this->artisan('wine:lwin-refresh')->assertSuccessful();
+
+    [$company, $user] = makeTenant();
+    $supplier = Supplier::factory()->create();
+    (new ConnectCompanyToSupplierAction)->execute($company->id, $supplier->id);
+
+    // Linked to an LWIN; the supplier's list gave no country/region/colour.
+    $bare = Product::factory()->create([
+        'supplier_id' => $supplier->id, 'wine_name' => 'Chablis Premier Cru', 'producer' => 'Laroche',
+        'country' => null, 'region' => null, 'colour' => null,
+        'lwin' => '1012316', 'lwin_source' => 'identity',
+    ]);
+    // Same wine but the supplier DID provide a (divergent) country — own data must win.
+    $own = Product::factory()->create([
+        'supplier_id' => $supplier->id, 'wine_name' => 'Margaux', 'producer' => 'Margaux',
+        'country' => 'SupplierSaysFrance', 'region' => 'SupplierSaysBordeaux',
+        'lwin' => '1011247', 'lwin_source' => 'identity',
+    ]);
+
+    $component = Livewire\Livewire::actingAs($user)->test(Index::class);
+
+    $enriched = $component->viewData('enriched');
+
+    expect($enriched[$bare->id]['country'])->toBe(['value' => 'France', 'source' => 'lwin'])
+        ->and($enriched[$bare->id]['region'])->toBe(['value' => 'Burgundy', 'source' => 'lwin'])
+        ->and($enriched[$bare->id]['colour']['value'])->toBe(WineColour::White)
+        ->and(isset($enriched[$own->id]['country']))->toBeFalse()   // supplier's own value never overridden
+        ->and(isset($enriched[$own->id]['region']))->toBeFalse();
+
+    $component->assertSee('From the Liv-ex LWIN wine database', false);
+});
+
+it('syncs the LWIN file weekly only when the SHA changes', function () {
+    Storage::fake('local');
+
+    // A minimal real xlsx body, built with the library already in the project.
+    $sheet = new Spreadsheet;
+    $sheet->getActiveSheet()->fromArray([
+        ['LWIN', 'STATUS', 'DISPLAY_NAME', 'PRODUCER_NAME', 'WINE', 'COUNTRY', 'REGION', 'COLOUR'],
+        ['1012316', 'Live', 'Domaine Laroche, Chablis Premier Cru', 'Laroche', 'Chablis Premier Cru', 'France', 'Burgundy', 'White'],
+    ]);
+    $tmp = tempnam(sys_get_temp_dir(), 'lwin').'.xlsx';
+    (new Xlsx($sheet))->save($tmp);
+    $body = file_get_contents($tmp);
+    unlink($tmp);
+
+    Http::fake(['*' => Http::response($body)]);
+
+    // First sync: imports.
+    $this->artisan('wine:lwin-sync')
+        ->expectsOutputToContain('First sync — importing.')
+        ->assertSuccessful();
+    expect(Lwin::count())->toBe(1)
+        ->and(Lwin::first()->display_name)->toBe('Domaine Laroche, Chablis Premier Cru');
+
+    // Second sync, same bytes: SHA-gated no-op.
+    $this->artisan('wine:lwin-sync')
+        ->expectsOutputToContain('unchanged')
+        ->assertSuccessful();
+
+    // --force re-imports regardless.
+    $this->artisan('wine:lwin-sync', ['--force' => true])
+        ->expectsOutputToContain('importing')
+        ->assertSuccessful();
 });

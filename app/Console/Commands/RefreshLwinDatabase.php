@@ -8,8 +8,6 @@ use Domain\Catalogue\Models\Lwin;
 use Domain\Catalogue\Support\WineIdentity;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Reader\IReadFilter;
 
 /**
  * Imports/refreshes the Liv-ex LWIN reference database from the published file
@@ -174,57 +172,104 @@ class RefreshLwinDatabase extends Command
     }
 
     /**
-     * xlsx in chunked passes (PhpSpreadsheet holds whole loads in memory, so
-     * a 200k-row file is read 10k rows at a time).
+     * Streams xlsx rows via XMLReader (ZipArchive + sheet XML) — PhpSpreadsheet
+     * would need the whole 200k-row sheet in memory or repeated full parses.
      *
      * @return \Generator<int, array<string, string>>
      */
     private function xlsxRows(string $path): \Generator
     {
-        $chunk = 10000;
-        $start = 1;
+        $zip = new \ZipArchive;
+
+        if ($zip->open($path) !== true) {
+            return;
+        }
+
+        // Shared strings (cell values of type s reference this table).
+        $shared = [];
+        $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+        if ($sharedXml !== false) {
+            $reader = new \XMLReader;
+            $reader->XML($sharedXml);
+            while ($reader->read()) {
+                if ($reader->nodeType === \XMLReader::ELEMENT && $reader->name === 'si') {
+                    $node = simplexml_load_string($reader->readOuterXml());
+                    $text = '';
+                    foreach ($node->xpath('.//*[local-name()="t"]') ?: [] as $t) {
+                        $text .= (string) $t;
+                    }
+                    $shared[] = $text;
+                }
+            }
+            $reader->close();
+        }
+
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+
+        if ($sheetXml === false) {
+            return;
+        }
+
+        $reader = new \XMLReader;
+        $reader->XML($sheetXml);
         $map = null;
 
-        while (true) {
-            $reader = IOFactory::createReaderForFile($path);
-            $reader->setReadDataOnly(true);
-            $reader->setReadFilter(new class($start, $chunk) implements IReadFilter
-            {
-                public function __construct(private int $start, private int $chunk) {}
+        while ($reader->read()) {
+            if ($reader->nodeType !== \XMLReader::ELEMENT || $reader->name !== 'row') {
+                continue;
+            }
 
-                public function readCell(string $columnAddress, int $row, string $worksheetName = ''): bool
-                {
-                    return $row === 1 || ($row >= $this->start && $row < $this->start + $this->chunk);
+            $row = simplexml_load_string($reader->readOuterXml());
+            $line = [];
+
+            foreach ($row->c as $cell) {
+                $ref = (string) $cell['r'];
+                $index = $this->columnIndex(preg_replace('/\d+/', '', $ref) ?? '');
+                $type = (string) $cell['t'];
+                $value = (string) ($cell->v ?? '');
+
+                if ($type === 's') {
+                    $value = $shared[(int) $value] ?? '';
+                } elseif ($type === 'inlineStr') {
+                    $value = (string) ($cell->is->t ?? '');
                 }
-            });
 
-            $sheet = $reader->load($path)->getActiveSheet();
-            $rows = $sheet->toArray(null, false, false, false);
+                $line[$index] = $value;
+            }
+
+            if ($line === []) {
+                continue;
+            }
+
+            // Re-key into a dense 0..n array (missing cells become '').
+            $dense = array_fill(0, max(array_keys($line)) + 1, '');
+            foreach ($line as $i => $v) {
+                $dense[$i] = $v;
+            }
 
             if ($map === null) {
-                $map = $this->headerMap(array_map(fn ($v) => (string) ($v ?? ''), $rows[0] ?? []));
+                $map = $this->headerMap($dense);
+
+                continue;
             }
 
-            $yielded = 0;
-            foreach ($rows as $i => $line) {
-                $absolute = $i + 1; // toArray is 0-indexed from row 1 due to the filter including row 1
-                if ($absolute === 1 || $line === null) {
-                    continue;
-                }
-                $line = array_map(fn ($v) => (string) ($v ?? ''), $line);
-                if (implode('', $line) === '') {
-                    continue;
-                }
-                yield $this->mapRow($line, $map);
-                $yielded++;
-            }
-
-            if ($yielded === 0) {
-                break;
-            }
-
-            $start = $start === 1 ? 1 + $chunk : $start + $chunk;
+            yield $this->mapRow($dense, $map);
         }
+
+        $reader->close();
+    }
+
+    /** Column letters ("A", "AB") to a zero-based index. */
+    private function columnIndex(string $letters): int
+    {
+        $index = 0;
+
+        foreach (str_split(strtoupper($letters)) as $char) {
+            $index = $index * 26 + (ord($char) - 64);
+        }
+
+        return max(0, $index - 1);
     }
 
     /**

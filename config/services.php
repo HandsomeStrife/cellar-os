@@ -45,6 +45,11 @@ return [
      * (Domain\Supplier\Services\DocumentAnalysisService). Without a key the
      * parser fails closed and the document lands on Failed with a clear reason.
      */
+    'lwin' => [
+        // The Liv-ex LWIN database (Creative Commons) published file.
+        'url' => env('LWIN_DATABASE_URL', 'https://s3-eu-west-1.amazonaws.com/lwin-dictionary/latest/LWINdatabase.xlsx'),
+    ],
+
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
         'model' => env('ANTHROPIC_MODEL', 'claude-opus-4-8'),

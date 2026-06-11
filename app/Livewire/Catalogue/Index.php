@@ -10,6 +10,7 @@ use Domain\Catalogue\Actions\DeleteProductAction;
 use Domain\Catalogue\Actions\UpdateProductPriceAction;
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Repositories\LwinRepository;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Catalogue\Repositories\WineFactRepository;
 use Domain\Catalogue\Support\WineIdentity;
@@ -273,29 +274,46 @@ class Index extends Component
         }
 
         $facts = (new WineFactRepository)->forIdentities(array_values($keys));
+        $lwins = (new LwinRepository)->forProducts(array_map(fn ($p) => $p->id, $products));
 
         $enriched = [];
         foreach ($products as $product) {
-            $fact = $facts[$keys[$product->id] ?? ''] ?? null;
-            if ($fact === null) {
-                continue;
-            }
-
-            // Contested fields (suppliers disagree) are withheld entirely.
-            $usable = fn (string $field) => ! in_array($field, $fact->conflicted_fields, true);
-
             $fill = [];
-            if (($product->grape ?? []) === [] && ($fact->grape ?? []) !== [] && $usable('grape')) {
-                $fill['grape'] = $fact->grape;
+
+            // The supplier's OWN data always wins — enrichment only ever fills
+            // gaps. LWIN reference data (curated) fills first; other vendors'
+            // facts fill what remains. Each fill carries its source so the UI
+            // can say where the value came from.
+            $lwin = $lwins[$product->id] ?? null;
+            if ($lwin !== null) {
+                if ($product->colour === null && $lwin->colour !== null) {
+                    $fill['colour'] = ['value' => $lwin->colour, 'source' => 'lwin'];
+                }
+                if (($product->country ?? '') === '' && ($lwin->country ?? '') !== '') {
+                    $fill['country'] = ['value' => $lwin->country, 'source' => 'lwin'];
+                }
+                if (($product->region ?? '') === '' && ($lwin->region ?? '') !== '') {
+                    $fill['region'] = ['value' => $lwin->region, 'source' => 'lwin'];
+                }
             }
-            if ($product->colour === null && $fact->colour !== null && $usable('colour')) {
-                $fill['colour'] = $fact->colour;
-            }
-            if (($product->country ?? '') === '' && ($fact->country ?? '') !== '' && $usable('country')) {
-                $fill['country'] = $fact->country;
-            }
-            if (($product->region ?? '') === '' && ($fact->region ?? '') !== '' && $usable('region')) {
-                $fill['region'] = $fact->region;
+
+            $fact = $facts[$keys[$product->id] ?? ''] ?? null;
+            if ($fact !== null) {
+                // Contested fields (suppliers disagree) are withheld entirely.
+                $usable = fn (string $field) => ! in_array($field, $fact->conflicted_fields, true);
+
+                if (($product->grape ?? []) === [] && ($fact->grape ?? []) !== [] && $usable('grape')) {
+                    $fill['grape'] = ['value' => $fact->grape, 'source' => 'vendor'];
+                }
+                if (! isset($fill['colour']) && $product->colour === null && $fact->colour !== null && $usable('colour')) {
+                    $fill['colour'] = ['value' => $fact->colour, 'source' => 'vendor'];
+                }
+                if (! isset($fill['country']) && ($product->country ?? '') === '' && ($fact->country ?? '') !== '' && $usable('country')) {
+                    $fill['country'] = ['value' => $fact->country, 'source' => 'vendor'];
+                }
+                if (! isset($fill['region']) && ($product->region ?? '') === '' && ($fact->region ?? '') !== '' && $usable('region')) {
+                    $fill['region'] = ['value' => $fact->region, 'source' => 'vendor'];
+                }
             }
 
             if ($fill !== []) {
