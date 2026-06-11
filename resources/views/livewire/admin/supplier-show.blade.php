@@ -81,6 +81,12 @@
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
                                     <div class="flex items-center justify-end gap-1">
+                                        <form method="POST" action="{{ route('admin.impersonate.supplier-user', $user->id) }}">
+                                            @csrf
+                                            <x-button type="submit" variant="ghost" size="sm" aria-label="Impersonate {{ $user->email }}" title="View the portal as this user">
+                                                <x-icon.eye class="size-4" />
+                                            </x-button>
+                                        </form>
                                         <x-button wire:click="resendInvite({{ $user->id }})" variant="ghost" size="sm" aria-label="Resend invite">
                                             <x-icon.mail class="size-4" />
                                         </x-button>

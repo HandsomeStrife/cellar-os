@@ -1,13 +1,13 @@
 @php
     $accounts = [
-        ['demo@cellaros.test', 'Pro', 'A fully operational single venue: received stock plus purchase orders across the whole lifecycle (draft, sent and received).'],
-        ['free@cellaros.test', 'Free', 'A brand-new account: the empty dashboard and getting-started checklist, before any stock or orders exist.'],
-        ['starter@cellaros.test', 'Starter', 'Getting going: a draft and a sent order, with a little received stock building up.'],
-        ['group@cellaros.test', 'Group', 'A multi-venue operation: two venues, each with their own inventory and orders.'],
+        ['demo@cellaros.test', 'Pro', 'A fully operational single venue: connected to real supplier catalogues, with received stock and purchase orders across the lifecycle.'],
+        ['free@cellaros.test', 'Free', 'A brand-new account: the empty dashboard and getting-started checklist, before any suppliers are connected.'],
+        ['starter@cellaros.test', 'Starter', 'Getting going: connected to a first supplier, with an early order and a little received stock.'],
+        ['group@cellaros.test', 'Group', 'A multi-venue operation: two venues with their own inventory, plus a team member who can only see one of them.'],
     ];
 @endphp
 
-<p>The demo environment ships with ready-made accounts so you can explore CellarOS from a few different starting points. Every account uses the password <code>password</code>.</p>
+<p>CellarOS ships with ready-made demo accounts so you can explore from a few different starting points. Every account uses the password <code>password</code>, and they browse the platform's <em>real</em> supplier catalogues — thousands of wines from the trade suppliers listed in Discover.</p>
 
 <div class="callout">
     These are sample accounts for trying out CellarOS. They share demo data, so please don't store anything you want to keep in them.
@@ -39,38 +39,12 @@
 
 <h2>Administrator</h2>
 <p class="meta">Sign in at <code>/admin</code></p>
-<p>The back-office is a separate login from the user app. Use <code>admin@cellaros.test</code> with the password <code>password</code> to reach the platform overview, user management and <a href="{{ url('/guide/admin') }}" wire:navigate>enquiry review</a>.</p>
+<p>The back-office is a separate login from the user app. Use <code>admin@cellaros.test</code> with the password <code>password</code> to reach the platform overview, supplier management (profiles, notes, tiers, document parsing), company and user management, and <a href="{{ url('/guide/admin') }}" wire:navigate>enquiry review</a>.</p>
+<p>Administrators can also <strong>impersonate</strong> any user or supplier-portal account — look for the eye icon next to a person in <code>/admin/companies</code>, <code>/admin/users</code> or <code>/admin/suppliers</code>. You'll see the app exactly as they do, with a banner across the top and a one-click "Return to admin". This is the easiest way to preview a supplier's portal before they've even accepted their invite.</p>
 
 <h2>Supplier portal</h2>
 <p class="meta">Sign in at <code>/supplier</code></p>
-<p>Suppliers have their own portal, separate from both the user app and the admin back-office, where they upload portfolios and price sheets for analysis. Accounts are created by an administrator under <code>/admin/suppliers</code>, which emails the user an invite link to set their own password. The demo seeds three suppliers at different points in their journey (password <code>password</code> for the active ones):</p>
-<div class="not-prose overflow-x-auto rounded-lg border border-border">
-    <table class="w-full text-sm">
-        <thead class="border-b border-border bg-secondary/40">
-            <tr>
-                <th class="px-3 py-2 text-left font-medium text-muted-foreground">Email</th>
-                <th class="px-3 py-2 text-left font-medium text-muted-foreground">Supplier</th>
-                <th class="px-3 py-2 text-left font-medium text-muted-foreground">What you'll see</th>
-            </tr>
-        </thead>
-        <tbody class="divide-y divide-border">
-            <tr>
-                <td class="whitespace-nowrap px-3 py-2.5 font-mono text-[13px]">supplier@cellaros.test</td>
-                <td class="px-3 py-2.5">Bordeaux Imports</td>
-                <td class="px-3 py-2.5 text-muted-foreground">Established: a team of two users and documents awaiting analysis plus one already analysed.</td>
-            </tr>
-            <tr>
-                <td class="whitespace-nowrap px-3 py-2.5 font-mono text-[13px]">italian-supplier@cellaros.test</td>
-                <td class="px-3 py-2.5">Italian Fine Wines</td>
-                <td class="px-3 py-2.5 text-muted-foreground">Mid-analysis: one document being analysed and one that failed.</td>
-            </tr>
-            <tr>
-                <td class="whitespace-nowrap px-3 py-2.5 font-mono text-[13px]">newworld-supplier@cellaros.test</td>
-                <td class="px-3 py-2.5">New World Selections</td>
-                <td class="px-3 py-2.5 text-muted-foreground">Just invited: no password set yet (invite pending) and no documents — provision/resend the invite from <code>/admin/suppliers</code>.</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+<p>Suppliers have their own portal, separate from both the user app and the admin back-office, where they upload portfolios and price sheets for analysis. Portal accounts are created by an administrator under <code>/admin/suppliers</code>, which emails the supplier an invite link to set their own password — so the portal only has logins for suppliers who have actually been invited.</p>
+<p>There are no pre-made portal demo accounts on the live site. To see the portal, either invite a supplier user from <code>/admin/suppliers</code>, or simply impersonate one as an administrator (see above). Development builds can additionally seed a set of fictional portal accounts for testing.</p>
 
 <p>New to the app? Start with the <a href="{{ url('/guide/welcome') }}" wire:navigate>five-minute quick start</a>, or read about <a href="{{ url('/guide/accounts') }}" wire:navigate>accounts, venues &amp; plans</a>.</p>

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Admin\DownloadSupplierDocumentController;
+use App\Http\Controllers\Admin\ImpersonationController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Http\Controllers\Orders\DownloadOrderPdfController;
@@ -104,6 +105,11 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('suppliers', AdminSuppliers::class)->name('suppliers');
         Route::get('suppliers/{uuid}', AdminSupplierShow::class)->name('suppliers.show');
         Route::get('supplier-documents/{id}/download', DownloadSupplierDocumentController::class)->name('supplier-documents.download');
+
+        // Impersonation: view the app exactly as a buyer or portal user sees it.
+        Route::post('impersonate/users/{id}', [ImpersonationController::class, 'user'])->name('impersonate.user');
+        Route::post('impersonate/supplier-users/{id}', [ImpersonationController::class, 'supplierUser'])->name('impersonate.supplier-user');
+        Route::post('impersonate/stop', [ImpersonationController::class, 'stop'])->name('impersonate.stop');
         Route::get('enquiries', AdminEnquiries::class)->name('enquiries');
 
         Route::post('logout', function (Request $request) {

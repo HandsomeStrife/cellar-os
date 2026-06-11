@@ -28,6 +28,10 @@
                             <td class="px-3 py-2.5"><x-badge color="gray">{{ $user->role->getLabel() }}</x-badge></td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $user->created_at?->format('j M Y') }}</td>
                             <td class="px-3 py-2.5 text-right">
+                                <form method="POST" action="{{ route('admin.impersonate.user', $user->id) }}" class="inline">
+                                    @csrf
+                                    <x-button type="submit" variant="ghost" size="sm" aria-label="Impersonate {{ $user->email }}" title="View the app as this user"><x-icon.eye class="size-4" /></x-button>
+                                </form>
                                 <x-button wire:click="deleteUser({{ $user->id }})" wire:confirm="Delete {{ $user->email }}? This cannot be undone." variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10">
                                     <x-icon.trash-2 class="size-4" />
                                 </x-button>

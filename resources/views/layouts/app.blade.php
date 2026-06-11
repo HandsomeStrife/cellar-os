@@ -46,6 +46,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
+    <x-impersonation-banner />
     <div x-data="{ sidebarOpen: false }" x-on:keydown.escape.window="sidebarOpen = false" class="flex min-h-screen">
         {{-- Mobile backdrop --}}
         <div

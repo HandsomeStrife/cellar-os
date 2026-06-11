@@ -30,6 +30,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
+    <x-impersonation-banner />
     <div x-data="{ sidebarOpen: false }" class="flex min-h-screen">
         <div x-show="sidebarOpen" x-cloak x-transition.opacity x-on:click="sidebarOpen = false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
 
