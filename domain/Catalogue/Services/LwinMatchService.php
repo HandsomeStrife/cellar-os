@@ -9,23 +9,25 @@ use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Catalogue\Support\WineIdentity;
 use Domain\Supplier\Services\ClaudeClient;
-use Illuminate\Support\Facades\DB;
 
 /**
- * Links products and wine facts to LWIN reference codes:
+ * Links products and wine facts to LWIN reference codes.
  *
- *   identity — producer|wine normalised key, unique LWIN matches only
- *   name     — display-name normalised key (covers producer-in-name lists
- *              like Farr's), unique matches only
- *   llm      — optional, capped: for unmatched wines whose PRODUCER matches
- *              known LWINs, a cheap model picks among that producer's wines
- *              or abstains
- *
- * Idempotent: already-matched rows are skipped. Ambiguous keys (several LWINs
- * sharing a key) are never guessed deterministically.
+ * Real lists and LWIN name things differently, so both sides generate VARIANT
+ * keys before comparing — producer titles (Chateau/Domaine/…) made optional,
+ * ", Producer" suffixes stripped from wine names (Flint-style), appellation
+ * comma-segments stripped from LWIN display names — and a key is only ever
+ * accepted when it maps to exactly ONE LWIN across the whole expanded key
+ * set. Ambiguity is never guessed deterministically; the optional capped LLM
+ * pass shortlists candidates by producer/rare-token and lets a cheap model
+ * pick or abstain (picks outside the shortlist are discarded).
  */
 class LwinMatchService
 {
+    private const TITLES = ['chateau', 'domaine', 'dom', 'maison', 'bodega', 'bodegas', 'weingut', 'tenuta', 'azienda agricola', 'cantina', 'quinta', 'champagne'];
+
+    private const STOPWORDS = ['chateau', 'domaine', 'the', 'les', 'la', 'le', 'de', 'des', 'du', 'di', 'grand', 'cru', 'premier', '1er', 'vineyard', 'vineyards', 'estate', 'reserve', 'riserva', 'blanc', 'rouge', 'red', 'white', 'wine', 'and', 'saint', 'st'];
+
     public function __construct(private ClaudeClient $claude = new ClaudeClient) {}
 
     /**
@@ -33,15 +35,14 @@ class LwinMatchService
      */
     public function match(bool $withLlm = false, int $llmLimit = 500, ?string $model = null): array
     {
-        $identityMap = $this->uniqueKeyMap('identity_key');
-        $nameMap = $this->uniqueKeyMap('name_key');
+        $map = $this->referenceMap();
 
         $stats = ['products' => ['identity' => 0, 'name' => 0, 'llm' => 0, 'unmatched' => 0],
             'facts' => ['identity' => 0, 'name' => 0, 'llm' => 0, 'unmatched' => 0]];
 
-        Product::whereNull('lwin')->chunkById(500, function ($products) use ($identityMap, $nameMap, &$stats) {
+        Product::whereNull('lwin')->chunkById(500, function ($products) use ($map, &$stats) {
             foreach ($products as $product) {
-                $source = $this->deterministic($product->producer, $product->wine_name, $identityMap, $nameMap, $lwin);
+                $source = $this->deterministic($product->producer, $product->wine_name, $map, $lwin);
 
                 if ($source !== null) {
                     $product->update(['lwin' => $lwin, 'lwin_source' => $source]);
@@ -52,9 +53,9 @@ class LwinMatchService
             }
         });
 
-        WineFact::whereNull('lwin')->chunkById(500, function ($facts) use ($identityMap, $nameMap, &$stats) {
+        WineFact::whereNull('lwin')->chunkById(500, function ($facts) use ($map, &$stats) {
             foreach ($facts as $fact) {
-                $source = $this->deterministic($fact->producer, $fact->wine_name, $identityMap, $nameMap, $lwin);
+                $source = $this->deterministic($fact->producer, $fact->wine_name, $map, $lwin);
 
                 if ($source !== null) {
                     $fact->update(['lwin' => $lwin, 'lwin_source' => $source]);
@@ -74,25 +75,90 @@ class LwinMatchService
     }
 
     /**
-     * @param  array<string, string>  $identityMap
-     * @param  array<string, string>  $nameMap
+     * Expanded LWIN key set: key => lwin for keys unique across the whole set;
+     * ambiguous keys are recorded as null and never matched.
+     *
+     * @return array{identity: array<string, string|null>, name: array<string, string|null>}
      */
-    private function deterministic(?string $producer, ?string $wineName, array $identityMap, array $nameMap, ?string &$lwin): ?string
+    private function referenceMap(): array
+    {
+        $identity = [];
+        $name = [];
+
+        $add = function (array &$bucket, ?string $key, string $lwin): void {
+            if ($key === null || $key === '') {
+                return;
+            }
+            // First writer wins; a second DIFFERENT lwin poisons the key.
+            if (array_key_exists($key, $bucket) && $bucket[$key] !== $lwin) {
+                $bucket[$key] = null;
+            } elseif (! array_key_exists($key, $bucket)) {
+                $bucket[$key] = $lwin;
+            }
+        };
+
+        Lwin::query()->select(['id', 'lwin', 'display_name', 'producer_title', 'producer_name', 'wine'])
+            ->chunkById(5000, function ($rows) use (&$identity, &$name, $add) {
+                foreach ($rows as $row) {
+                    $pn = WineIdentity::normalise($row->producer_name);
+                    $ptpn = WineIdentity::normalise(trim(($row->producer_title ?? '').' '.($row->producer_name ?? '')));
+                    $wine = WineIdentity::normalise($row->wine);
+                    $display = WineIdentity::normalise($row->display_name);
+
+                    foreach (array_unique([$pn, $ptpn]) as $producerKey) {
+                        if ($producerKey !== '' && $wine !== '') {
+                            $add($identity, $producerKey.'|'.$wine, $row->lwin);
+                        }
+                    }
+
+                    $displayVariants = [$display];
+                    // Strip the trailing appellation segment ("…, Pauillac").
+                    if (str_contains((string) $row->display_name, ',')) {
+                        $displayVariants[] = WineIdentity::normalise(implode(',', array_slice(explode(',', (string) $row->display_name), 0, -1)));
+                    }
+                    // Producer + wine composites.
+                    $displayVariants[] = $ptpn !== '' && $wine !== '' ? $ptpn.' '.$wine : '';
+                    $displayVariants[] = $pn !== '' && $wine !== '' ? $pn.' '.$wine : '';
+
+                    foreach (array_unique(array_filter($displayVariants)) as $variant) {
+                        $add($name, $variant, $row->lwin);
+                    }
+                }
+            }, column: 'id');
+
+        return ['identity' => $identity, 'name' => $name];
+    }
+
+    /**
+     * @param  array{identity: array<string, string|null>, name: array<string, string|null>}  $map
+     */
+    private function deterministic(?string $producer, ?string $wineName, array $map, ?string &$lwin): ?string
     {
         $lwin = null;
 
-        $identity = WineIdentity::keyFor($producer, $wineName);
-        if ($identity !== null && isset($identityMap[$identity])) {
-            $lwin = $identityMap[$identity];
+        foreach ($this->producerVariants($producer) as $producerKey) {
+            foreach ($this->wineVariants($wineName, $producer) as $wineKey) {
+                $hit = $map['identity'][$producerKey.'|'.$wineKey] ?? null;
+                if ($hit !== null) {
+                    $lwin = $hit;
 
-            return 'identity';
+                    return 'identity';
+                }
+            }
         }
 
-        // Display-name pass: the wine name alone, and producer+name combined,
-        // against LWIN display names (handles producer-embedded names).
-        foreach ([WineIdentity::normalise($wineName), WineIdentity::normalise(trim(($producer ?? '').' '.$wineName))] as $key) {
-            if ($key !== '' && isset($nameMap[$key])) {
-                $lwin = $nameMap[$key];
+        $nameTries = [];
+        foreach ($this->wineVariants($wineName, $producer) as $wineKey) {
+            $nameTries[] = $wineKey;
+            foreach ($this->producerVariants($producer) as $producerKey) {
+                $nameTries[] = $producerKey.' '.$wineKey;
+            }
+        }
+
+        foreach (array_unique($nameTries) as $key) {
+            $hit = $map['name'][$key] ?? null;
+            if ($hit !== null) {
+                $lwin = $hit;
 
                 return 'name';
             }
@@ -102,24 +168,63 @@ class LwinMatchService
     }
 
     /**
-     * Keys that map to exactly ONE LWIN (ambiguous keys are never guessed).
+     * Folded producer variants: as-is, and with a leading title stripped.
      *
-     * @return array<string, string>
+     * @return array<int, string>
      */
-    private function uniqueKeyMap(string $column): array
+    private function producerVariants(?string $producer): array
     {
-        return Lwin::whereNotNull($column)
-            ->select($column, DB::raw('MIN(lwin) as lwin'), DB::raw('COUNT(*) as c'))
-            ->groupBy($column)
-            ->having('c', 1)
-            ->pluck('lwin', $column)
-            ->all();
+        $folded = WineIdentity::normalise($producer);
+
+        if ($folded === '') {
+            return [];
+        }
+
+        $variants = [$folded];
+
+        foreach (self::TITLES as $title) {
+            if (str_starts_with($folded, $title.' ')) {
+                $variants[] = trim(substr($folded, strlen($title) + 1));
+                break;
+            }
+        }
+
+        return array_values(array_unique(array_filter($variants)));
     }
 
     /**
-     * Model-assisted residue: products whose producer exists in LWIN but whose
-     * wine name didn't match — a cheap model picks among that producer's
-     * wines or abstains. Capped; batched.
+     * Folded wine-name variants: as-is, and with a trailing ", Producer"
+     * segment stripped when it repeats the producer (Flint-style names).
+     *
+     * @return array<int, string>
+     */
+    private function wineVariants(?string $wineName, ?string $producer): array
+    {
+        $raw = trim((string) $wineName);
+
+        if ($raw === '') {
+            return [];
+        }
+
+        $variants = [WineIdentity::normalise($raw)];
+
+        if (str_contains($raw, ',')) {
+            $segments = explode(',', $raw);
+            $last = WineIdentity::normalise((string) end($segments));
+            $producerFold = WineIdentity::normalise($producer);
+
+            // Strip a trailing segment that restates the producer (loosely).
+            if ($last !== '' && ($producerFold === '' || str_contains($producerFold, $last) || str_contains($last, $producerFold) || similar_text($last, $producerFold) > strlen($last) * 0.6)) {
+                $variants[] = WineIdentity::normalise(implode(',', array_slice($segments, 0, -1)));
+            }
+        }
+
+        return array_values(array_unique(array_filter($variants)));
+    }
+
+    /**
+     * Model-assisted residue, capped: candidates shortlisted by producer match
+     * or by the wine name's rarest token; the model picks or abstains.
      */
     private function llmPass(int $limit, ?string $model): int
     {
@@ -127,23 +232,12 @@ class LwinMatchService
         $batch = [];
 
         $products = Product::whereNull('lwin')
-            ->whereNotNull('producer')
             ->orderBy('id')
             ->limit($limit)
             ->get();
 
         foreach ($products as $product) {
-            $producerKey = WineIdentity::normalise($product->producer);
-
-            if ($producerKey === '') {
-                continue;
-            }
-
-            $candidates = Lwin::where('identity_key', 'like', str_replace(['%', '_'], ['\%', '\_'], $producerKey).'|%')
-                ->limit(8)
-                ->get(['lwin', 'display_name'])
-                ->map(fn (Lwin $l) => ['lwin' => $l->lwin, 'name' => (string) $l->display_name])
-                ->all();
+            $candidates = $this->candidatesFor($product->producer, $product->wine_name);
 
             if ($candidates === []) {
                 continue;
@@ -163,6 +257,65 @@ class LwinMatchService
     }
 
     /**
+     * @return array<int, array{lwin: string, name: string}>
+     */
+    private function candidatesFor(?string $producer, ?string $wineName): array
+    {
+        $candidates = collect();
+
+        // Producer-anchored candidates.
+        foreach ($this->producerVariants($producer) as $producerKey) {
+            $escaped = str_replace(['%', '_'], ['\%', '\_'], $producerKey);
+            $candidates = $candidates->merge(
+                Lwin::where('identity_key', 'like', $escaped.'|%')
+                    ->orWhere('name_key', 'like', $escaped.' %')
+                    ->limit(6)
+                    ->get(['lwin', 'display_name'])
+            );
+
+            if ($candidates->isNotEmpty()) {
+                break;
+            }
+        }
+
+        // Rare-token candidates from the wine name.
+        if ($candidates->count() < 6) {
+            $token = $this->rarestToken($wineName);
+
+            if ($token !== null) {
+                $escaped = str_replace(['%', '_'], ['\%', '\_'], $token);
+                $candidates = $candidates->merge(
+                    Lwin::where('name_key', 'like', '%'.$escaped.'%')
+                        ->limit(6)
+                        ->get(['lwin', 'display_name'])
+                );
+            }
+        }
+
+        return $candidates->unique('lwin')
+            ->take(8)
+            ->map(fn ($l) => ['lwin' => $l->lwin, 'name' => (string) $l->display_name])
+            ->values()
+            ->all();
+    }
+
+    private function rarestToken(?string $wineName): ?string
+    {
+        $tokens = array_filter(
+            explode(' ', WineIdentity::normalise($wineName)),
+            fn ($t) => mb_strlen($t) >= 5 && ! in_array($t, self::STOPWORDS, true) && ! preg_match('/^\d+$/', $t),
+        );
+
+        if ($tokens === []) {
+            return null;
+        }
+
+        usort($tokens, fn ($a, $b) => mb_strlen($b) <=> mb_strlen($a));
+
+        return $tokens[0];
+    }
+
+    /**
      * @param  array<int, array{product: Product, candidates: array<int, array{lwin: string, name: string}>}>  $batch
      */
     private function resolveBatch(array $batch, ?string $model): int
@@ -173,7 +326,7 @@ class LwinMatchService
 
         $items = array_map(fn (array $entry, int $i) => [
             'index' => (string) $i,
-            'wine' => trim(($entry['product']->producer ?? '').' — '.$entry['product']->wine_name),
+            'wine' => trim(($entry['product']->producer ? $entry['product']->producer.' — ' : '').$entry['product']->wine_name),
             'candidates' => $entry['candidates'],
         ], $batch, array_keys($batch));
 

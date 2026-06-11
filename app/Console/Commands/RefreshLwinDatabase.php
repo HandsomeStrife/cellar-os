@@ -69,7 +69,8 @@ class RefreshLwinDatabase extends Command
         $batch = [];
 
         foreach ($this->rows($path, $extension) as $row) {
-            $lwin = trim((string) ($row['lwin'] ?? ''));
+            // Tolerate spreadsheet float formatting ("1000001.0").
+            $lwin = preg_replace('/\.0+$/', '', trim((string) ($row['lwin'] ?? ''))) ?? '';
 
             // LWIN7 only — vintage/size-extended codes derive from it.
             if (! preg_match('/^\d{7}$/', $lwin)) {
@@ -84,7 +85,8 @@ class RefreshLwinDatabase extends Command
                     continue;
                 }
                 $value = trim((string) ($row[$column] ?? ''));
-                $record[$column] = $value === '' ? null : mb_substr($value, 0, 250);
+                // The published file uses literal "NA" for absent values.
+                $record[$column] = ($value === '' || strcasecmp($value, 'NA') === 0) ? null : mb_substr($value, 0, 250);
             }
 
             $record['identity_key'] = WineIdentity::keyFor($record['producer_name'], $record['wine']);
