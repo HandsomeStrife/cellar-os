@@ -35,11 +35,12 @@ class MatchLwins extends Command
 
         foreach ($stats as $entity => $counts) {
             $this->info(sprintf(
-                '%s: %d via identity, %d via name, %d via llm, %d unmatched',
+                '%s: %d via identity, %d via name, %d via llm, %d via product, %d unmatched',
                 $entity,
                 $counts['identity'],
                 $counts['name'],
                 $counts['llm'],
+                $counts['product'] ?? 0,
                 $counts['unmatched'],
             ));
         }

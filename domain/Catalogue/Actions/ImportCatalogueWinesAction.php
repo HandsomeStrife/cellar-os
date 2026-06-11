@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Domain\Catalogue\Actions;
 
 use Domain\Catalogue\Data\ProductData;
+use Domain\Catalogue\Models\Product;
 use Domain\Shared\Actions\AbstractAction;
 
 /**
@@ -58,6 +59,16 @@ class ImportCatalogueWinesAction extends AbstractAction
                     'latitude' => $row['latitude'] ?? null,
                     'longitude' => $row['longitude'] ?? null,
                 ]));
+
+                // LWIN links travel with golden (ProductData doesn't carry
+                // them — they're reference linkage, not wine attributes).
+                if (preg_match('/^\d{7}$/', (string) ($row['lwin'] ?? '')) === 1) {
+                    Product::where('supplier_id', $supplierId)
+                        ->where('wine_name', $wineName)
+                        ->when(is_numeric($row['vintage'] ?? null), fn ($q) => $q->where('vintage', (int) $row['vintage']))
+                        ->whereNull('lwin')
+                        ->update(['lwin' => $row['lwin'], 'lwin_source' => (string) ($row['lwin_source'] ?? 'golden')]);
+                }
                 $imported++;
             } catch (\Throwable) {
                 $skipped++; // malformed values (bad colour/date/etc.) skip, never abort

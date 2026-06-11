@@ -71,7 +71,46 @@ class LwinMatchService
             $stats['products']['unmatched'] -= $stats['products']['llm'];
         }
 
+        // Facts inherit LWINs from matched products sharing their identity
+        // key (conflicting product links are skipped, never guessed).
+        $propagated = $this->propagateToFacts();
+        $stats['facts']['product'] = $propagated;
+        $stats['facts']['unmatched'] = max(0, $stats['facts']['unmatched'] - $propagated);
+
         return $stats;
+    }
+
+    private function propagateToFacts(): int
+    {
+        $byIdentity = [];
+
+        Product::whereNotNull('lwin')->chunkById(500, function ($products) use (&$byIdentity) {
+            foreach ($products as $product) {
+                $key = WineIdentity::keyFor($product->producer, $product->wine_name);
+                if ($key === null) {
+                    continue;
+                }
+                if (array_key_exists($key, $byIdentity) && $byIdentity[$key] !== $product->lwin) {
+                    $byIdentity[$key] = null; // conflicting links — never guess
+                } elseif (! array_key_exists($key, $byIdentity)) {
+                    $byIdentity[$key] = $product->lwin;
+                }
+            }
+        });
+
+        $count = 0;
+
+        WineFact::whereNull('lwin')->chunkById(500, function ($facts) use ($byIdentity, &$count) {
+            foreach ($facts as $fact) {
+                $lwin = $byIdentity[$fact->identity_key] ?? null;
+                if ($lwin !== null) {
+                    $fact->update(['lwin' => $lwin, 'lwin_source' => 'product']);
+                    $count++;
+                }
+            }
+        });
+
+        return $count;
     }
 
     /**

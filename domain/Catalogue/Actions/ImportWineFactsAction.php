@@ -46,6 +46,8 @@ class ImportWineFactsAction extends AbstractAction
                         'sub_region' => $row['sub_region'] ?? null,
                         'grape' => is_array($row['grape'] ?? null) ? $row['grape'] : null,
                         'colour' => WineColour::tryFrom((string) ($row['colour'] ?? ''))?->value,
+                        'lwin' => preg_match('/^\d{7}$/', (string) ($row['lwin'] ?? '')) === 1 ? $row['lwin'] : null,
+                        'lwin_source' => $row['lwin_source'] ?? null,
                         'field_sources' => is_array($row['field_sources'] ?? null) ? $row['field_sources'] : [],
                         'field_conflicts' => is_array($row['field_conflicts'] ?? null) ? $row['field_conflicts'] : [],
                         'observations' => is_numeric($row['observations'] ?? null) ? (int) $row['observations'] : 1,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use Database\Seeders\DemoSupplierSeeder;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Supplier\Models\Supplier;
@@ -32,7 +33,12 @@ class ExportGoldenSnapshot extends Command
     {
         $dir = trim((string) $this->option('dir'), '/');
 
-        $suppliers = Supplier::whereNull('created_by_company_id')->orderBy('name')->get();
+        $suppliers = Supplier::whereNull('created_by_company_id')
+            // Fictional dev-demo suppliers (DemoSupplierSeeder) are public in
+            // dev but must NEVER enter the canonical snapshot.
+            ->whereNotIn('name', DemoSupplierSeeder::FICTIONAL_SUPPLIERS)
+            ->orderBy('name')
+            ->get();
         $supplierNames = $suppliers->pluck('name', 'id');
 
         $notesBySupplier = SupplierNote::whereIn('supplier_id', $supplierNames->keys())
@@ -77,6 +83,8 @@ class ExportGoldenSnapshot extends Command
                 'unit_price' => $p->unit_price,
                 'price_per_litre' => $p->price_per_litre,
                 'stock' => $p->stock,
+                'lwin' => $p->lwin,
+                'lwin_source' => $p->lwin_source,
                 'latitude' => $p->latitude,
                 'longitude' => $p->longitude,
             ])->values();
@@ -102,6 +110,8 @@ class ExportGoldenSnapshot extends Command
             'sub_region' => $f->sub_region,
             'grape' => $f->grape,
             'colour' => $f->colour?->value,
+            'lwin' => $f->lwin,
+            'lwin_source' => $f->lwin_source,
             'field_sources' => $f->field_sources ?? [],
             'field_conflicts' => $f->field_conflicts ?? [],
             'observations' => $f->observations,
