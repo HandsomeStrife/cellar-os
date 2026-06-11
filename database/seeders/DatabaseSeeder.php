@@ -4,64 +4,61 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use Database\Seeders\Concerns\BuildsDemoData;
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
-use Domain\Catalogue\Actions\ContributeWineFactsAction;
-use Domain\Catalogue\Data\ProductData;
-use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Models\Product;
-use Domain\Company\Models\Company;
-use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Enums\OrderStatus;
-use Domain\Order\Models\Order;
-use Domain\Supplier\Enums\ParsedWineStatus;
-use Domain\Supplier\Enums\ParseMode;
-use Domain\Supplier\Enums\SupplierDocumentStatus;
-use Domain\Supplier\Enums\SupplierStatus;
-use Domain\Supplier\Models\ParsedWine;
 use Domain\Supplier\Models\Supplier;
-use Domain\Supplier\Models\SupplierDocument;
-use Domain\Supplier\Models\SupplierParseProfile;
-use Domain\Supplier\Models\SupplierUser;
 use Domain\User\Enums\Role;
-use Domain\User\Models\User;
-use Domain\Venue\Actions\SyncUserVenuesAction;
-use Domain\Venue\Models\Venue;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 
+/**
+ * The CLEAN default seed — safe for production. Creates the admin and the four
+ * demo companies/users/venues, and (when real supplier catalogues are present,
+ * e.g. after `wine:import-golden`) wires the demo journeys to REAL suppliers.
+ *
+ * It seeds NO fictional suppliers, wines, or portal accounts — that demo
+ * content lives in DemoSupplierSeeder (opt-in, local/E2E only):
+ *   php artisan db:seed --class=DemoSupplierSeeder
+ *
+ * Production order matters: migrate:fresh → wine:import-golden → db:seed
+ * (so the real catalogues exist for the journeys to attach to).
+ */
 class DatabaseSeeder extends Seeder
 {
-    /** @var array<string, Supplier> */
-    private array $suppliers = [];
+    use BuildsDemoData;
 
-    /** @var array<string, Product> */
-    private array $products = [];
-
-    /**
-     * Idempotent demo dataset (safe to re-run). Seeds a default admin plus four
-     * demo users at different points in their journey, each on a different plan.
-     * Catalogue and suppliers are shared across the app; venues, inventory and
-     * orders are per-user.
-     */
     public function run(): void
     {
         $this->seedAdmin();
-        $this->seedSuppliers();
-        $this->seedCatalogue();
 
-        $this->seedFreeUser();
-        $this->seedStarterUser();
-        $this->seedProUser();
-        $this->seedGroupUser();
+        $free = $this->company('Harbourview Hospitality', Plan::Free);
+        $freeOwner = $this->owner($free, 'free@cellaros.test', 'Olivia Newbury');
+        $freeVenue = $this->venue($free, 'Harbourview Bistro', 'Brighton');
+        $this->assignVenues($freeOwner, [$freeVenue->id]);
 
-        $this->seedSupplierPortal();
+        $starter = $this->company('Tasting Room Wines', Plan::Starter);
+        $starterOwner = $this->owner($starter, 'starter@cellaros.test', 'Marcus Trent');
+        $starterVenue = $this->venue($starter, 'The Tasting Room', 'Bristol');
+        $this->assignVenues($starterOwner, [$starterVenue->id]);
 
-        // Shared wine-facts store: every seeded product contributes its
-        // objective attributes (idempotent fill-don't-overwrite).
-        Product::query()->each(fn (Product $product) => (new ContributeWineFactsAction)->execute($product->getData()));
+        $pro = $this->company('Cellar Door Group', Plan::Pro);
+        $proOwner = $this->owner($pro, 'demo@cellaros.test', 'Demo Sommelier');
+        $proVenue = $this->venue($pro, 'The Cellar Door', 'London');
+        $this->assignVenues($proOwner, [$proVenue->id]);
+
+        $group = $this->company('Anand Restaurant Group', Plan::Group);
+        $groupOwner = $this->owner($group, 'group@cellaros.test', 'Priya Anand');
+        $hq = $this->venue($group, 'Group HQ Cellar', 'Manchester');
+        $riverside = $this->venue($group, 'Riverside Brasserie', 'Leeds');
+        $this->assignVenues($groupOwner, [$hq->id, $riverside->id]);
+        $member = $this->teammate($group, 'group.member@cellaros.test', 'Leo Carter', Role::Member);
+        $this->assignVenues($member, [$riverside->id]);
+
+        $this->seedRealJourneys();
     }
 
     private function seedAdmin(): void
@@ -72,466 +69,85 @@ class DatabaseSeeder extends Seeder
         );
     }
 
-    private function seedSuppliers(): void
-    {
-        // Deterministic so the seeder runs without Faker (a dev-only dependency).
-        $details = [
-            'Bordeaux Imports' => ['Camille Laurent', 'Bordeaux, France'],
-            'Italian Fine Wines' => ['Marco Bianchi', 'Milan, Italy'],
-            'New World Selections' => ['Sarah Mitchell', 'London, United Kingdom'],
-        ];
-
-        foreach ($details as $name => [$contact, $location]) {
-            $this->suppliers[$name] = Supplier::firstOrCreate(
-                ['name' => $name],
-                [
-                    'contact' => $contact,
-                    'email' => str(str($name)->slug())->append('@example.test')->value(),
-                    'location' => $location,
-                    'status' => SupplierStatus::Active->value,
-                ],
-            );
-        }
-    }
-
-    private function seedCatalogue(): void
-    {
-        // wine_name, producer, country, region, colour, vintage, price, lat, lng, supplier
-        $wines = [
-            ['Chablis Premier Cru', 'Domaine Laroche', 'France', 'Burgundy', WineColour::White, 2021, '28.50', '47.82', '3.80', 'Bordeaux Imports'],
-            ['Sancerre Les Monts', 'Henri Bourgeois', 'France', 'Loire', WineColour::White, 2022, '22.00', '47.33', '2.84', 'Bordeaux Imports'],
-            ['Provence Rosé', 'Whispering Angel', 'France', 'Provence', WineColour::Rose, 2023, '19.50', '43.53', '6.45', 'Bordeaux Imports'],
-            ['Champagne Brut Réserve', 'Pol Roger', 'France', 'Champagne', WineColour::Sparkling, null, '55.00', '49.04', '4.02', 'Bordeaux Imports'],
-            ['Barolo Riserva', 'Giacomo Conterno', 'Italy', 'Piedmont', WineColour::Red, 2017, '92.00', '44.61', '7.94', 'Italian Fine Wines'],
-            ['Brunello di Montalcino', 'Biondi-Santi', 'Italy', 'Tuscany', WineColour::Red, 2018, '120.00', '43.06', '11.49', 'Italian Fine Wines'],
-            ['Rioja Gran Reserva', 'La Rioja Alta', 'Spain', 'Rioja', WineColour::Red, 2015, '45.00', '42.46', '-2.45', 'New World Selections'],
-            ['Vintage Port', 'Taylor Fladgate', 'Portugal', 'Douro', WineColour::Fortified, 2016, '68.00', '41.16', '-7.79', 'New World Selections'],
-            ['Napa Cabernet Sauvignon', 'Stag\'s Leap', 'United States', 'Napa Valley', WineColour::Red, 2019, '75.00', '38.50', '-122.27', 'New World Selections'],
-            ['Marlborough Sauvignon Blanc', 'Cloudy Bay', 'New Zealand', 'Marlborough', WineColour::White, 2023, '21.00', '-41.51', '173.86', 'New World Selections'],
-        ];
-
-        foreach ($wines as $i => [$name, $producer, $country, $region, $colour, $vintage, $price, $lat, $lng, $supplierName]) {
-            $this->products[$name] = Product::firstOrCreate(
-                ['wine_name' => $name, 'supplier_id' => $this->suppliers[$supplierName]->id],
-                [
-                    'producer' => $producer,
-                    'country' => $country,
-                    'region' => $region,
-                    'colour' => $colour,
-                    'vintage' => $vintage,
-                    'unit_price' => $price,
-                    'price_per_litre' => number_format((float) $price / 0.75, 2, '.', ''),
-                    'format_ml' => 750,
-                    'case_size' => 6,
-                    'stock' => 12 + ($i * 4), // deterministic 12..48
-                    'latitude' => $lat,
-                    'longitude' => $lng,
-                ],
-            );
-        }
-
-        // Varietals for the New World listing, so the wine-facts store has
-        // something to share with the sparser duplicate listing below.
-        $this->products['Marlborough Sauvignon Blanc']->update(['grape' => ['Sauvignon Blanc']]);
-
-        // The SAME wine listed by a second supplier with complementary gaps —
-        // showcases wine-facts gap-filling: this listing omits grape/colour/
-        // region, so the catalogue renders them enriched ("another vendor")
-        // from the New World Selections listing's facts.
-        Product::firstOrCreate(
-            ['wine_name' => 'Marlborough Sauvignon Blanc', 'supplier_id' => $this->suppliers['Bordeaux Imports']->id],
-            [
-                'producer' => 'Cloudy Bay',
-                'country' => 'New Zealand',
-                'vintage' => 2023,
-                'unit_price' => '20.50',
-                'price_per_litre' => number_format(20.50 / 0.75, 2, '.', ''),
-                'format_ml' => 750,
-                'case_size' => 6,
-                'stock' => 18,
-            ],
-        );
-    }
-
-    /** Free plan, just signed up: a company + owner + venue but no stock or orders yet. */
-    private function seedFreeUser(): void
-    {
-        $company = $this->company('Harbourview Hospitality', Plan::Free);
-        $owner = $this->owner($company, 'free@cellaros.test', 'Olivia Newbury');
-        $venue = $this->venue($company, 'Harbourview Bistro', 'Brighton');
-        $this->assignVenues($owner, [$venue->id]);
-    }
-
-    /** Starter plan, getting going: a couple of orders, a little received stock. */
-    private function seedStarterUser(): void
-    {
-        $company = $this->company('Tasting Room Wines', Plan::Starter);
-        $owner = $this->owner($company, 'starter@cellaros.test', 'Marcus Trent');
-        $venue = $this->venue($company, 'The Tasting Room', 'Bristol');
-        $this->assignVenues($owner, [$venue->id]);
-
-        $this->inventory($venue, 'Sancerre Les Monts', 18, 6);
-        $this->inventory($venue, 'Provence Rosé', 12, 9);
-
-        $this->order($owner, $venue, 'Bordeaux Imports', OrderStatus::Draft, 'First order: house whites and rosé.', [
-            'Chablis Premier Cru' => 12,
-            'Provence Rosé' => 6,
-        ]);
-        $this->order($owner, $venue, 'New World Selections', OrderStatus::Sent, 'New World reds for the by-the-glass list.', [
-            'Rioja Gran Reserva' => 6,
-        ]);
-
-        $this->connectSupplier($company, 'Bordeaux Imports', [$venue]);
-        $this->connectSupplier($company, 'New World Selections', [$venue]);
-    }
-
-    /** Pro plan, fully operational single venue: stock, plus orders across the lifecycle. */
-    private function seedProUser(): void
-    {
-        $company = $this->company('Cellar Door Group', Plan::Pro);
-        $owner = $this->owner($company, 'demo@cellaros.test', 'Demo Sommelier');
-        $venue = $this->venue($company, 'The Cellar Door', 'London');
-        $this->assignVenues($owner, [$venue->id]);
-
-        // wine => [quantity, days since received]
-        foreach (['Chablis Premier Cru' => [24, 5], 'Barolo Riserva' => [18, 12], 'Rioja Gran Reserva' => [30, 3], 'Champagne Brut Réserve' => [12, 20]] as $wine => [$qty, $daysAgo]) {
-            $this->inventory($venue, $wine, $qty, $daysAgo);
-        }
-
-        $this->order($owner, $venue, 'Italian Fine Wines', OrderStatus::Draft, 'Restock Italian reds for the autumn list.', [
-            'Barolo Riserva' => 6,
-            'Brunello di Montalcino' => 6,
-        ]);
-        $this->order($owner, $venue, 'Bordeaux Imports', OrderStatus::Sent, 'Champagne for the festive season.', [
-            'Champagne Brut Réserve' => 24,
-        ]);
-        $this->order($owner, $venue, 'New World Selections', OrderStatus::Received, 'Received: New World mixed case.', [
-            'Napa Cabernet Sauvignon' => 6,
-            'Marlborough Sauvignon Blanc' => 12,
-        ]);
-
-        $this->connectSupplier($company, 'Italian Fine Wines', [$venue]);
-        $this->connectSupplier($company, 'Bordeaux Imports', [$venue]);
-        $this->connectSupplier($company, 'New World Selections', [$venue]);
-
-        // A private (buyer-added) supplier, to showcase the tier.
-        $private = Supplier::firstOrCreate(
-            ['name' => 'Borough Wine Co', 'created_by_company_id' => $company->id],
-            ['contact' => 'Jonah Reed', 'location' => 'London, United Kingdom', 'status' => SupplierStatus::Active->value],
-        );
-        DB::table('company_supplier')->insertOrIgnore([
-            'company_id' => $company->id, 'supplier_id' => $private->id, 'created_at' => now(), 'updated_at' => now(),
-        ]);
-
-        $this->seedParsedDocument($company, $owner, $private);
-    }
-
     /**
-     * A buyer-uploaded, already-analysed document for a private supplier with a
-     * few proposed wines awaiting review — showcases the parse → review → approve
-     * flow (and the learned recipe) without needing a live LLM call.
+     * When real (golden-imported) supplier catalogues exist, give the demo
+     * companies meaningful journeys against them: connections, venue
+     * allocations, inventory and orders built from real priced wines. On a
+     * bare database (no golden yet) this is a clean no-op — the demo accounts
+     * simply start empty.
      */
-    private function seedParsedDocument(Company $company, User $owner, Supplier $supplier): void
+    private function seedRealJourneys(): void
     {
-        $wines = [
-            ['Borough Reserve Claret', 'France', 'Bordeaux', WineColour::Red, 2020, '18.50', ['Cabernet Sauvignon', 'Merlot']],
-            ['Borough White Burgundy', 'France', 'Bourgogne', WineColour::White, 2022, '22.00', ['Chardonnay']],
-            ['Borough Provence Rosé', 'France', 'Provence', WineColour::Rose, 2023, '14.75', ['Grenache']],
-        ];
+        // The public suppliers with the largest PRICED catalogues, deterministically.
+        $counts = Product::whereNotNull('unit_price')
+            ->whereNotNull('supplier_id')
+            ->select('supplier_id', DB::raw('count(*) as wines'))
+            ->groupBy('supplier_id')
+            ->orderByDesc('wines')
+            ->pluck('wines', 'supplier_id');
 
-        // A real CSV on disk so "Re-analyse" works against the demo document.
-        $csv = "Wine,Vintage,Price,Country,Colour\n".implode("\n", array_map(
-            fn (array $w) => "{$w[0]},{$w[4]},{$w[5]},{$w[1]},{$w[3]->value}",
-            $wines,
-        ))."\n";
-        Storage::disk('local')->put('supplier-documents/demo-borough-spring-2026.csv', $csv);
+        $suppliers = Supplier::whereNull('created_by_company_id')
+            ->whereIn('id', $counts->keys())
+            // Never wire the "real" journeys to the fictional dev-demo suppliers
+            // (DemoSupplierSeeder builds its own journeys for those).
+            ->whereNotIn('name', DemoSupplierSeeder::FICTIONAL_SUPPLIERS)
+            ->get()
+            ->sortBy([fn ($a, $b) => $counts[$b->id] <=> $counts[$a->id], fn ($a, $b) => strcmp($a->name, $b->name)])
+            ->take(3)
+            ->values();
 
-        $document = SupplierDocument::firstOrCreate(
-            ['supplier_id' => $supplier->id, 'file_name' => 'borough-spring-2026.csv'],
-            [
-                'uploaded_by_company_id' => $company->id,
-                'uploaded_by_user_id' => $owner->id,
-                'title' => 'Borough spring 2026 list',
-                'file_type' => 'text/csv',
-                'file_size' => strlen($csv),
-                'storage_path' => 'supplier-documents/demo-borough-spring-2026.csv',
-                'status' => SupplierDocumentStatus::Analysed->value,
-                'analysis_notes' => 'Parsed 3 wine(s). Reused saved mapping.',
-                'analysed_at' => now()->subDay(),
-            ],
-        );
-
-        SupplierParseProfile::firstOrCreate(
-            ['supplier_id' => $supplier->id, 'mode' => ParseMode::Tabular->value, 'company_id' => $company->id],
-            [
-                'recipe' => ['mapping' => ['wine_name' => 'Wine', 'vintage' => 'Vintage', 'unit_price' => 'Price', 'country' => 'Country', 'colour' => 'Colour']],
-                'model' => 'claude-opus-4-8',
-                'confidence' => 0.95,
-                'source_document_id' => $document->id,
-                'is_active' => true,
-            ],
-        );
-
-        foreach ($wines as $i => $w) {
-            [$name, $country, $region, $colour, $vintage, $price, $grape] = $w;
-            $payload = (new ProductData(
-                id: null, uuid: null, supplier_id: $supplier->id, raw_upload_id: null,
-                wine_name: $name, producer: 'Borough Wine Co', country: $country, region: $region, sub_region: null,
-                grape: $grape, colour: $colour, vintage: $vintage,
-                format_ml: 750, case_size: 6, unit_price: $price,
-                price_per_litre: number_format((float) $price / 0.75, 2, '.', ''), stock: 0,
-                latitude: null, longitude: null,
-            ))->toArray();
-
-            ParsedWine::firstOrCreate(
-                ['supplier_document_id' => $document->id, 'supplier_id' => $supplier->id, 'source_ref' => 'row '.($i + 2)],
-                ['payload' => $payload, 'status' => ParsedWineStatus::Proposed->value, 'confidence' => 0.95],
-            );
-        }
-    }
-
-    /**
-     * Group plan: one company, multiple venues, and a TEAM — an owner who sees
-     * everything plus a member scoped to a single venue (showcases user_venue).
-     */
-    private function seedGroupUser(): void
-    {
-        $company = $this->company('Anand Restaurant Group', Plan::Group);
-        $owner = $this->owner($company, 'group@cellaros.test', 'Priya Anand');
-
-        $hq = $this->venue($company, 'Group HQ Cellar', 'Manchester');
-        $riverside = $this->venue($company, 'Riverside Brasserie', 'Leeds');
-        $this->assignVenues($owner, [$hq->id, $riverside->id]);
-
-        // A member who can only see the Riverside site.
-        $member = $this->teammate($company, 'group.member@cellaros.test', 'Leo Carter', Role::Member);
-        $this->assignVenues($member, [$riverside->id]);
-
-        $this->inventory($hq, 'Brunello di Montalcino', 36, 4);
-        $this->inventory($hq, 'Vintage Port', 24, 12);
-        $this->inventory($riverside, 'Marlborough Sauvignon Blanc', 48, 3);
-        $this->inventory($riverside, 'Provence Rosé', 30, 7);
-
-        $this->order($owner, $hq, 'Italian Fine Wines', OrderStatus::Received, 'HQ: Tuscan flagship restock.', [
-            'Brunello di Montalcino' => 12,
-        ]);
-        $this->order($member, $riverside, 'New World Selections', OrderStatus::Draft, 'Riverside: summer whites.', [
-            'Marlborough Sauvignon Blanc' => 24,
-        ]);
-
-        // HQ buys Italian; Riverside buys New World.
-        $this->connectSupplier($company, 'Italian Fine Wines', [$hq]);
-        $this->connectSupplier($company, 'New World Selections', [$riverside]);
-    }
-
-    /**
-     * Supplier portal demo: three suppliers at different points in their journey,
-     * mirroring the per-plan user journeys. All passwords are `password`.
-     *
-     *  - Bordeaux Imports (supplier@cellaros.test) — established: a full profile,
-     *    two portal users (a team), and documents spanning the lifecycle
-     *    (awaiting + analysed).
-     *  - Italian Fine Wines (italian-supplier@cellaros.test) — mid-analysis: one
-     *    document being analysed and one that failed.
-     *  - New World Selections (newworld-supplier@cellaros.test) — just invited:
-     *    the user has no password yet (invite pending) and no documents.
-     */
-    private function seedSupplierPortal(): void
-    {
-        // Established supplier with a team and documents either side of analysis.
-        $bordeaux = $this->suppliers['Bordeaux Imports'];
-        $bordeaux->update([
-            'phone' => '+33 5 56 00 00 00',
-            'website' => 'https://bordeaux-imports.example',
-            'address' => '12 Quai des Chartrons',
-            'city' => 'Bordeaux',
-            'postcode' => '33000',
-            'country' => 'France',
-            // It runs a portal account, so it's onboarded.
-            'onboarded_at' => now(),
-        ]);
-        $camille = $this->supplierUser($bordeaux, 'supplier@cellaros.test', 'Camille Laurent');
-        $this->supplierUser($bordeaux, 'supplier.team@cellaros.test', 'Hugo Marchand');
-        $this->supplierDocument($bordeaux, $camille, 'spring-2026-portfolio.csv', 'Spring 2026 portfolio', SupplierDocumentStatus::AwaitingAnalysis);
-        $this->supplierDocument($bordeaux, $camille, 'winter-2025-list.xlsx', 'Winter 2025 price list', SupplierDocumentStatus::Analysed, 'Extracted 142 wines.', 6);
-
-        // Mid-analysis supplier: one in progress, one failed.
-        $italian = $this->suppliers['Italian Fine Wines'];
-        $italian->update([
-            'phone' => '+39 02 1234 5678',
-            'website' => 'https://italian-fine-wines.example',
-            'address' => 'Via Montenapoleone 8',
-            'city' => 'Milan',
-            'postcode' => '20121',
-            'country' => 'Italy',
-        ]);
-        $marco = $this->supplierUser($italian, 'italian-supplier@cellaros.test', 'Marco Bianchi');
-        $this->supplierDocument($italian, $marco, 'piedmont-2026.csv', 'Piedmont 2026 allocation', SupplierDocumentStatus::Analysing);
-        $this->supplierDocument($italian, $marco, 'scanned-catalogue.pdf', 'Scanned catalogue', SupplierDocumentStatus::Failed, 'Could not read a usable table from the file.', 2);
-
-        // Freshly invited supplier: invite pending (no password), no documents yet.
-        $newWorld = $this->suppliers['New World Selections'];
-        $newWorld->update([
-            'website' => 'https://new-world-selections.example',
-            'city' => 'London',
-            'country' => 'United Kingdom',
-        ]);
-        $this->supplierUser($newWorld, 'newworld-supplier@cellaros.test', 'Sarah Mitchell', invited: true);
-    }
-
-    private function supplierUser(Supplier $supplier, string $email, string $name, bool $invited = false): SupplierUser
-    {
-        return SupplierUser::updateOrCreate(
-            ['email' => $email],
-            [
-                'supplier_id' => $supplier->id,
-                'name' => $name,
-                // Invited users have no password until they accept the email invite.
-                'password' => $invited ? null : Hash::make('password'),
-            ],
-        );
-    }
-
-    private function supplierDocument(
-        Supplier $supplier,
-        SupplierUser $uploader,
-        string $fileName,
-        string $title,
-        SupplierDocumentStatus $status,
-        ?string $notes = null,
-        ?int $analysedDaysAgo = null,
-    ): void {
-        SupplierDocument::firstOrCreate(
-            ['supplier_id' => $supplier->id, 'file_name' => $fileName],
-            [
-                'uploaded_by_supplier_user_id' => $uploader->id,
-                'title' => $title,
-                'file_type' => str($fileName)->endsWith('.pdf') ? 'application/pdf' : 'text/csv',
-                'file_size' => 24_000,
-                'storage_path' => 'supplier-documents/demo-'.$fileName,
-                'status' => $status->value,
-                'analysis_notes' => $notes,
-                'analysed_at' => $analysedDaysAgo !== null ? now()->subDays($analysedDaysAgo) : null,
-            ],
-        );
-    }
-
-    private function company(string $name, Plan $plan): Company
-    {
-        return Company::firstOrCreate(
-            ['name' => $name],
-            ['plan' => $plan->value, 'base_currency' => 'GBP'],
-        );
-    }
-
-    private function owner(Company $company, string $email, string $name): User
-    {
-        return $this->teammate($company, $email, $name, Role::Owner);
-    }
-
-    private function teammate(Company $company, string $email, string $name, Role $role): User
-    {
-        return User::updateOrCreate(
-            ['email' => $email],
-            [
-                'company_id' => $company->id,
-                'full_name' => $name,
-                'password' => Hash::make('password'),
-                'role' => $role->value,
-            ],
-        );
-    }
-
-    private function venue(Company $company, string $name, string $city): Venue
-    {
-        return Venue::firstOrCreate(
-            ['company_id' => $company->id, 'name' => $name],
-            ['city' => $city, 'country' => 'United Kingdom', 'base_currency' => 'GBP'],
-        );
-    }
-
-    /**
-     * @param  array<int, int>  $venueIds
-     */
-    private function assignVenues(User $user, array $venueIds): void
-    {
-        (new SyncUserVenuesAction)->execute($user->id, $venueIds);
-    }
-
-    /**
-     * Connect a company to a (shared) supplier and allocate it to venues.
-     *
-     * @param  array<int, Venue>  $venues
-     */
-    private function connectSupplier(Company $company, string $supplierName, array $venues = []): void
-    {
-        $supplier = $this->suppliers[$supplierName];
-
-        DB::table('company_supplier')->insertOrIgnore([
-            'company_id' => $company->id,
-            'supplier_id' => $supplier->id,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        foreach ($venues as $venue) {
-            DB::table('supplier_venue')->insertOrIgnore([
-                'supplier_id' => $supplier->id,
-                'venue_id' => $venue->id,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        }
-    }
-
-    private function inventory(Venue $venue, string $wine, int $qty, int $daysAgo): void
-    {
-        $product = $this->products[$wine];
-
-        InventoryItem::firstOrCreate(
-            ['venue_id' => $venue->id, 'product_id' => $product->id],
-            [
-                'quantity_units' => $qty,
-                'last_purchase_price' => $product->unit_price,
-                'last_purchase_currency' => 'GBP',
-                'last_received_at' => now()->subDays($daysAgo),
-            ],
-        );
-    }
-
-    /**
-     * @param  array<string, int>  $lines  wine name => quantity
-     */
-    private function order(User $user, Venue $venue, string $supplier, OrderStatus $status, string $notes, array $lines): void
-    {
-        $order = Order::firstOrCreate(
-            ['venue_id' => $venue->id, 'created_by' => $user->id, 'notes' => $notes],
-            [
-                'company_id' => $venue->company_id,
-                'supplier_id' => $this->suppliers[$supplier]->id,
-                'status' => $status,
-                'total' => 0,
-            ],
-        );
-
-        if (! $order->wasRecentlyCreated) {
-            return;
+        if ($suppliers->count() < 2) {
+            return; // no real catalogue yet — demo accounts start empty
         }
 
-        $total = 0.0;
+        [$first, $second] = [$suppliers[0], $suppliers[1]];
+        $third = $suppliers[2] ?? $second;
 
-        foreach ($lines as $wine => $qty) {
-            $product = $this->products[$wine];
-            $order->items()->create([
-                'product_id' => $product->id,
-                'wine_name' => $product->wine_name,
-                'quantity_units' => $qty,
-                'unit_price_at_order' => $product->unit_price,
-                'currency_at_order' => 'GBP',
-            ]);
-            $total += $qty * (float) $product->unit_price;
+        $wines = fn (Supplier $s, int $n) => Product::where('supplier_id', $s->id)
+            ->whereNotNull('unit_price')
+            ->orderBy('id')
+            ->limit($n)
+            ->get();
+
+        $starter = $this->company('Tasting Room Wines', Plan::Starter);
+        $starterOwner = $this->owner($starter, 'starter@cellaros.test', 'Marcus Trent');
+        $starterVenue = $this->venue($starter, 'The Tasting Room', 'Bristol');
+        $this->connectSupplier($starter, $first, [$starterVenue]);
+        $w = $wines($first, 2);
+        if ($w->count() >= 2) {
+            $this->inventory($starterVenue, $w[0], 18, 6);
+            $this->order($starterOwner, $starterVenue, $first, OrderStatus::Draft, 'First order: by-the-glass restock.', [[$w[0], 12], [$w[1], 6]]);
         }
 
-        $order->update(['total' => $total]);
+        $pro = $this->company('Cellar Door Group', Plan::Pro);
+        $proOwner = $this->owner($pro, 'demo@cellaros.test', 'Demo Sommelier');
+        $proVenue = $this->venue($pro, 'The Cellar Door', 'London');
+        $this->connectSupplier($pro, $first, [$proVenue]);
+        $this->connectSupplier($pro, $second, [$proVenue]);
+        $this->connectSupplier($pro, $third, [$proVenue]);
+        $a = $wines($first, 3);
+        $b = $wines($second, 2);
+        if ($a->count() >= 3 && $b->count() >= 2) {
+            $this->inventory($proVenue, $a[0], 24, 5);
+            $this->inventory($proVenue, $b[0], 18, 12);
+            $this->order($proOwner, $proVenue, $first, OrderStatus::Sent, 'Cellar restock for the autumn list.', [[$a[1], 12], [$a[2], 6]]);
+            $this->order($proOwner, $proVenue, $second, OrderStatus::Received, 'Received: fine wine allocation.', [[$b[1], 6]]);
+        }
+
+        $group = $this->company('Anand Restaurant Group', Plan::Group);
+        $groupOwner = $this->owner($group, 'group@cellaros.test', 'Priya Anand');
+        $hq = $this->venue($group, 'Group HQ Cellar', 'Manchester');
+        $riverside = $this->venue($group, 'Riverside Brasserie', 'Leeds');
+        $this->connectSupplier($group, $second, [$hq]);
+        $this->connectSupplier($group, $third, [$riverside]);
+        $g = $wines($second, 1);
+        $r = $wines($third, 1);
+        if ($g->isNotEmpty()) {
+            $this->inventory($hq, $g[0], 36, 4);
+            $this->order($groupOwner, $hq, $second, OrderStatus::Received, 'HQ: flagship restock.', [[$g[0], 12]]);
+        }
+        if ($r->isNotEmpty()) {
+            $this->inventory($riverside, $r[0], 30, 7);
+        }
     }
 }

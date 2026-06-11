@@ -4,9 +4,12 @@ test.describe('Catalogue', () => {
   test('lists seeded wines and filters by search', async ({ page }) => {
     await page.goto('/catalogue');
 
+    // The demo company is connected to large REAL catalogues too, so find the
+    // seeded wine by search rather than expecting it on page 1.
+    await page.getByPlaceholder('Search wine or producer…').fill('Barolo Riserva');
     await expect(page.getByText('Barolo Riserva').first()).toBeVisible();
 
-    await page.getByPlaceholder('Search wine or producer…').fill('Chablis');
+    await page.getByPlaceholder('Search wine or producer…').fill('Chablis Premier');
     await expect(page.getByText('Chablis Premier Cru').first()).toBeVisible();
     await expect(page.getByText('Barolo Riserva')).toHaveCount(0);
   });

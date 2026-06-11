@@ -15,7 +15,10 @@ async function globalSetup(_config: FullConfig): Promise<void> {
   }
 
   try {
-    await run('docker exec cellar-os-app php artisan db:seed --force');
+    // E2E exercises the FICTIONAL demo content (suppliers, portal, parsed-review
+    // demo) which production never seeds - DemoSupplierSeeder is the dev/E2E-only
+    // superset of the clean default seeder.
+    await run('docker exec cellar-os-app php artisan db:seed --class=DemoSupplierSeeder --force');
   } catch (error) {
     console.warn('global-setup: could not seed via docker — ensure the demo data exists.', error);
   }
