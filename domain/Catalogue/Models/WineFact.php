@@ -25,6 +25,8 @@ class WineFact extends Model
         'sub_region',
         'grape',
         'colour',
+        'lwin',
+        'lwin_source',
         'field_sources',
         'field_conflicts',
         'observations',

@@ -32,6 +32,8 @@ class Product extends Model
         'unit_price',
         'price_per_litre',
         'stock',
+        'lwin',
+        'lwin_source',
         'latitude',
         'longitude',
     ];

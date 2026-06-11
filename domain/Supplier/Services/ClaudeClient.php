@@ -375,6 +375,60 @@ class ClaudeClient
     }
 
     /**
+     * LWIN residue matching: for each wine, pick the matching LWIN from its
+     * candidate list, or abstain. Returns item index => chosen lwin (only
+     * confident picks). Grammar-friendly schema: all-required strings.
+     *
+     * @param  array<int, array{index: string, wine: string, candidates: array<int, array{lwin: string, name: string}>}>  $items
+     * @return array<string, string>
+     */
+    public function pickLwins(array $items, ?string $model = null): array
+    {
+        $system = <<<'SYS'
+            You match wines from supplier lists to LWIN reference entries.
+            For each item, the candidates all share the wine's producer; decide
+            which candidate (if any) is THE SAME wine/label. Vintage, bottle
+            size and minor spelling/accent differences do not matter; a
+            different cuvée, vineyard or colour DOES. If no candidate is
+            clearly the same label, abstain by returning "" for that item.
+            Only return confident matches — a wrong link is far worse than no
+            link.
+            SYS;
+
+        $schema = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'properties' => [
+                'matches' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'properties' => [
+                            'index' => ['type' => 'string'],
+                            'lwin' => ['type' => 'string'],
+                        ],
+                        'required' => ['index', 'lwin'],
+                    ],
+                ],
+            ],
+            'required' => ['matches'],
+        ];
+
+        $out = $this->call($system, json_encode($items, JSON_UNESCAPED_UNICODE) ?: '[]', $schema, $model, 4000);
+
+        $picks = [];
+        foreach (is_array($out['matches'] ?? null) ? $out['matches'] : [] as $match) {
+            $lwin = trim((string) ($match['lwin'] ?? ''));
+            if ($lwin !== '') {
+                $picks[(string) ($match['index'] ?? '')] = $lwin;
+            }
+        }
+
+        return $picks;
+    }
+
+    /**
      * Tokens spent across this instance's calls (input/output).
      *
      * @return array{input: int, output: int}

@@ -71,4 +71,12 @@ class FakeClaudeClient extends ClaudeClient
 
         return ['wines' => $this->wines, 'section' => $this->section];
     }
+
+    /** @var array<string, string> canned LWIN picks: item index => lwin */
+    public array $lwinPicks = [];
+
+    public function pickLwins(array $items, ?string $model = null): array
+    {
+        return $this->lwinPicks;
+    }
 }
