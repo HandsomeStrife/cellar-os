@@ -62,6 +62,21 @@ class SupplierDocumentRepository
             ->map(fn (SupplierDocument $document) => $document->getData());
     }
 
+    /**
+     * The documents a scheduled refresh can re-download: current (not yet
+     * superseded) and carrying the URL their file was originally fetched from.
+     *
+     * @return Collection<int, SupplierDocumentData>
+     */
+    public function refreshable(): Collection
+    {
+        return SupplierDocument::whereNotNull('source_url')
+            ->whereNull('archived_at')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (SupplierDocument $document) => $document->getData());
+    }
+
     public function paginate(int $perPage = 20): LengthAwarePaginator
     {
         return SupplierDocument::query()

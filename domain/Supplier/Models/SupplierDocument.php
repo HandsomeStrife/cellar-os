@@ -26,9 +26,13 @@ class SupplierDocument extends Model
         'file_type',
         'file_size',
         'storage_path',
+        'source_url',
+        'content_sha256',
         'status',
         'analysis_notes',
         'analysed_at',
+        'archived_at',
+        'superseded_by_document_id',
     ];
 
     protected function casts(): array
@@ -37,6 +41,7 @@ class SupplierDocument extends Model
             'status' => SupplierDocumentStatus::class,
             'file_size' => 'integer',
             'analysed_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 

@@ -24,8 +24,12 @@ class SupplierDocumentData extends AbstractData
         public int $file_size,
         public string $storage_path,
         public SupplierDocumentStatus $status,
+        public ?string $source_url = null,
+        public ?string $content_sha256 = null,
         public ?string $analysis_notes = null,
         public ?CarbonImmutable $analysed_at = null,
+        public ?CarbonImmutable $archived_at = null,
+        public ?int $superseded_by_document_id = null,
         public ?CarbonImmutable $created_at = null,
     ) {}
 
@@ -44,8 +48,12 @@ class SupplierDocumentData extends AbstractData
             file_size: $model->file_size,
             storage_path: $model->storage_path,
             status: $model->status,
+            source_url: $model->source_url,
+            content_sha256: $model->content_sha256,
             analysis_notes: $model->analysis_notes,
             analysed_at: $model->analysed_at?->toImmutable(),
+            archived_at: $model->archived_at?->toImmutable(),
+            superseded_by_document_id: $model->superseded_by_document_id,
             created_at: $model->created_at?->toImmutable(),
         );
     }
