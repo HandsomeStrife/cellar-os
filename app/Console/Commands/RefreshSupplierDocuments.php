@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use Domain\Catalogue\Actions\ArchiveUnseenProductsAction;
 use Domain\Supplier\Actions\ApproveAllForDocumentAction;
 use Domain\Supplier\Actions\SupersedeSupplierDocumentAction;
 use Domain\Supplier\Data\SupplierDocumentData;
@@ -23,9 +24,9 @@ use Illuminate\Support\Str;
  * documents cost nothing); with --approve the unflagged rows are committed to
  * the catalogue (the idempotent upsert refreshes prices/attributes in place).
  *
- * Wines that DROP OUT of a new edition keep their last-seen product rows —
- * deliberately, because companies may hold them in inventory/orders. The
- * archived document records what the old edition actually said.
+ * Wines that DROP OUT of a new edition are ARCHIVED (hidden from browse/map,
+ * kept for inventory/order references, un-archived if they reappear) via
+ * ArchiveUnseenProductsAction — never deleted.
  */
 class RefreshSupplierDocuments extends Command
 {
@@ -90,7 +91,12 @@ class RefreshSupplierDocuments extends Command
 
             if ($this->option('approve')) {
                 $approved = (new ApproveAllForDocumentAction)->execute((int) $new->id, skipFlagged: true);
-                $this->line("  approved {$approved} unflagged wine(s) into the catalogue.");
+
+                // Whatever still points at the superseded edition wasn't in
+                // the new one — archive it (reversible; reappearing wines
+                // un-archive via the upsert).
+                $archived = (new ArchiveUnseenProductsAction)->execute((int) $document->id);
+                $this->line("  approved {$approved} unflagged wine(s) into the catalogue; archived {$archived} dropped-out wine(s).");
             }
         }
 

@@ -15,8 +15,35 @@ use Domain\Shared\Actions\AbstractAction;
  */
 class UpsertProductAction extends AbstractAction
 {
-    public function execute(ProductData $data): ProductData
+    public function execute(ProductData $data, ?int $sourceDocumentId = null): ProductData
     {
+        $attributes = [
+            'raw_upload_id' => $data->raw_upload_id,
+            'producer' => $data->producer,
+            'country' => $data->country,
+            'region' => $data->region,
+            'sub_region' => $data->sub_region,
+            'grape' => $data->grape,
+            'colour' => $data->colour,
+            'case_size' => $data->case_size,
+            'unit_price' => $data->unit_price,
+            'price_per_litre' => $data->price_per_litre,
+            'stock' => $data->stock,
+            'latitude' => $data->latitude,
+            'longitude' => $data->longitude,
+            // Listing lifecycle: an upserted wine is (still) listed, so it
+            // un-archives if it had dropped out of an earlier edition. Golden
+            // imports pass explicit values through to mirror the source env.
+            'last_seen_at' => $data->last_seen_at ?? now(),
+            'archived_at' => $data->archived_at,
+        ];
+
+        // Document provenance is environment-local; only overwrite it when the
+        // caller actually knows the edition this wine came from.
+        if ($sourceDocumentId !== null) {
+            $attributes['source_document_id'] = $sourceDocumentId;
+        }
+
         $product = Product::updateOrCreate(
             [
                 'supplier_id' => $data->supplier_id,
@@ -24,21 +51,7 @@ class UpsertProductAction extends AbstractAction
                 'vintage' => $data->vintage,
                 'format_ml' => $data->format_ml,
             ],
-            [
-                'raw_upload_id' => $data->raw_upload_id,
-                'producer' => $data->producer,
-                'country' => $data->country,
-                'region' => $data->region,
-                'sub_region' => $data->sub_region,
-                'grape' => $data->grape,
-                'colour' => $data->colour,
-                'case_size' => $data->case_size,
-                'unit_price' => $data->unit_price,
-                'price_per_litre' => $data->price_per_litre,
-                'stock' => $data->stock,
-                'latitude' => $data->latitude,
-                'longitude' => $data->longitude,
-            ],
+            $attributes,
         );
 
         $result = $product->getData();

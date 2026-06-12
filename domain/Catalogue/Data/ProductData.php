@@ -31,6 +31,9 @@ class ProductData extends AbstractData
         public int $stock,
         public ?string $latitude,
         public ?string $longitude,
+        public ?CarbonImmutable $last_seen_at = null,
+        public ?CarbonImmutable $archived_at = null,
+        public ?int $source_document_id = null,
         public ?CarbonImmutable $created_at = null,
     ) {}
 
@@ -56,6 +59,9 @@ class ProductData extends AbstractData
             stock: $model->stock,
             latitude: $model->latitude,
             longitude: $model->longitude,
+            last_seen_at: $model->last_seen_at?->toImmutable(),
+            archived_at: $model->archived_at?->toImmutable(),
+            source_document_id: $model->source_document_id,
             created_at: $model->created_at?->toImmutable(),
         );
     }

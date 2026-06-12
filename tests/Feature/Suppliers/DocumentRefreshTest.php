@@ -2,9 +2,12 @@
 
 declare(strict_types=1);
 
+use Domain\Catalogue\Models\Product;
+use Domain\Supplier\Enums\ParseMode;
 use Domain\Supplier\Enums\SupplierDocumentStatus;
 use Domain\Supplier\Models\Supplier;
 use Domain\Supplier\Models\SupplierDocument;
+use Domain\Supplier\Models\SupplierParseProfile;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -89,6 +92,73 @@ it('reports a failure but keeps going when a download breaks', function () {
         ->expectsOutputToContain('download failed')
         ->expectsOutputToContain('unchanged')
         ->assertExitCode(1);
+});
+
+it('processes a changed edition: refreshes kept wines, adds new ones, archives dropouts', function () {
+    Storage::fake('local');
+
+    $supplier = Supplier::factory()->create();
+
+    // The supplier already has a learned tabular mapping, so the re-parse
+    // needs no LLM at all — exactly the cheap weekly-refresh path.
+    SupplierParseProfile::create([
+        'supplier_id' => $supplier->id,
+        'company_id' => null,
+        'mode' => ParseMode::Tabular->value,
+        'recipe' => ['mapping' => [
+            'wine_name' => 'Wine', 'vintage' => 'Vintage', 'unit_price' => 'Price',
+            'country' => 'Country', 'colour' => 'Colour',
+        ]],
+        'confidence' => 0.95,
+        'is_active' => true,
+    ]);
+
+    $oldDoc = SupplierDocument::factory()->create([
+        'supplier_id' => $supplier->id,
+        'file_name' => 'list.csv',
+        'file_type' => 'csv',
+        'source_url' => 'https://example.test/list.csv',
+        'content_sha256' => hash('sha256', 'old edition'),
+        'status' => SupplierDocumentStatus::Analysed->value,
+    ]);
+
+    $kept = Product::factory()->create([
+        'supplier_id' => $supplier->id,
+        'wine_name' => 'Chablis Premier Cru',
+        'vintage' => 2022,
+        'format_ml' => 750,
+        'unit_price' => '15.00',
+        'source_document_id' => $oldDoc->id,
+    ]);
+    $dropped = Product::factory()->create([
+        'supplier_id' => $supplier->id,
+        'wine_name' => 'Discontinued Barolo',
+        'vintage' => 2018,
+        'format_ml' => 750,
+        'source_document_id' => $oldDoc->id,
+    ]);
+
+    Http::fake(['example.test/*' => Http::response(
+        "Wine,Vintage,Price,Country,Colour\n"
+        ."Chablis Premier Cru,2022,16.50,France,White\n"
+        ."Brand New Rioja,2021,11.00,Spain,Red\n"
+    )]);
+
+    $this->artisan('wine:refresh-documents', ['--process' => true, '--approve' => true])
+        ->expectsOutputToContain('CHANGED')
+        ->expectsOutputToContain('archived 1 dropped-out wine(s)')
+        ->assertExitCode(0);
+
+    $newDoc = SupplierDocument::where('id', '!=', $oldDoc->id)->sole();
+
+    // Kept wine: price refreshed in place, provenance moved to the new edition.
+    expect($kept->fresh()->unit_price)->toBe('16.50')
+        ->and($kept->fresh()->archived_at)->toBeNull()
+        ->and($kept->fresh()->source_document_id)->toBe($newDoc->id)
+        // New wine committed.
+        ->and(Product::where('wine_name', 'Brand New Rioja')->exists())->toBeTrue()
+        // Dropped wine archived, not deleted.
+        ->and($dropped->fresh()->archived_at)->not->toBeNull();
 });
 
 it('only refreshes current documents that carry a source url', function () {

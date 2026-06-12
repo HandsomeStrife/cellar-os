@@ -32,6 +32,9 @@ class Product extends Model
         'unit_price',
         'price_per_litre',
         'stock',
+        'last_seen_at',
+        'archived_at',
+        'source_document_id',
         'lwin',
         'lwin_source',
         'latitude',
@@ -51,6 +54,8 @@ class Product extends Model
             'format_ml' => 'integer',
             'case_size' => 'integer',
             'stock' => 'integer',
+            'last_seen_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 

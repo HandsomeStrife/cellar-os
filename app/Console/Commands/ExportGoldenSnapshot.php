@@ -83,6 +83,8 @@ class ExportGoldenSnapshot extends Command
                 'unit_price' => $p->unit_price,
                 'price_per_litre' => $p->price_per_litre,
                 'stock' => $p->stock,
+                'last_seen_at' => $p->last_seen_at?->toIso8601String(),
+                'archived_at' => $p->archived_at?->toIso8601String(),
                 'lwin' => $p->lwin,
                 'lwin_source' => $p->lwin_source,
                 'latitude' => $p->latitude,

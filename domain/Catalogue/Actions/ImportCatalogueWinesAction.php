@@ -58,6 +58,10 @@ class ImportCatalogueWinesAction extends AbstractAction
                     'stock' => is_numeric($row['stock'] ?? null) ? (int) $row['stock'] : 0,
                     'latitude' => $row['latitude'] ?? null,
                     'longitude' => $row['longitude'] ?? null,
+                    // Listing lifecycle mirrors the source environment (the
+                    // parse + archive decisions happen there, not here).
+                    'last_seen_at' => $row['last_seen_at'] ?? null,
+                    'archived_at' => $row['archived_at'] ?? null,
                 ]));
 
                 // LWIN links travel with golden (ProductData doesn't carry

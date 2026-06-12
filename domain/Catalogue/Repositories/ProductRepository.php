@@ -24,7 +24,11 @@ class ProductRepository
 
     public function paginate(int $perPage = 24): LengthAwarePaginator
     {
-        return Product::orderBy('wine_name')
+        // Archived wines (dropped out of their supplier's current list) are
+        // hidden from every browse surface; direct id/uuid lookups still work
+        // so existing inventory/order references render fine.
+        return Product::whereNull('archived_at')
+            ->orderBy('wine_name')
             ->paginate($perPage)
             ->through(fn (Product $product) => $product->getData());
     }
@@ -50,6 +54,7 @@ class ProductRepository
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
 
         return Product::query()
+            ->whereNull('archived_at')
             ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
             ->when($term !== null && $term !== '', function ($query) use ($term) {
                 $query->where(function ($query) use ($term) {
@@ -66,7 +71,7 @@ class ProductRepository
 
     public function count(): int
     {
-        return Product::count();
+        return Product::whereNull('archived_at')->count();
     }
 
     /**
@@ -93,6 +98,7 @@ class ProductRepository
     public function countries(?array $supplierIds = null): array
     {
         return Product::query()
+            ->whereNull('archived_at')
             ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
             ->whereNotNull('country')
             ->where('country', '!=', '')
@@ -105,7 +111,8 @@ class ProductRepository
     public function allForMap(): Collection
     {
         // The public sourcing map excludes wines from buyers' private suppliers.
-        return Product::whereNotNull('latitude')
+        return Product::whereNull('archived_at')
+            ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->whereNotIn('supplier_id', fn ($query) => $query->select('id')
                 ->from('suppliers')

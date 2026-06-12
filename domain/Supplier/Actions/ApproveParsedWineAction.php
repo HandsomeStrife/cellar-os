@@ -27,7 +27,10 @@ class ApproveParsedWineAction extends AbstractAction
         $payload['id'] = null;
         $payload['uuid'] = null;
 
-        (new UpsertProductAction)->execute(ProductData::from($payload));
+        (new UpsertProductAction)->execute(
+            ProductData::from($payload),
+            sourceDocumentId: $row->supplier_document_id,
+        );
 
         $row->update(['status' => ParsedWineStatus::Approved->value]);
     }
