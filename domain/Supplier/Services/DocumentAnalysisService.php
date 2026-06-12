@@ -55,6 +55,9 @@ class DocumentAnalysisService
             throw new RuntimeException('The uploaded file could not be found on disk.');
         }
 
+        // Attribute this analysis's API spend to the supplier/document.
+        $this->claude->setContext($document->supplier_id, $document->id);
+
         $mode = ParseMode::forFileType($document->file_type, $document->file_name);
 
         return $mode === ParseMode::Tabular

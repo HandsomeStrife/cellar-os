@@ -12,6 +12,7 @@ use App\Http\Controllers\Suppliers\DownloadDocumentController as SupplierDocumen
 use App\Livewire\Admin\Auth\Login as AdminLogin;
 use App\Livewire\Admin\Companies as AdminCompanies;
 use App\Livewire\Admin\CompanyShow as AdminCompanyShow;
+use App\Livewire\Admin\Costs as AdminCosts;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
 use App\Livewire\Admin\Enquiries as AdminEnquiries;
 use App\Livewire\Admin\Suppliers as AdminSuppliers;
@@ -111,6 +112,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('impersonate/supplier-users/{id}', [ImpersonationController::class, 'supplierUser'])->name('impersonate.supplier-user');
         Route::post('impersonate/stop', [ImpersonationController::class, 'stop'])->name('impersonate.stop');
         Route::get('enquiries', AdminEnquiries::class)->name('enquiries');
+        Route::get('costs', AdminCosts::class)->name('costs');
 
         Route::post('logout', function (Request $request) {
             Auth::guard('admin')->logout();

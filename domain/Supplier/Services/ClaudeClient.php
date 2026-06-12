@@ -7,6 +7,8 @@ namespace Domain\Supplier\Services;
 use Anthropic\Client;
 use Anthropic\Messages\JSONOutputFormat;
 use Anthropic\Messages\OutputConfig;
+use Domain\Supplier\Actions\RecordLlmCallAction;
+use Domain\Supplier\Data\LlmCallData;
 use Domain\Supplier\Exceptions\ResponseTruncatedException;
 use RuntimeException;
 
@@ -36,6 +38,11 @@ class ClaudeClient
 
     /** @var array{input: int, output: int}|null tokens of the most recent call */
     public ?array $last_usage = null;
+
+    /** What the next calls are spent ON — recorded into the cost ledger. */
+    private ?int $contextSupplierId = null;
+
+    private ?int $contextDocumentId = null;
 
     private ?Client $client = null;
 
@@ -93,7 +100,7 @@ class ClaudeClient
             'required' => ['mapping', 'confidence', 'notes'],
         ];
 
-        $out = $this->call($system, $user, $schema, $model, 2000);
+        $out = $this->call('derive_mapping', $system, $user, $schema, $model, 2000);
 
         $mapping = [];
         foreach (is_array($out['mapping'] ?? null) ? $out['mapping'] : [] as $pair) {
@@ -138,7 +145,7 @@ class ClaudeClient
             'required' => ['structure', 'notes', 'confidence'],
         ];
 
-        $out = $this->call($system, "Sample (first pages):\n\n".$sampleText, $schema, $model, 2000);
+        $out = $this->call('derive_profile', $system, "Sample (first pages):\n\n".$sampleText, $schema, $model, 2000);
 
         return [
             'structure' => (string) ($out['structure'] ?? ''),
@@ -239,7 +246,7 @@ class ClaudeClient
             'required' => ['feasible', 'zones', 'row_regex', 'require', 'carry', 'section_regex', 'section_field', 'colour_map', 'format_unit', 'confidence', 'notes'],
         ];
 
-        $out = $this->call($system, "Sample rows:\n\n".$renderedRows, $schema, $model, 4000);
+        $out = $this->call('derive_rules', $system, "Sample rows:\n\n".$renderedRows, $schema, $model, 4000);
 
         return [
             'feasible' => ($out['feasible'] ?? 'no') === 'yes',
@@ -326,7 +333,7 @@ class ClaudeClient
             'required' => ['wines', 'section'],
         ];
 
-        $out = $this->call($system, $user, $schema, $model, 16000);
+        $out = $this->call('extract_wines', $system, $user, $schema, $model, 16000);
 
         $section = array_filter([
             'country' => $out['section']['country'] ?? null,
@@ -346,12 +353,14 @@ class ClaudeClient
      * @param  array<string, mixed>  $schema
      * @return array<string, mixed>
      */
-    protected function call(string $system, string $user, array $schema, ?string $model, int $maxTokens): array
+    protected function call(string $purpose, string $system, string $user, array $schema, ?string $model, int $maxTokens): array
     {
+        $usedModel = $model ?: $this->defaultModel;
+
         $message = $this->client()->messages->create(
             maxTokens: $maxTokens,
             messages: [['role' => 'user', 'content' => $user]],
-            model: $model ?: $this->defaultModel,
+            model: $usedModel,
             system: $system,
             outputConfig: OutputConfig::with(format: JSONOutputFormat::with(schema: $schema)),
         );
@@ -359,6 +368,29 @@ class ClaudeClient
         $this->last_usage = ['input' => $message->usage->inputTokens, 'output' => $message->usage->outputTokens];
         $this->usage['input'] += $message->usage->inputTokens;
         $this->usage['output'] += $message->usage->outputTokens;
+
+        // Ledger first, truncation check second — a truncated call is still
+        // billed. Best-effort: cost logging must never break a parse.
+        try {
+            [$inPrice, $outPrice] = self::priceFor($usedModel);
+            (new RecordLlmCallAction)->execute(LlmCallData::from([
+                'id' => null,
+                'uuid' => null,
+                'purpose' => $purpose,
+                'model' => $usedModel,
+                'input_tokens' => $message->usage->inputTokens,
+                'output_tokens' => $message->usage->outputTokens,
+                'cost_usd' => number_format(
+                    ($message->usage->inputTokens / 1_000_000) * $inPrice
+                        + ($message->usage->outputTokens / 1_000_000) * $outPrice,
+                    6, '.', '',
+                ),
+                'supplier_id' => $this->contextSupplierId,
+                'supplier_document_id' => $this->contextDocumentId,
+            ]));
+        } catch (\Throwable) {
+            // swallow — the ledger is observability, not control flow
+        }
 
         if ($message->stopReason === 'max_tokens') {
             throw new ResponseTruncatedException('The response was cut off (chunk too dense).');
@@ -415,7 +447,7 @@ class ClaudeClient
             'required' => ['matches'],
         ];
 
-        $out = $this->call($system, json_encode($items, JSON_UNESCAPED_UNICODE) ?: '[]', $schema, $model, 4000);
+        $out = $this->call('pick_lwins', $system, json_encode($items, JSON_UNESCAPED_UNICODE) ?: '[]', $schema, $model, 4000);
 
         $picks = [];
         foreach (is_array($out['matches'] ?? null) ? $out['matches'] : [] as $match) {
@@ -426,6 +458,35 @@ class ClaudeClient
         }
 
         return $picks;
+    }
+
+    /**
+     * Attribute subsequent calls to a supplier/document in the cost ledger.
+     */
+    public function setContext(?int $supplierId, ?int $supplierDocumentId): void
+    {
+        $this->contextSupplierId = $supplierId;
+        $this->contextDocumentId = $supplierDocumentId;
+    }
+
+    /**
+     * [input, output] USD-per-million prices for a model id. Prefix-matched so
+     * dated ids (claude-haiku-4-5-20251001) resolve to their family's prices
+     * instead of silently falling back to Opus rates.
+     *
+     * @return array{0: float, 1: float}
+     */
+    public static function priceFor(?string $model): array
+    {
+        $model = (string) $model;
+
+        foreach (self::PRICES as $prefix => $prices) {
+            if (str_starts_with($model, $prefix)) {
+                return $prices;
+            }
+        }
+
+        return self::PRICES['claude-opus-4-8'];
     }
 
     /**
@@ -443,7 +504,7 @@ class ClaudeClient
      */
     public function usageCost(?string $model = null): float
     {
-        [$in, $out] = self::PRICES[$model ?: $this->defaultModel] ?? self::PRICES['claude-opus-4-8'];
+        [$in, $out] = self::priceFor($model ?: $this->defaultModel);
 
         return ($this->usage['input'] / 1_000_000) * $in + ($this->usage['output'] / 1_000_000) * $out;
     }

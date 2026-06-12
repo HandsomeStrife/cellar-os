@@ -7,6 +7,7 @@
         ['label' => 'Users', 'icon' => 'users', 'route' => 'admin.users'],
         ['label' => 'Suppliers', 'icon' => 'package', 'route' => 'admin.suppliers'],
         ['label' => 'Enquiries', 'icon' => 'mail', 'route' => 'admin.enquiries'],
+        ['label' => 'AI costs', 'icon' => 'circle-dollar-sign', 'route' => 'admin.costs'],
     ];
     $admin = auth('admin')->user();
 @endphp
