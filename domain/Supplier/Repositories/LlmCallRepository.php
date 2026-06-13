@@ -45,6 +45,20 @@ class LlmCallRepository
     }
 
     /**
+     * Total spend + call count attributed to one supplier.
+     *
+     * @return array{calls: int, cost_usd: float}
+     */
+    public function totalsForSupplier(int $supplierId): array
+    {
+        $row = LlmCall::where('supplier_id', $supplierId)
+            ->selectRaw('COUNT(*) calls, COALESCE(SUM(cost_usd),0) cost_usd')
+            ->first();
+
+        return ['calls' => (int) $row->calls, 'cost_usd' => (float) $row->cost_usd];
+    }
+
+    /**
      * Spend grouped by model, all time, biggest first.
      *
      * @return Collection<int, array{model: string, calls: int, input_tokens: int, output_tokens: int, cost_usd: float}>

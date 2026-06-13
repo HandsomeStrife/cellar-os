@@ -144,6 +144,33 @@
 
     {{-- Documents --}}
     <x-card title="Portfolios & price sheets">
+        {{-- How we import this supplier: the learned recipe + AI spend to date --}}
+        @if(! empty($parseProfiles) || ($aiSpend['calls'] ?? 0) > 0)
+            <div class="mb-4 grid gap-3 sm:grid-cols-2">
+                @foreach($parseProfiles as $mode => $profile)
+                    @php($strategy = $profile->recipe['strategy'] ?? (isset($profile->recipe['mapping']) ? 'tabular' : 'llm'))
+                    <div class="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm">
+                        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">How we import ({{ $mode }})</p>
+                        <p class="mt-1 text-foreground">
+                            @switch($strategy)
+                                @case('pattern') Deterministic pattern rules — re-imports are free @break
+                                @case('tabular') Learned column mapping — re-imports are free @break
+                                @default LLM extraction — re-imports re-bill tokens
+                            @endswitch
+                        </p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">Confidence {{ number_format(($profile->confidence ?? 0) * 100) }}%{{ $profile->model ? ' · '.$profile->model : '' }}</p>
+                    </div>
+                @endforeach
+                @if(($aiSpend['calls'] ?? 0) > 0)
+                    <div class="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-sm">
+                        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">AI spend to date</p>
+                        <p class="mt-1 font-mono text-foreground">${{ number_format($aiSpend['cost_usd'], 4) }}</p>
+                        <p class="mt-0.5 text-xs text-muted-foreground">across {{ $aiSpend['calls'] }} call(s) · <a href="{{ route('admin.costs') }}" class="text-primary hover:underline">full ledger</a></p>
+                    </div>
+                @endif
+            </div>
+        @endif
+
         @if($documents->isEmpty())
             <x-empty-state icon="file-text" title="No documents" message="This supplier hasn't uploaded any documents yet." />
         @else
@@ -163,12 +190,18 @@
                                 <td class="px-3 py-2.5">
                                     <p class="font-medium">{{ $document->title ?: $document->file_name }}</p>
                                     <p class="font-mono text-xs text-muted-foreground">{{ $document->file_name }}</p>
-                                    @if($document->status === \Domain\Supplier\Enums\SupplierDocumentStatus::Failed && $document->analysis_notes)
-                                        <p class="mt-1 text-xs text-destructive">{{ $document->analysis_notes }}</p>
+                                    @if($document->analysis_notes)
+                                        <p class="mt-1 whitespace-pre-line text-xs {{ $document->status === \Domain\Supplier\Enums\SupplierDocumentStatus::Failed ? 'text-destructive' : 'text-muted-foreground' }}">{{ $document->analysis_notes }}</p>
                                     @endif
                                     @php($pc = $parsedCounts[$document->id] ?? [])
                                     @if(($pc['proposed'] ?? 0) + ($pc['approved'] ?? 0) > 0)
                                         <p class="mt-1 text-xs text-muted-foreground">{{ $pc['proposed'] ?? 0 }} proposed · {{ $pc['approved'] ?? 0 }} approved</p>
+                                    @endif
+                                    @if($document->analysed_at)
+                                        <p class="mt-0.5 text-xs text-muted-foreground">Last analysed {{ $document->analysed_at->format('j M Y, H:i') }}</p>
+                                    @endif
+                                    @if($document->archived_at)
+                                        <p class="mt-0.5 text-xs text-amber-600">Archived (superseded) {{ $document->archived_at->format('j M Y') }}</p>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5"><x-badge :color="$document->status->getColour()">{{ $document->status->getLabel() }}</x-badge></td>

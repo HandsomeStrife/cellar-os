@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use Domain\Supplier\Actions\RecordDocumentAnalysisAction;
 use Domain\Supplier\Repositories\ParsedWineRepository;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
 use Domain\Supplier\Services\DocumentAnalysisService;
@@ -38,6 +39,10 @@ class ParseSupplierDocument extends Command
             full: (bool) $this->option('full'),
             model: $this->option('model') ?: null,
         );
+
+        // Persist the outcome (status + analysis_notes + a CRM history note)
+        // exactly as the queued job does, so a CLI parse is fully recorded.
+        (new RecordDocumentAnalysisAction)->execute($document->id, $summary);
 
         $this->line('');
         $this->info($summary['notes']);

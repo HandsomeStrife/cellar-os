@@ -13,13 +13,17 @@ use Domain\Supplier\Actions\DeleteSupplierNoteAction;
 use Domain\Supplier\Actions\DeleteSupplierUserAction;
 use Domain\Supplier\Actions\MakeSupplierPublicAction;
 use Domain\Supplier\Actions\MarkSupplierOnboardedAction;
+use Domain\Supplier\Actions\RecordCatalogueCommitAction;
 use Domain\Supplier\Actions\UpdateSupplierAction;
 use Domain\Supplier\Data\SupplierData;
+use Domain\Supplier\Enums\ParseMode;
 use Domain\Supplier\Enums\SupplierStatus;
 use Domain\Supplier\Jobs\AnalyseSupplierDocumentJob;
+use Domain\Supplier\Repositories\LlmCallRepository;
 use Domain\Supplier\Repositories\ParsedWineRepository;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
 use Domain\Supplier\Repositories\SupplierNoteRepository;
+use Domain\Supplier\Repositories\SupplierParseProfileRepository;
 use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\Supplier\Repositories\SupplierUserRepository;
 use Illuminate\Support\Facades\Auth;
@@ -248,6 +252,7 @@ class SupplierShow extends Component
         // Bulk approve from the admin list has no row-level review surface, so
         // flagged rows are skipped rather than committed unseen.
         $count = (new ApproveAllForDocumentAction)->execute($documentId, skipFlagged: true);
+        (new RecordCatalogueCommitAction)->execute($this->supplierId, $document->file_name, $count);
         $this->dispatch('toast', message: "{$count} unflagged wine(s) added to the catalogue.");
     }
 
@@ -271,6 +276,13 @@ class SupplierShow extends Component
     {
         $documents = (new SupplierDocumentRepository)->forSupplier($this->supplierId);
         $parsedRepo = new ParsedWineRepository;
+        $profileRepo = new SupplierParseProfileRepository;
+
+        // The learned recipe per mode = "exactly how we parse this supplier".
+        $profiles = collect(ParseMode::cases())
+            ->mapWithKeys(fn (ParseMode $mode) => [$mode->value => $profileRepo->activeForSupplier($this->supplierId, $mode)])
+            ->filter()
+            ->all();
 
         return view('livewire.admin.supplier-show', [
             'supplier' => (new SupplierRepository)->find($this->supplierId),
@@ -278,6 +290,8 @@ class SupplierShow extends Component
             'documents' => $documents,
             'notes' => (new SupplierNoteRepository)->forSupplier($this->supplierId),
             'parsedCounts' => $documents->mapWithKeys(fn ($d) => [$d->id => $parsedRepo->countsForDocument($d->id)])->all(),
+            'parseProfiles' => $profiles,
+            'aiSpend' => (new LlmCallRepository)->totalsForSupplier($this->supplierId),
             'statuses' => SupplierStatus::options(),
         ]);
     }

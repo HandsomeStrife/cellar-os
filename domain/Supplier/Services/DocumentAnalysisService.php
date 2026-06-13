@@ -112,7 +112,7 @@ class DocumentAnalysisService
         // Keep the manual import wizard's remembered mapping in sync.
         (new SaveColumnMappingAction)->execute($document->supplier_id, $mapping);
 
-        return $this->summary(ParseMode::Tabular, $proposed, false, $notes, $model);
+        return $this->summary(ParseMode::Tabular, $proposed, false, $notes, $model, 'tabular');
     }
 
     /**
@@ -161,6 +161,7 @@ class DocumentAnalysisService
                     "Pattern-parsed {$pages} page(s) deterministically (no extraction tokens)."
                         .($residue > 0 ? " {$residue} unmatched line(s) skipped." : ''),
                     $model,
+                    'pattern',
                 );
             }
 
@@ -470,21 +471,28 @@ class DocumentAnalysisService
      * @param  array<int, array{flag: string|null}>  $proposed
      * @return array{mode: string, stored: int, preview: bool, notes: string}
      */
-    private function summary(ParseMode $mode, array $proposed, bool $preview, string $notes, ?string $model = null): array
+    private function summary(ParseMode $mode, array $proposed, bool $preview, string $notes, ?string $model = null, string $strategy = 'llm'): array
     {
         $flagged = count(array_filter($proposed, fn ($r) => $r['flag'] !== null));
         $count = count($proposed);
 
         // Record the real token spend so users can calibrate future runs.
         $usage = $this->claude->usageTotals();
-        $cost = $usage['input'] + $usage['output'] > 0
+        $billed = $usage['input'] + $usage['output'] > 0;
+        $cost = $billed
             ? sprintf(' Tokens: %s in / %s out (~$%.2f).', number_format($usage['input']), number_format($usage['output']), $this->claude->usageCost($model))
             : '';
 
         return [
             'mode' => $mode->value,
+            'strategy' => $strategy,
             'stored' => $count,
+            'flagged' => $flagged,
             'preview' => $preview,
+            'input_tokens' => $usage['input'],
+            'output_tokens' => $usage['output'],
+            'cost_usd' => $billed ? round($this->claude->usageCost($model), 6) : 0.0,
+            'model' => $model ?: (string) config('services.anthropic.model'),
             'notes' => "Parsed {$count} wine(s)".($flagged > 0 ? ", {$flagged} flagged for review" : '').'. '.$notes.$cost,
         ];
     }

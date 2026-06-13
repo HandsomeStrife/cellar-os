@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Domain\Supplier\Jobs;
 
-use Domain\Supplier\Actions\MarkDocumentAnalysedAction;
 use Domain\Supplier\Actions\MarkDocumentAnalysingAction;
 use Domain\Supplier\Actions\MarkDocumentFailedAction;
+use Domain\Supplier\Actions\RecordDocumentAnalysisAction;
 use Domain\Supplier\Services\DocumentAnalysisService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -51,7 +51,7 @@ class AnalyseSupplierDocumentJob implements ShouldQueue
         try {
             $summary = $service->analyse($document, $this->full, $this->model);
 
-            (new MarkDocumentAnalysedAction)->execute($this->documentId, $summary['notes']);
+            (new RecordDocumentAnalysisAction)->execute($this->documentId, $summary);
         } catch (Throwable $e) {
             (new MarkDocumentFailedAction)->execute($this->documentId, $e->getMessage());
         }

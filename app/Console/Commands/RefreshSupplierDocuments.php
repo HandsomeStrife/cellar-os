@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use Domain\Catalogue\Actions\ArchiveUnseenProductsAction;
 use Domain\Supplier\Actions\ApproveAllForDocumentAction;
+use Domain\Supplier\Actions\RecordCatalogueCommitAction;
 use Domain\Supplier\Actions\SupersedeSupplierDocumentAction;
 use Domain\Supplier\Data\SupplierDocumentData;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
@@ -96,6 +97,9 @@ class RefreshSupplierDocuments extends Command
                 // the new one — archive it (reversible; reappearing wines
                 // un-archive via the upsert).
                 $archived = (new ArchiveUnseenProductsAction)->execute((int) $document->id);
+                (new RecordCatalogueCommitAction)->execute(
+                    $new->supplier_id, $new->file_name, $approved, $archived, refresh: true,
+                );
                 $this->line("  approved {$approved} unflagged wine(s) into the catalogue; archived {$archived} dropped-out wine(s).");
             }
         }
