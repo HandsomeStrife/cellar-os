@@ -26,11 +26,24 @@ class ApproveAllForDocumentAction extends AbstractAction
             ->orderBy('id')
             ->chunkById(200, function ($rows) use ($approve, &$count) {
                 foreach ($rows as $row) {
+                    // Policy: never bulk-commit a price-less wine. We don't carry
+                    // catalogue data without a price — unpriced lists are sourced
+                    // from the supplier directly. A human can still add a price in
+                    // the review screen and approve that row individually.
+                    if (! $this->hasPrice($row->payload['unit_price'] ?? null)) {
+                        continue;
+                    }
+
                     $approve->execute($row->id);
                     $count++;
                 }
             });
 
         return $count;
+    }
+
+    private function hasPrice(mixed $price): bool
+    {
+        return $price !== null && $price !== '' && (float) $price > 0;
     }
 }
