@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use Domain\Catalogue\Actions\ArchiveUnseenProductsAction;
+use Domain\Catalogue\Actions\BackfillCatalogueAttributesAction;
 use Domain\Supplier\Actions\ApproveAllForDocumentAction;
 use Domain\Supplier\Actions\RecordCatalogueCommitAction;
+use Domain\Supplier\Actions\RecordDocumentAnalysisAction;
 use Domain\Supplier\Actions\SupersedeSupplierDocumentAction;
 use Domain\Supplier\Data\SupplierDocumentData;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
@@ -51,6 +53,7 @@ class RefreshSupplierDocuments extends Command
         }
 
         $failures = 0;
+        $committedAny = false;
 
         foreach ($documents as $document) {
             $label = "#{$document->id} {$document->file_name}";
@@ -82,6 +85,9 @@ class RefreshSupplierDocuments extends Command
 
             try {
                 $summary = $service->analyse($new, full: true, model: $this->option('model') ?: null);
+                // Record provenance (status + analysis_notes + history note) just
+                // like the job and CLI, so a refreshed edition is fully logged.
+                (new RecordDocumentAnalysisAction)->execute((int) $new->id, $summary);
                 $this->line("  parsed: {$summary['notes']}");
             } catch (\Throwable $e) {
                 $this->error("  analysis failed: {$e->getMessage()}");
@@ -100,8 +106,21 @@ class RefreshSupplierDocuments extends Command
                 (new RecordCatalogueCommitAction)->execute(
                     $new->supplier_id, $new->file_name, $approved, $archived, refresh: true,
                 );
+                $committedAny = true;
                 $this->line("  approved {$approved} unflagged wine(s) into the catalogue; archived {$archived} dropped-out wine(s).");
             }
+        }
+
+        // Re-imports carry the supplier's raw values, which can blank out
+        // derived fields (e.g. Farr's CSV has no country column, nulling the
+        // region-derived country). Re-run the authoritative backfill so the
+        // catalogue filters stay populated after every refresh.
+        if ($committedAny) {
+            $stats = (new BackfillCatalogueAttributesAction)->execute();
+            $this->line(sprintf(
+                'Backfilled filterable columns — LWIN: %d · country-from-region: %d · geocoded: %d',
+                $stats['lwin'], $stats['country'], $stats['geo'],
+            ));
         }
 
         return $failures === 0 ? self::SUCCESS : self::FAILURE;

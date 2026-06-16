@@ -161,6 +161,40 @@ it('processes a changed edition: refreshes kept wines, adds new ones, archives d
         ->and($dropped->fresh()->archived_at)->not->toBeNull();
 });
 
+it('re-derives country after a re-import that blanks it, and records provenance', function () {
+    Storage::fake('local');
+
+    $supplier = Supplier::factory()->create();
+    SupplierParseProfile::create([
+        'supplier_id' => $supplier->id, 'company_id' => null, 'mode' => ParseMode::Tabular->value,
+        'recipe' => ['mapping' => ['wine_name' => 'Wine', 'region' => 'Region', 'unit_price' => 'Price']],
+        'confidence' => 0.95, 'is_active' => true,
+    ]);
+
+    $oldDoc = SupplierDocument::factory()->create([
+        'supplier_id' => $supplier->id, 'file_name' => 'list.csv', 'file_type' => 'csv',
+        'source_url' => 'https://example.test/list.csv', 'content_sha256' => hash('sha256', 'old'),
+        'status' => SupplierDocumentStatus::Analysed->value,
+    ]);
+
+    // New edition: a region but NO country column (like Farr's export).
+    Http::fake(['example.test/*' => Http::response("Wine,Region,Price\nChambolle-Musigny,Bourgogne,42.00\n")]);
+
+    $this->artisan('wine:refresh-documents', ['--process' => true, '--approve' => true])
+        ->expectsOutputToContain('Backfilled filterable columns')
+        ->assertExitCode(0);
+
+    $newDoc = SupplierDocument::where('id', '!=', $oldDoc->id)->sole();
+    $product = Product::where('supplier_id', $supplier->id)->where('wine_name', 'Chambolle-Musigny')->sole();
+
+    // Country was absent in the file but derived from the region by the backfill.
+    expect($product->country)->toBe('France')
+        ->and($product->region)->toBe('Bourgogne')
+        // Refresh now records provenance like the job/CLI do.
+        ->and($newDoc->fresh()->status)->toBe(SupplierDocumentStatus::Analysed)
+        ->and($newDoc->fresh()->analysis_notes)->not->toBeNull();
+});
+
 it('only refreshes current documents that carry a source url', function () {
     SupplierDocument::factory()->create(['source_url' => null]);
     SupplierDocument::factory()->create([
