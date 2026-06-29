@@ -1,24 +1,29 @@
 @props(['title' => null])
 
 @php
-    // Sidebar IA. Items whose route doesn't exist yet render inert ("soon").
-    $nav = [
-        ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'dashboard'],
-        ['label' => 'Catalogue', 'icon' => 'wine', 'route' => 'catalogue'],
-        ['label' => 'Suppliers', 'icon' => 'users', 'route' => 'suppliers'],
-        ['label' => 'Inventory', 'icon' => 'package', 'route' => 'inventory'],
-        ['label' => 'Orders', 'icon' => 'clipboard-list', 'route' => 'orders'],
-        ['label' => 'Import', 'icon' => 'upload', 'route' => 'import'],
-        ['label' => 'Map', 'icon' => 'map', 'route' => 'map'],
-        ['label' => 'Pricing', 'icon' => 'credit-card', 'route' => 'pricing'],
-        ['label' => 'Guide', 'icon' => 'file-text', 'route' => 'guide'],
-    ];
     $user = auth()->user();
 
-    // Team management is for owners/managers only.
-    if ($user?->role?->canManageTeam()) {
-        array_splice($nav, 7, 0, [['label' => 'Team', 'icon' => 'user', 'route' => 'team']]);
-    }
+    // Sidebar IA, grouped by purpose: the daily trade work, then account, then
+    // help. Items whose route doesn't exist yet render inert ("soon").
+    $navGroups = [
+        ['heading' => 'Trade', 'items' => [
+            ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'dashboard'],
+            ['label' => 'Catalogue', 'icon' => 'wine', 'route' => 'catalogue'],
+            ['label' => 'Suppliers', 'icon' => 'users', 'route' => 'suppliers'],
+            ['label' => 'Inventory', 'icon' => 'package', 'route' => 'inventory'],
+            ['label' => 'Orders', 'icon' => 'clipboard-list', 'route' => 'orders'],
+            ['label' => 'Import', 'icon' => 'upload', 'route' => 'import'],
+            ['label' => 'Map', 'icon' => 'map', 'route' => 'map'],
+        ]],
+        ['heading' => 'Account', 'items' => array_values(array_filter([
+            // Team management is for owners/managers only.
+            $user?->role?->canManageTeam() ? ['label' => 'Team', 'icon' => 'user', 'route' => 'team'] : null,
+            ['label' => 'Pricing', 'icon' => 'credit-card', 'route' => 'pricing'],
+        ]))],
+        ['heading' => 'Help', 'items' => [
+            ['label' => 'Guide', 'icon' => 'file-text', 'route' => 'guide'],
+        ]],
+    ];
 @endphp
 
 <!DOCTYPE html>
@@ -73,29 +78,55 @@
                 </button>
             </div>
 
-            <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-4" aria-label="Primary">
-                @foreach($nav as $item)
-                    @php($active = request()->routeIs($item['route'].'*'))
-                    <a
-                        href="{{ route($item['route']) }}"
-                        wire:navigate
-                        @class([
-                            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                            'bg-sidebar-primary text-sidebar-primary-foreground' => $active,
-                            'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground' => ! $active,
-                        ])
-                        @if($active) aria-current="page" @endif
-                    >
-                        <x-dynamic-component :component="'icon.'.$item['icon']" class="size-5 shrink-0" />
-                        {{ $item['label'] }}
-                    </a>
+            <nav class="flex-1 space-y-6 overflow-y-auto px-3 py-5" aria-label="Primary">
+                @foreach($navGroups as $group)
+                    @continue($group['items'] === [])
+                    <div>
+                        <p class="px-3 pb-2 font-mono text-[0.65rem] uppercase tracking-[0.18em] text-sidebar-foreground/45">{{ $group['heading'] }}</p>
+                        <div class="space-y-0.5">
+                            @foreach($group['items'] as $item)
+                                @php($active = request()->routeIs($item['route'].'*'))
+                                @if(\Illuminate\Support\Facades\Route::has($item['route']))
+                                    <a
+                                        href="{{ route($item['route']) }}"
+                                        wire:navigate
+                                        @class([
+                                            'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition',
+                                            'bg-sidebar-accent font-semibold text-sidebar-accent-foreground' => $active,
+                                            'font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground' => ! $active,
+                                        ])
+                                        @if($active) aria-current="page" @endif
+                                    >
+                                        @if($active)
+                                            <span class="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-sidebar-primary"></span>
+                                        @endif
+                                        <x-dynamic-component
+                                            :component="'icon.'.$item['icon']"
+                                            @class([
+                                                'size-5 shrink-0 transition',
+                                                'text-sidebar-primary' => $active,
+                                                'text-sidebar-foreground/55 group-hover:text-sidebar-foreground' => ! $active,
+                                            ])
+                                        />
+                                        {{ $item['label'] }}
+                                    </a>
+                                @else
+                                    <span class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/35" aria-disabled="true">
+                                        <x-dynamic-component :component="'icon.'.$item['icon']" class="size-5 shrink-0" />
+                                        {{ $item['label'] }}
+                                        <span class="ml-auto font-mono text-[0.6rem] uppercase tracking-wider">soon</span>
+                                    </span>
+                                @endif
+                            @endforeach
+                        </div>
+                    </div>
                 @endforeach
             </nav>
         </aside>
 
         {{-- Main column --}}
         <div class="flex min-w-0 flex-1 flex-col">
-            <header class="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
+            <header class="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-background px-4 sm:px-6">
                 <button x-on:click="sidebarOpen = true" aria-label="Open menu" class="-ml-2 flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden">
                     <x-icon.menu class="size-6" />
                 </button>
