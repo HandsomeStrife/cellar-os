@@ -42,15 +42,25 @@
                 </span>
                 <span class="font-serif text-lg font-semibold tracking-tight">Suppliers</span>
             </div>
-            <nav class="flex-1 space-y-1 px-3 py-4">
+            <nav class="flex-1 space-y-0.5 px-3 py-5" aria-label="Primary">
                 @foreach($nav as $item)
                     @php($active = request()->routeIs($item['route'].'*'))
                     <a href="{{ route($item['route']) }}" wire:navigate @class([
-                        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition',
-                        'bg-sidebar-primary text-sidebar-primary-foreground' => $active,
-                        'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground' => ! $active,
-                    ])>
-                        <x-dynamic-component :component="'icon.'.$item['icon']" class="size-5 shrink-0" />
+                        'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition',
+                        'bg-sidebar-accent font-semibold text-sidebar-accent-foreground' => $active,
+                        'font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground' => ! $active,
+                    ]) @if($active) aria-current="page" @endif>
+                        @if($active)
+                            <span class="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-sidebar-primary"></span>
+                        @endif
+                        <x-dynamic-component
+                            :component="'icon.'.$item['icon']"
+                            @class([
+                                'size-5 shrink-0 transition',
+                                'text-sidebar-primary' => $active,
+                                'text-sidebar-foreground/55 group-hover:text-sidebar-foreground' => ! $active,
+                            ])
+                        />
                         {{ $item['label'] }}
                     </a>
                 @endforeach
@@ -58,7 +68,7 @@
         </aside>
 
         <div class="flex min-w-0 flex-1 flex-col">
-            <header class="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
+            <header class="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-background px-4 sm:px-6">
                 <button x-on:click="sidebarOpen = true" class="text-muted-foreground hover:text-foreground lg:hidden"><x-icon.menu class="size-6" /></button>
                 <div class="min-w-0 flex-1">
                     @if($title)<h1 class="truncate font-serif text-lg font-semibold">{{ $title }}</h1>@endif
