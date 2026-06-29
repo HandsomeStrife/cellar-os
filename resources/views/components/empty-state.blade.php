@@ -4,12 +4,10 @@
     'message' => null,
 ])
 
-<div class="flex flex-col items-center justify-center gap-3 py-12 text-center">
-    <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <x-dynamic-component :component="'icon.'.$icon" class="size-6" />
-    </span>
+<div class="flex flex-col items-center justify-center gap-3 py-14 text-center">
+    <x-dynamic-component :component="'icon.'.$icon" class="size-7 text-muted-foreground/45" />
     <div>
-        <p class="font-medium text-foreground">{{ $title }}</p>
+        <p class="font-serif text-lg font-semibold text-foreground">{{ $title }}</p>
         @if($message)
             <p class="mx-auto mt-1 max-w-md text-sm text-muted-foreground">{{ $message }}</p>
         @endif

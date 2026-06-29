@@ -11,6 +11,15 @@
         @php($supplierMap = $suppliers->keyBy('id'))
         @php($venueMap = $venues->keyBy('id'))
 
+        <x-page-header eyebrow="Purchasing" title="Orders" subtitle="Build, send and receive purchase orders.">
+            <x-slot:actions>
+                <x-button wire:click="openCreate">
+                    <x-icon.plus class="size-4" />
+                    New order
+                </x-button>
+            </x-slot:actions>
+        </x-page-header>
+
         {{-- Toolbar --}}
         <div class="flex flex-wrap items-center gap-3">
             <select wire:model.live="statusFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
@@ -19,25 +28,12 @@
                     <option value="{{ $status->value }}">{{ $status->getLabel() }}</option>
                 @endforeach
             </select>
-
-            <div class="ml-auto">
-                <x-button wire:click="openCreate">
-                    <x-icon.plus class="size-4" />
-                    New order
-                </x-button>
-            </div>
         </div>
 
         {{-- List --}}
         @if($orders->total() === 0)
             <x-card>
-                <div class="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                    <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <x-icon.clipboard-list class="size-6" />
-                    </span>
-                    <p class="font-medium text-foreground">No orders yet</p>
-                    <p class="text-sm text-muted-foreground">Create a purchase order, or add wines to your basket in the catalogue.</p>
-                </div>
+                <x-empty-state icon="clipboard-list" title="No orders yet" message="Create a purchase order, or add wines to your basket in the catalogue." />
             </x-card>
         @else
             <div class="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">

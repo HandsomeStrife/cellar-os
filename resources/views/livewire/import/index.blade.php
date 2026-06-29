@@ -6,6 +6,8 @@
             plan="Starter"
         />
     @else
+        <x-page-header eyebrow="Catalogue" title="Import a price list" subtitle="Upload a supplier's CSV or Excel file and map the columns once." />
+
         {{-- Stepper --}}
         @php($steps = ['Upload', 'Map columns', 'Preview', 'Done'])
         <ol class="flex flex-wrap items-center gap-2 text-sm">

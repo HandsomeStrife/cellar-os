@@ -26,6 +26,8 @@
             </div>
         </x-card>
     @else
+        <x-page-header eyebrow="Stock" title="Inventory" subtitle="Received stock by venue." />
+
         {{-- Toolbar --}}
         <div class="flex flex-wrap items-center gap-3">
             <select

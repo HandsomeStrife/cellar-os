@@ -1,6 +1,8 @@
 @use('Domain\Shared\Support\Currency')
 
 <div class="space-y-6">
+    <x-page-header eyebrow="Browse" title="Catalogue" subtitle="Wines from the suppliers you're connected to." />
+
     {{-- Toolbar --}}
     @php($inputClasses = 'block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40')
     @php($selectClasses = 'select-field block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40')
@@ -128,23 +130,17 @@
     {{-- Table --}}
     @if($products->total() === 0)
         <x-card>
-            <div class="flex flex-col items-center justify-center gap-3 py-10 text-center">
-                <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <x-icon.wine class="size-6" />
-                </span>
-                <div>
-                    @if(! $hasConnections)
-                        <p class="font-medium text-foreground">No suppliers connected yet</p>
-                        <p class="text-sm text-muted-foreground">Your catalogue shows wines from the suppliers you work with. Connect to a supplier to get started.</p>
-                    @else
-                        <p class="font-medium text-foreground">No wines found</p>
-                        <p class="text-sm text-muted-foreground">Adjust your filters, or connect to more suppliers.</p>
-                    @endif
-                </div>
+            <x-empty-state
+                icon="wine"
+                :title="$hasConnections ? 'No wines found' : 'No suppliers connected yet'"
+                :message="$hasConnections
+                    ? 'Adjust your filters, or connect to more suppliers.'
+                    : 'Your catalogue shows wines from the suppliers you work with. Connect to a supplier to get started.'"
+            >
                 @if(! $hasConnections)
                     <x-button :href="route('suppliers')" wire:navigate variant="outline" size="sm"><x-icon.plus class="size-4" /> Find suppliers</x-button>
                 @endif
-            </div>
+            </x-empty-state>
         </x-card>
     @else
         <div class="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">

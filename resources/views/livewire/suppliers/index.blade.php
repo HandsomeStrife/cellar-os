@@ -1,4 +1,6 @@
 <div class="space-y-6">
+    <x-page-header eyebrow="Sourcing" title="Suppliers" subtitle="The merchants you buy from, and others you can connect to." />
+
     {{-- Tabs --}}
     <div class="flex items-center gap-1 border-b border-border">
         <button type="button" wire:click="$set('tab', 'mine')" @class([
