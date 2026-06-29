@@ -29,16 +29,16 @@ it('renders inventory analytics for the user\'s venues', function () {
     $this->actingAs($user);
 
     Livewire::test(Dashboard::class)
-        ->assertSee('Inventory value')
-        ->assertSee('Bottles in stock')
-        ->assertSee('Inventory by country')
+        ->assertSee('In-stock value')
+        ->assertSee('Cellar composition')
+        ->assertSee('By country')
         ->assertSee('France')
-        ->assertSee('Low stock alerts')
+        ->assertSee('Needs attention')
         ->assertSee('Analytics Red');
 });
 
 it('shows the getting-started guide when there is no stock', function () {
     $this->actingAs(User::factory()->create());
 
-    Livewire::test(Dashboard::class)->assertSee('Getting started');
+    Livewire::test(Dashboard::class)->assertSee('Set up your cellar');
 });

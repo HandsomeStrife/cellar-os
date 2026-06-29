@@ -87,6 +87,16 @@ class Dashboard extends Component
         uasort($byCountry, fn ($a, $b) => $b['count'] <=> $a['count']);
         usort($lowStock, fn ($a, $b) => $a['qty'] <=> $b['qty']);
 
+        // "Unknown" isn't a place — keep it out of the provenance rankings.
+        unset($byRegion['Unknown'], $byCountry['Unknown']);
+
+        // It IS part of the cellar though; just render it last in the composition.
+        if (array_key_exists('Unknown', $byColour)) {
+            $unknownColour = $byColour['Unknown'];
+            unset($byColour['Unknown']);
+            $byColour['Unknown'] = $unknownColour;
+        }
+
         // Recent orders with supplier names (compose across contexts).
         $supplierNames = $supplierRepo->all()->mapWithKeys(fn ($s) => [$s->id => $s->name]);
         $recentOrders = $orderRepo->recent($companyId, 5)->map(fn ($o) => [
@@ -118,6 +128,7 @@ class Dashboard extends Component
             'outOfStockCount' => $out,
             // breakdowns
             'byColour' => $byColour,
+            'compositionTotal' => array_sum($byColour),
             'byCountry' => array_slice($byCountry, 0, 8, true),
             'topRegions' => array_slice($byRegion, 0, 8, true),
             'lowStockItems' => array_slice($lowStock, 0, 10),
