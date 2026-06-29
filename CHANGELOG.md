@@ -32,6 +32,26 @@ bug list, plus the first stage of case‑vs‑unit pricing. Shipped to `main`;
   filters structurally miss wines with empty columns (same authoritative‑only
   limit as `wine:backfill-attributes`).
 
+#### Added — case vs unit pricing, parser detection + review (Phase 2b) · `f45e8c4`
+- New `Domain\Supplier\Enums\ParsedWineFlag` formalises the review‑flag
+  vocabulary (stable string values) and adds **`ambiguous_pricing`** ("Check
+  case vs bottle"), with a badge label/colour. `DocumentAnalysisService::vet()`
+  now raises it when a per‑bottle row's own text hints at case pricing
+  (conservative — `/case`, `per case`, `x6`/`x12`, `6x75`; not a bare "case").
+- `NormaliseService` reconciles pricing into the canonical per‑bottle
+  `unit_price`: it reads a `price_basis` (bottle|case) field and/or a
+  `pack_price` column, and when sold by the case derives the per‑bottle price
+  from case price ÷ `case_size` (or keeps a separately‑quoted bottle price).
+- `ClaudeClient`: `price_basis` + `pack_price` added to the shared `FIELDS`;
+  the tabular‑mapping and PDF‑extraction prompts now explain per‑case pricing,
+  including lists that mix both per row. _Schema/prompt changes are exercised
+  via the fake client only — live‑extraction validation against real
+  case‑priced lists is deferred (it costs API spend)._
+- Review screen (`DocumentReview`): inline **Sold by / Bottles per case /
+  Price per case** controls; the flag badge renders via the enum; case‑sold
+  rows show `£x/case · £y/btl`. `RefineParseProfileAction` folds the case
+  fields into the learned recipe examples.
+
 #### Added — case vs unit pricing, model + display (Phase 2a) · `70577f2`
 - New `Domain\Catalogue\Enums\SellingUnit` (`bottle` | `case`).
 - Migration `2026_06_29_130000_add_selling_unit_to_products` adds
