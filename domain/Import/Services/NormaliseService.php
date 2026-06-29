@@ -36,6 +36,17 @@ class NormaliseService
         $country = $this->nullableString($value('country'));
         $region = $this->standardiseRegion($value('region'));
         $producer = $this->nullableString($value('producer'));
+        $caseSize = $this->parseInt($value('case_size')) ?? 6;
+
+        // Reconcile how the price is quoted (per bottle vs per case) into a
+        // canonical per-bottle `unit_price` plus, when sold by the case, the
+        // supplier's case price in `pack_price`.
+        [$soldBy, $unitPrice, $packPrice] = $this->reconcilePricing(
+            $this->normalisePriceBasis($value('price_basis')),
+            $unitPrice,
+            $this->parsePrice($value('pack_price')),
+            $caseSize,
+        );
 
         $pricePerLitre = $unitPrice !== null && $formatMl > 0
             ? round($unitPrice / ($formatMl / 1000), 2)
@@ -58,12 +69,10 @@ class NormaliseService
             colour: $this->normaliseColour($value('colour')),
             vintage: $this->parseVintage($value('vintage')),
             format_ml: $formatMl,
-            case_size: $this->parseInt($value('case_size')) ?? 6,
-            // Per-row per-case vs per-bottle detection is a later phase; tabular
-            // imports default to the canonical per-bottle unit for now.
-            sold_by: SellingUnit::Bottle,
+            case_size: $caseSize,
+            sold_by: $soldBy,
             unit_price: $unitPrice !== null ? number_format($unitPrice, 2, '.', '') : null,
-            pack_price: null,
+            pack_price: $packPrice !== null ? number_format($packPrice, 2, '.', '') : null,
             price_per_litre: $pricePerLitre !== null ? number_format($pricePerLitre, 2, '.', '') : null,
             stock: $this->parseInt($value('stock')) ?? 0,
             latitude: $coords['lat'] ?? null,
@@ -278,5 +287,63 @@ class NormaliseService
     private function nullableString(?string $value): ?string
     {
         return $value === null || $value === '' ? null : $value;
+    }
+
+    /**
+     * Interpret a "how is this priced" cell/field into a selling unit, or null
+     * when the source gives no signal (caller defaults to per-bottle).
+     */
+    private function normalisePriceBasis(?string $raw): ?SellingUnit
+    {
+        if ($raw === null || trim($raw) === '') {
+            return null;
+        }
+
+        $value = mb_strtolower(trim($raw));
+
+        foreach (['case', 'cs', 'carton', 'per case', 'by the case', '/case', '/cs', 'x6', 'x12', '6x', '12x', '6 x 75', '12 x 75'] as $token) {
+            if (str_contains($value, $token)) {
+                return SellingUnit::Case;
+            }
+        }
+
+        foreach (['bottle', 'btl', 'bot', 'each', 'single', '/btl', 'per bottle', 'unit'] as $token) {
+            if (str_contains($value, $token)) {
+                return SellingUnit::Bottle;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the selling unit and the two price slots into a canonical
+     * per-bottle `unit_price` (always, for cross-supplier comparison) plus a
+     * `pack_price` when sold by the case.
+     *
+     * @return array{0: SellingUnit, 1: float|null, 2: float|null} [sold_by, per_bottle, pack_price]
+     */
+    private function reconcilePricing(?SellingUnit $basis, ?float $unitPrice, ?float $packPrice, int $caseSize): array
+    {
+        $perBottle = fn (float $casePrice): float => $caseSize > 0 ? round($casePrice / $caseSize, 2) : $casePrice;
+
+        // An explicit case/pack price column → sold by the case. Keep any
+        // separately-quoted per-bottle price; otherwise split the case price.
+        if ($packPrice !== null) {
+            return [SellingUnit::Case, $unitPrice ?? $perBottle($packPrice), $packPrice];
+        }
+
+        // The single price column is declared to be a case price.
+        if ($basis === SellingUnit::Case && $unitPrice !== null) {
+            return [SellingUnit::Case, $perBottle($unitPrice), $unitPrice];
+        }
+
+        // Declared by the case but no price to split — preserve the unit so a
+        // reviewer can finish it; nothing to derive.
+        if ($basis === SellingUnit::Case) {
+            return [SellingUnit::Case, $unitPrice, $packPrice];
+        }
+
+        return [SellingUnit::Bottle, $unitPrice, null];
     }
 }

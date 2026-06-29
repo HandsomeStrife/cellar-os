@@ -38,7 +38,8 @@ class RefineParseProfileAction extends AbstractAction
         // Keep only the catalogue-relevant fields, and cap to a few examples.
         $recipe['examples'] = array_map(
             fn (array $w) => array_intersect_key($w, array_flip([
-                'wine_name', 'producer', 'country', 'region', 'grape', 'colour', 'vintage', 'format_ml', 'unit_price',
+                'wine_name', 'producer', 'country', 'region', 'grape', 'colour', 'vintage', 'format_ml',
+                'unit_price', 'sold_by', 'price_basis', 'pack_price', 'case_size',
             ])),
             array_slice(array_values($approvedExamples), 0, 5),
         );

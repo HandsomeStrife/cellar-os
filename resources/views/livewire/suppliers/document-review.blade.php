@@ -96,7 +96,10 @@
                                         <x-input.text name="edit.wine_name" label="Wine" wire:model="edit.wine_name" />
                                         <x-input.text name="edit.producer" label="Producer" wire:model="edit.producer" />
                                         <x-input.text name="edit.vintage" label="Vintage" wire:model="edit.vintage" />
-                                        <x-input.text name="edit.unit_price" label="Price" wire:model="edit.unit_price" />
+                                        <x-input.text name="edit.unit_price" label="Price / bottle" wire:model="edit.unit_price" />
+                                        <x-input.select name="edit.sold_by" label="Sold by" :options="['bottle' => 'Bottle', 'case' => 'Case']" wire:model.live="edit.sold_by" />
+                                        <x-input.text name="edit.case_size" label="Bottles / case" wire:model="edit.case_size" />
+                                        <x-input.text name="edit.pack_price" label="Price / case" wire:model="edit.pack_price" hint="Only when sold by the case" />
                                         <x-input.select name="edit.colour" label="Colour" :options="collect($colours)->mapWithKeys(fn($c) => [$c->value => $c->getLabel()])->prepend('—', '')->all()" wire:model="edit.colour" />
                                         <x-input.text name="edit.country" label="Country" wire:model="edit.country" />
                                         <x-input.text name="edit.region" label="Region" wire:model="edit.region" />
@@ -113,11 +116,19 @@
                                 <td class="px-3 py-2.5">
                                     <p class="font-medium">{{ $p['wine_name'] ?? '—' }}</p>
                                     <p class="text-xs text-muted-foreground">{{ $p['producer'] ?? '' }}{{ !empty($p['grape']) ? ' · '.implode(', ', (array) $p['grape']) : '' }}</p>
-                                    @if($wine->flag)<x-badge color="red" class="mt-1">{{ str_replace('_', ' ', $wine->flag) }}</x-badge>@endif
+                                    @php($flagEnum = $wine->flag ? \Domain\Supplier\Enums\ParsedWineFlag::tryFrom($wine->flag) : null)
+                                    @if($flagEnum)<x-badge :color="$flagEnum->getColour()" class="mt-1">{{ $flagEnum->getLabel() }}</x-badge>@endif
                                 </td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $p['vintage'] ?? 'NV' }}</td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $p['country'] ?? '' }}@if(!empty($p['region']))<span class="text-xs"> · {{ $p['region'] }}</span>@endif</td>
-                                <td class="px-3 py-2.5 text-right font-mono">{{ $p['unit_price'] ?? '—' }}</td>
+                                <td class="px-3 py-2.5 text-right font-mono">
+                                    @if(($p['sold_by'] ?? 'bottle') === 'case')
+                                        {{ $p['pack_price'] ?? '—' }}<span class="text-xs text-muted-foreground">/case</span>
+                                        @if(!empty($p['unit_price']))<div class="text-xs text-muted-foreground">{{ $p['unit_price'] }}/btl</div>@endif
+                                    @else
+                                        {{ $p['unit_price'] ?? '—' }}
+                                    @endif
+                                </td>
                                 <td class="px-3 py-2.5"><x-badge :color="$wine->status->getColour()">{{ $wine->status->getLabel() }}</x-badge></td>
                                 <td class="px-3 py-2.5 text-right">
                                     @if($wine->status->value === 'proposed')

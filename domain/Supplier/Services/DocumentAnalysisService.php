@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Domain\Supplier\Services;
 
 use Domain\Catalogue\Data\ProductData;
+use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Import\Services\NormaliseService;
 use Domain\Supplier\Actions\SaveColumnMappingAction;
 use Domain\Supplier\Actions\SaveParseProfileAction;
 use Domain\Supplier\Actions\StoreParsedWinesAction;
 use Domain\Supplier\Data\SupplierDocumentData;
+use Domain\Supplier\Enums\ParsedWineFlag;
 use Domain\Supplier\Enums\ParseMode;
 use Domain\Supplier\Exceptions\ResponseTruncatedException;
 use Domain\Supplier\Repositories\SupplierParseProfileRepository;
@@ -374,20 +376,39 @@ class DocumentAnalysisService
         }
 
         if ($price !== null && ($price <= 0 || $price > 100000)) {
-            $flag = 'suspicious_price';
+            $flag = ParsedWineFlag::SuspiciousPrice;
         } elseif ($price === null && $this->looksLikeHeading($product->wine_name)) {
-            $flag = 'suspected_heading';
+            $flag = ParsedWineFlag::SuspectedHeading;
         } elseif ($price === null) {
-            $flag = 'missing_price';
+            $flag = ParsedWineFlag::MissingPrice;
         } elseif ($confidence > 0 && $confidence < 0.6) {
-            $flag = 'low_confidence';
+            $flag = ParsedWineFlag::LowConfidence;
+        }
+
+        // Pricing-unit ambiguity: a row taken as per-bottle whose own text hints
+        // the price might actually be a case price — a human should confirm
+        // (lists are internally inconsistent about this).
+        if ($flag === null && $product->sold_by === SellingUnit::Bottle && $this->suggestsCasePricing($product)) {
+            $flag = ParsedWineFlag::AmbiguousPricing;
         }
 
         return [
             'payload' => $product->toArray(),
             'confidence' => $confidence,
-            'flag' => $flag,
+            'flag' => $flag?->value,
         ];
+    }
+
+    /**
+     * Does a (per-bottle) row's own text hint that the price might be by the
+     * case? Conservative — only fires on explicit case-pricing phrasing, not a
+     * bare mention of the word "case".
+     */
+    private function suggestsCasePricing(ProductData $product): bool
+    {
+        $haystack = mb_strtolower($product->wine_name.' '.((string) $product->producer));
+
+        return preg_match('#(per\s*case|/\s*case|case of|\bx\s?(6|12)\b|(6|12)\s?x\s?75)#u', $haystack) === 1;
     }
 
     /** A bare country/region/colour word with no other signal IS a heading. */

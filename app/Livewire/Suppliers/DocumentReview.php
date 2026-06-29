@@ -137,6 +137,9 @@ class DocumentReview extends Component
             'producer' => $p['producer'] ?? '',
             'vintage' => $p['vintage'] ?? '',
             'unit_price' => $p['unit_price'] ?? '',
+            'sold_by' => $p['sold_by'] ?? 'bottle',
+            'case_size' => $p['case_size'] ?? 6,
+            'pack_price' => $p['pack_price'] ?? '',
             'colour' => $p['colour'] ?? '',
             'country' => $p['country'] ?? '',
             'region' => $p['region'] ?? '',
@@ -160,17 +163,28 @@ class DocumentReview extends Component
             'edit.producer' => 'nullable|string|max:255',
             'edit.vintage' => 'nullable|integer|between:1900,'.(now()->year + 1),
             'edit.unit_price' => 'nullable|numeric|between:0,100000',
+            'edit.sold_by' => ['nullable', Rule::in(['bottle', 'case'])],
+            'edit.case_size' => 'nullable|integer|between:1,99',
+            'edit.pack_price' => 'nullable|numeric|between:0,1000000',
             'edit.colour' => ['nullable', Rule::in(array_column(WineColour::cases(), 'value'))],
             'edit.country' => 'nullable|string|max:255',
             'edit.region' => 'nullable|string|max:255',
             'edit.grape' => 'nullable|string|max:500',
         ]);
 
+        $soldBy = in_array($this->edit['sold_by'] ?? 'bottle', ['bottle', 'case'], true) ? $this->edit['sold_by'] : 'bottle';
+
         $changes = [
             'wine_name' => trim((string) $this->edit['wine_name']) ?: null,
             'producer' => trim((string) $this->edit['producer']) ?: null,
             'vintage' => $this->edit['vintage'] !== '' ? (int) $this->edit['vintage'] : null,
             'unit_price' => $this->edit['unit_price'] !== '' ? number_format((float) $this->edit['unit_price'], 2, '.', '') : null,
+            'sold_by' => $soldBy,
+            'case_size' => ($this->edit['case_size'] ?? '') !== '' ? (int) $this->edit['case_size'] : 6,
+            // A case price only makes sense when sold by the case.
+            'pack_price' => $soldBy === 'case' && ($this->edit['pack_price'] ?? '') !== ''
+                ? number_format((float) $this->edit['pack_price'], 2, '.', '')
+                : null,
             'colour' => $this->edit['colour'] !== '' ? $this->edit['colour'] : null,
             'country' => trim((string) $this->edit['country']) ?: null,
             'region' => trim((string) $this->edit['region']) ?: null,

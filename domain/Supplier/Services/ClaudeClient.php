@@ -23,7 +23,8 @@ class ClaudeClient
     /** Product fields the parser maps onto (mirrors NormaliseService mapping keys). */
     public const FIELDS = [
         'wine_name', 'producer', 'country', 'region', 'sub_region',
-        'grape', 'colour', 'vintage', 'format_ml', 'case_size', 'unit_price', 'stock',
+        'grape', 'colour', 'vintage', 'format_ml', 'case_size',
+        'unit_price', 'price_basis', 'pack_price', 'stock',
     ];
 
     /** USD per MILLION tokens [input, output] per supported model. */
@@ -69,7 +70,13 @@ class ClaudeClient
             Target fields: {$fields}.
             - Return only fields that genuinely exist as a column; omit the rest.
             - `wine_name` is required; pick the column holding the wine/cuvée name.
-            - Prefer the trade/ex-VAT unit price column for `unit_price`.
+            - Prefer the trade/ex-VAT unit price column for `unit_price` (the price
+              for ONE bottle).
+            - If a column states whether the price is per bottle or per case (values
+              like "bottle"/"case"/"each"/"6x75cl"), map it to `price_basis`. If
+              there is a SEPARATE per-case price column, map it to `pack_price`
+              (distinct from the per-bottle `unit_price`); `case_size` is the
+              bottles-per-case column.
             - `format_ml` is the bottle size column (e.g. "750ml", "0.75", "Magnum").
             - Give a confidence 0..1 and a one-line note on anything ambiguous.
             SYS;
@@ -293,6 +300,12 @@ class ClaudeClient
             - All values are strings; use "" (empty string) when a field is absent —
               never invent values. Use the base ex-VAT price for `unit_price`.
               Bottle sizes like "0.75" mean 750ml.
+            - `unit_price` is the price for ONE bottle. If a line prices the wine BY
+              THE CASE (e.g. "/case", "per case", "6x75cl @ £x", "case of 12"), set
+              `price_basis` to "case" and put the case price in `pack_price` (leave
+              `unit_price` "" unless a per-bottle price is also shown); `case_size`
+              is the bottles per case. Otherwise `price_basis` is "bottle" and
+              `pack_price` is "". Watch for lists that mix both per row.
             - Skip headings, blurb, totals, and anything without a wine name.
             SYS;
 
