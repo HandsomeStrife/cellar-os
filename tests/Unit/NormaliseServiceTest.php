@@ -69,6 +69,49 @@ it('builds normalised ProductData from a mapped row', function () {
         ->and($product->raw_upload_id)->toBe(9);
 });
 
+it('parses a combined "NxSIZE" pack cell into case size and bottle size', function () {
+    // The Flint Wines defect: a "Case Size" cell of "12x75cl" was digit-stripped
+    // to case_size 1275. It must read as a case of 12 × 750ml.
+    $build = fn (string $caseCell) => $this->svc->toProductData(
+        ['Name' => 'Pack Wine', 'Pack' => $caseCell, 'Price' => '24.00'],
+        ['wine_name' => 'Name', 'case_size' => 'Pack', 'unit_price' => 'Price'],
+    );
+
+    expect($build('12x75cl')->case_size)->toBe(12)
+        ->and($build('12x75cl')->format_ml)->toBe(750)
+        ->and($build('6x75cl')->case_size)->toBe(6)
+        ->and($build('3x150cl')->case_size)->toBe(3)        // 3 magnums
+        ->and($build('3x150cl')->format_ml)->toBe(1500)
+        ->and($build('12x37.5cl')->case_size)->toBe(12)     // 12 half bottles
+        ->and($build('12x37.5cl')->format_ml)->toBe(375)
+        ->and($build('6x1.5L')->format_ml)->toBe(1500)
+        ->and($build('6')->case_size)->toBe(6)              // a plain numeric case size still works
+        ->and($build('6')->format_ml)->toBe(750);
+});
+
+it('lets an explicit bottle-size column override the pack-derived size', function () {
+    $product = $this->svc->toProductData(
+        ['Name' => 'X', 'Pack' => '6x75cl', 'Btl' => 'Magnum', 'Price' => '10'],
+        ['wine_name' => 'Name', 'case_size' => 'Pack', 'format_ml' => 'Btl', 'unit_price' => 'Price'],
+    );
+
+    expect($product->case_size)->toBe(6)
+        ->and($product->format_ml)->toBe(1500);
+});
+
+it('derives case pricing when a per-case price column accompanies a pack cell', function () {
+    // Flint's current file: "Case Size" 12x75cl, per-bottle £24, per-case £288.
+    $product = $this->svc->toProductData(
+        ['Name' => 'A Lisa Malbec', 'Pack' => '12x75cl', 'Btl' => '24', 'Case' => '288'],
+        ['wine_name' => 'Name', 'case_size' => 'Pack', 'unit_price' => 'Btl', 'pack_price' => 'Case'],
+    );
+
+    expect($product->case_size)->toBe(12)
+        ->and($product->sold_by->value)->toBe('case')
+        ->and($product->unit_price)->toBe('24.00')
+        ->and($product->pack_price)->toBe('288.00');
+});
+
 it('returns null for a row without a wine name', function () {
     expect($this->svc->toProductData(['Name' => ''], ['wine_name' => 'Name']))->toBeNull();
 });

@@ -32,11 +32,23 @@ class NormaliseService
         }
 
         $unitPrice = $this->parsePrice($value('unit_price'));
-        $formatMl = $this->parseFormatMl($value('format_ml'));
         $country = $this->nullableString($value('country'));
         $region = $this->standardiseRegion($value('region'));
         $producer = $this->nullableString($value('producer'));
-        $caseSize = $this->parseInt($value('case_size')) ?? 6;
+
+        // Some lists pack the case quantity AND bottle size into one cell, e.g.
+        // "12x75cl" (a case of 12 × 750ml). Parse both rather than letting the
+        // digit-strip collapse "12x75cl" → 1275.
+        $caseRaw = $value('case_size');
+        $pack = $this->parsePack($caseRaw);
+        $caseSize = $pack['case'] ?? ($this->parseInt($caseRaw) ?? 6);
+
+        // An explicit bottle-size column wins; otherwise fall back to the size
+        // embedded in the pack descriptor; otherwise the 750ml default.
+        $formatRaw = $value('format_ml');
+        $formatMl = ($formatRaw !== null && trim($formatRaw) !== '')
+            ? $this->parseFormatMl($formatRaw)
+            : ($pack['format_ml'] ?? 750);
 
         // Reconcile how the price is quoted (per bottle vs per case) into a
         // canonical per-bottle `unit_price` plus, when sold by the case, the
@@ -271,6 +283,37 @@ class NormaliseService
         $digits = $this->parseInt($value);
 
         return $digits !== null && $digits > 0 ? $digits : 750;
+    }
+
+    /**
+     * Parse a combined pack descriptor "N x SIZE[unit]" (e.g. "6x75cl",
+     * "12 x 37.5cl", "3x150cl", "6x1.5L") into the case quantity and the
+     * per-bottle size in millilitres. Returns null when there is no "N x size"
+     * (a plain numeric case size falls through to parseInt).
+     *
+     * @return array{case: int, format_ml: int}|null
+     */
+    private function parsePack(?string $value): ?array
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        if (! preg_match('/^\s*(\d{1,3})\s*[x×]\s*([\d.]+)\s*(ml|cl|l|litre|liter)?\b/i', trim($value), $m)) {
+            return null;
+        }
+
+        $case = max(1, (int) $m[1]);
+        $size = (float) $m[2];
+        $unit = strtolower($m[3] ?? 'cl');
+
+        $formatMl = match ($unit) {
+            'ml' => (int) round($size),
+            'l', 'litre', 'liter' => (int) round($size * 1000),
+            default => (int) round($size * 10), // cl
+        };
+
+        return ['case' => $case, 'format_ml' => $formatMl > 0 ? $formatMl : 750];
     }
 
     private function parseInt(?string $value): ?int
