@@ -89,8 +89,12 @@ bug list, plus the first stage of case‑vs‑unit pricing. Shipped to `main`;
   corrected rows are now `sold_by=case` with `pack_price` populated — a
   real-data proof of Phases 2a–2c. Result: **2,864 → 0** garbage rows; 3,960
   Flint wines correctly case-priced; 268 orphaned magnum/half rows archived.
-- _Deferred_: Eurowines (125 wines, a PDF that needs LLM extraction) and two
-  single stragglers — to be re-parsed once the API limit resets.
+- **Eurowines** (125 wines, from a PDF): its `format_ml` was extracted
+  correctly, so `case_size` was recovered **deterministically from the stored
+  data + bottle size — no LLM needed** (`12375`+`375ml` → 12 half-bottles,
+  `2420`+`200ml` → 24 piccolos, a `6x1.5L` magnum case, etc.). 125 → 0 garbage.
+- _Remaining_: two single stragglers (Museum `800`, Farr `60`) are genuinely
+  ambiguous from the stored data — left untouched rather than guessed.
 
 #### Added — case vs unit pricing, order & basket by the case (Phase 2c) · `33494fa`
 - Completes the case‑pricing loop end to end. `order_items` gains
