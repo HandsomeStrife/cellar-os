@@ -48,6 +48,39 @@ class Index extends Component
     #[Url(history: true)]
     public string $supplierFilter = '';
 
+    #[Url(history: true)]
+    public string $region = '';
+
+    #[Url(history: true)]
+    public string $sub_region = '';
+
+    #[Url(history: true)]
+    public string $producer = '';
+
+    #[Url(history: true)]
+    public string $grape = '';
+
+    #[Url(history: true)]
+    public string $priceMin = '';
+
+    #[Url(history: true)]
+    public string $priceMax = '';
+
+    #[Url(history: true)]
+    public string $vintageMin = '';
+
+    #[Url(history: true)]
+    public string $vintageMax = '';
+
+    /**
+     * Filters held in the "More filters" panel (search/colour/supplier live in
+     * the always-visible toolbar and are counted separately).
+     */
+    private const PANEL_FILTERS = [
+        'country', 'region', 'sub_region', 'producer', 'grape',
+        'priceMin', 'priceMax', 'vintageMin', 'vintageMax',
+    ];
+
     public string $sort = 'wine_name';
 
     public string $direction = 'asc';
@@ -66,9 +99,30 @@ class Index extends Component
 
     public function updated($property): void
     {
-        if (in_array($property, ['search', 'country', 'colour', 'supplierFilter'], true)) {
+        $filters = ['search', 'colour', 'supplierFilter', ...self::PANEL_FILTERS];
+
+        if (in_array($property, $filters, true)) {
             $this->resetPage();
         }
+
+        // Cascade: changing a broader geography clears the narrower selections
+        // so the dependent dropdowns never show a stale, now-invalid value.
+        if ($property === 'country') {
+            $this->region = '';
+            $this->sub_region = '';
+        }
+
+        if ($property === 'region') {
+            $this->sub_region = '';
+        }
+    }
+
+    public function resetFilters(): void
+    {
+        $this->reset([
+            'search', 'colour', 'supplierFilter', ...self::PANEL_FILTERS,
+        ]);
+        $this->resetPage();
     }
 
     public function sortBy(string $column): void
@@ -343,10 +397,23 @@ class Index extends Component
             term: $this->search,
             country: $this->country,
             colour: WineColour::tryFrom($this->colour),
+            region: $this->region ?: null,
+            subRegion: $this->sub_region ?: null,
+            producer: $this->producer ?: null,
+            grape: $this->grape ?: null,
+            priceMin: $this->priceMin !== '' ? (float) $this->priceMin : null,
+            priceMax: $this->priceMax !== '' ? (float) $this->priceMax : null,
+            vintageMin: $this->vintageMin !== '' ? (int) $this->vintageMin : null,
+            vintageMax: $this->vintageMax !== '' ? (int) $this->vintageMax : null,
             sort: $this->sort,
             direction: $this->direction,
             supplierIds: $supplierIds,
         );
+
+        // Count of active "More filters" panel selections, for the toolbar badge.
+        $filterCount = collect(self::PANEL_FILTERS)
+            ->filter(fn (string $field) => trim((string) $this->{$field}) !== '')
+            ->count();
 
         // Gap-fill missing attributes from the shared wine-facts store (grape,
         // colour, origin — never prices). Enriched values are marked in the UI
@@ -379,6 +446,9 @@ class Index extends Component
             'products' => $products,
             'enriched' => $enriched,
             'countries' => $repository->countries($connectedIds),
+            'regions' => $repository->regions($connectedIds, $this->country ?: null),
+            'subRegions' => $repository->subRegions($connectedIds, $this->country ?: null, $this->region ?: null),
+            'filterCount' => $filterCount,
             'colours' => WineColour::cases(),
             'connectedSuppliers' => $connected,
             'hasConnections' => $connected->isNotEmpty(),

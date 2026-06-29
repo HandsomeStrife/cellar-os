@@ -164,6 +164,21 @@
         outline-offset: 2px;
         border-radius: 2px;
     }
+
+    /* Actionable elements advertise themselves with a pointer cursor; disabled
+       controls show the "no" cursor. Disabled buttons that also set
+       pointer-events:none simply won't react, which is fine. */
+    button:not(:disabled),
+    summary,
+    label[for],
+    [role='button']:not([aria-disabled='true']) {
+        cursor: pointer;
+    }
+
+    button:disabled,
+    [aria-disabled='true'] {
+        cursor: not-allowed;
+    }
 }
 
 /* Respect users who prefer reduced motion. */

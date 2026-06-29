@@ -36,7 +36,7 @@ class ProductRepository
     /**
      * Sortable columns, mapped to allow-list lookups (never trust raw input).
      */
-    public const SORTABLE = ['wine_name', 'producer', 'country', 'vintage', 'unit_price', 'stock'];
+    public const SORTABLE = ['wine_name', 'producer', 'country', 'region', 'sub_region', 'vintage', 'unit_price'];
 
     /**
      * @param  array<int, int>|null  $supplierIds  restrict to these suppliers (null = all)
@@ -45,6 +45,14 @@ class ProductRepository
         ?string $term = null,
         ?string $country = null,
         ?WineColour $colour = null,
+        ?string $region = null,
+        ?string $subRegion = null,
+        ?string $producer = null,
+        ?string $grape = null,
+        ?float $priceMin = null,
+        ?float $priceMax = null,
+        ?int $vintageMin = null,
+        ?int $vintageMax = null,
         string $sort = 'wine_name',
         string $direction = 'asc',
         int $perPage = 24,
@@ -64,6 +72,14 @@ class ProductRepository
             })
             ->when($country !== null && $country !== '', fn ($query) => $query->where('country', $country))
             ->when($colour !== null, fn ($query) => $query->where('colour', $colour->value))
+            ->when($region !== null && $region !== '', fn ($query) => $query->where('region', $region))
+            ->when($subRegion !== null && $subRegion !== '', fn ($query) => $query->where('sub_region', $subRegion))
+            ->when($producer !== null && $producer !== '', fn ($query) => $query->where('producer', 'like', "%{$producer}%"))
+            ->when($grape !== null && $grape !== '', fn ($query) => $query->where('grape', 'like', "%{$grape}%"))
+            ->when($priceMin !== null, fn ($query) => $query->where('unit_price', '>=', $priceMin))
+            ->when($priceMax !== null, fn ($query) => $query->where('unit_price', '<=', $priceMax))
+            ->when($vintageMin !== null, fn ($query) => $query->where('vintage', '>=', $vintageMin))
+            ->when($vintageMax !== null, fn ($query) => $query->where('vintage', '<=', $vintageMax))
             ->orderBy($sort, $direction)
             ->paginate($perPage)
             ->through(fn (Product $product) => $product->getData());
@@ -105,6 +121,49 @@ class ProductRepository
             ->distinct()
             ->orderBy('country')
             ->pluck('country')
+            ->all();
+    }
+
+    /**
+     * Distinct, non-empty regions for filter dropdowns, optionally narrowed to
+     * the currently-selected country so the list stays short and relevant.
+     *
+     * @param  array<int, int>|null  $supplierIds  restrict to these suppliers (null = all)
+     * @return array<int, string>
+     */
+    public function regions(?array $supplierIds = null, ?string $country = null): array
+    {
+        return Product::query()
+            ->whereNull('archived_at')
+            ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
+            ->when($country !== null && $country !== '', fn ($query) => $query->where('country', $country))
+            ->whereNotNull('region')
+            ->where('region', '!=', '')
+            ->distinct()
+            ->orderBy('region')
+            ->pluck('region')
+            ->all();
+    }
+
+    /**
+     * Distinct, non-empty sub-regions for filter dropdowns, optionally narrowed
+     * to the selected country and/or region.
+     *
+     * @param  array<int, int>|null  $supplierIds  restrict to these suppliers (null = all)
+     * @return array<int, string>
+     */
+    public function subRegions(?array $supplierIds = null, ?string $country = null, ?string $region = null): array
+    {
+        return Product::query()
+            ->whereNull('archived_at')
+            ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
+            ->when($country !== null && $country !== '', fn ($query) => $query->where('country', $country))
+            ->when($region !== null && $region !== '', fn ($query) => $query->where('region', $region))
+            ->whereNotNull('sub_region')
+            ->where('sub_region', '!=', '')
+            ->distinct()
+            ->orderBy('sub_region')
+            ->pluck('sub_region')
             ->all();
     }
 

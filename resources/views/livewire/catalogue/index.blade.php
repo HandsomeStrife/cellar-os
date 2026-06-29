@@ -2,50 +2,126 @@
 
 <div class="space-y-6">
     {{-- Toolbar --}}
-    <div class="flex flex-wrap items-center gap-3">
-        <div class="relative w-full max-w-xs">
-            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-                <x-icon.search class="size-4" />
-            </span>
-            <input
-                type="search"
-                wire:model.live.debounce.300ms="search"
-                placeholder="Search wine or producer…"
-                class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
-            />
-        </div>
+    @php($inputClasses = 'block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40')
+    @php($selectClasses = 'select-field block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40')
+    <div x-data="{ filtersOpen: @js($filterCount > 0) }" class="space-y-3">
+        <div class="flex flex-wrap items-center gap-3">
+            <div class="relative w-full max-w-xs">
+                <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                    <x-icon.search class="size-4" />
+                </span>
+                <input
+                    type="search"
+                    wire:model.live.debounce.300ms="search"
+                    placeholder="Search wine or producer…"
+                    class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                />
+            </div>
 
-        <select wire:model.live="country" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
-            <option value="">All countries</option>
-            @foreach($countries as $countryOption)
-                <option value="{{ $countryOption }}">{{ $countryOption }}</option>
-            @endforeach
-        </select>
-
-        <select wire:model.live="colour" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
-            <option value="">All colours</option>
-            @foreach($colours as $colourOption)
-                <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
-            @endforeach
-        </select>
-
-        @if($connectedSuppliers->isNotEmpty())
-            <select wire:model.live="supplierFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
-                <option value="">All my suppliers</option>
-                @foreach($connectedSuppliers as $connectedSupplier)
-                    <option value="{{ $connectedSupplier->id }}">{{ $connectedSupplier->name }}</option>
+            <select wire:model.live="colour" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                <option value="">All colours</option>
+                @foreach($colours as $colourOption)
+                    <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
                 @endforeach
             </select>
-        @endif
 
-        <div class="ml-auto">
-            <x-button wire:click="$set('showBasket', true)" variant="outline">
-                <x-icon.clipboard-list class="size-4" />
-                Basket
-                @if($basketCount > 0)
-                    <span class="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">{{ $basketCount }}</span>
+            @if($connectedSuppliers->isNotEmpty())
+                <select wire:model.live="supplierFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                    <option value="">All my suppliers</option>
+                    @foreach($connectedSuppliers as $connectedSupplier)
+                        <option value="{{ $connectedSupplier->id }}">{{ $connectedSupplier->name }}</option>
+                    @endforeach
+                </select>
+            @endif
+
+            <x-button type="button" variant="outline" @click="filtersOpen = !filtersOpen" x-bind:aria-expanded="filtersOpen.toString()">
+                <x-icon.sliders-horizontal class="size-4" />
+                Filters
+                @if($filterCount > 0)
+                    <span class="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">{{ $filterCount }}</span>
                 @endif
             </x-button>
+
+            <div class="ml-auto">
+                <x-button wire:click="$set('showBasket', true)" variant="outline">
+                    <x-icon.clipboard-list class="size-4" />
+                    Basket
+                    @if($basketCount > 0)
+                        <span class="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">{{ $basketCount }}</span>
+                    @endif
+                </x-button>
+            </div>
+        </div>
+
+        {{-- Expandable filter panel (every filterable column) --}}
+        <div x-show="filtersOpen" x-cloak x-transition.opacity class="rounded-lg border border-border bg-card p-4 shadow-sm">
+            <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Country</span>
+                    <select wire:model.live="country" class="{{ $selectClasses }}">
+                        <option value="">All countries</option>
+                        @foreach($countries as $countryOption)
+                            <option value="{{ $countryOption }}">{{ $countryOption }}</option>
+                        @endforeach
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Region</span>
+                    <select wire:model.live="region" class="{{ $selectClasses }}">
+                        <option value="">All regions</option>
+                        @foreach($regions as $regionOption)
+                            <option value="{{ $regionOption }}">{{ $regionOption }}</option>
+                        @endforeach
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Sub-region</span>
+                    <select wire:model.live="sub_region" class="{{ $selectClasses }}">
+                        <option value="">All sub-regions</option>
+                        @foreach($subRegions as $subRegionOption)
+                            <option value="{{ $subRegionOption }}">{{ $subRegionOption }}</option>
+                        @endforeach
+                    </select>
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Producer</span>
+                    <input type="text" wire:model.live.debounce.400ms="producer" placeholder="Any producer" class="{{ $inputClasses }}" />
+                </label>
+
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Grape</span>
+                    <input type="text" wire:model.live.debounce.400ms="grape" placeholder="e.g. Pinot Noir" class="{{ $inputClasses }}" />
+                </label>
+
+                <div class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Price ({{ Currency::symbol($currency) }})</span>
+                    <div class="flex items-center gap-2">
+                        <input type="number" min="0" step="0.01" inputmode="decimal" wire:model.live.debounce.400ms="priceMin" placeholder="Min" class="{{ $inputClasses }}" />
+                        <span class="text-muted-foreground">–</span>
+                        <input type="number" min="0" step="0.01" inputmode="decimal" wire:model.live.debounce.400ms="priceMax" placeholder="Max" class="{{ $inputClasses }}" />
+                    </div>
+                </div>
+
+                <div class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Vintage</span>
+                    <div class="flex items-center gap-2">
+                        <input type="number" min="1900" max="2100" step="1" inputmode="numeric" wire:model.live.debounce.400ms="vintageMin" placeholder="From" class="{{ $inputClasses }}" />
+                        <span class="text-muted-foreground">–</span>
+                        <input type="number" min="1900" max="2100" step="1" inputmode="numeric" wire:model.live.debounce.400ms="vintageMax" placeholder="To" class="{{ $inputClasses }}" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3 flex items-center justify-end gap-2">
+                @if($filterCount > 0)
+                    <x-button type="button" variant="ghost" size="sm" wire:click="resetFilters">
+                        <x-icon.x class="size-4" /> Clear filters
+                    </x-button>
+                @endif
+            </div>
         </div>
     </div>
 
@@ -71,7 +147,16 @@
             </div>
         </x-card>
     @else
-        <div class="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+        <div class="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+            {{-- Loading veil: any browse-affecting request dims the table and
+                 blocks interaction so the result swap reads as deliberate. --}}
+            <div
+                wire:loading.flex
+                wire:target="search, colour, supplierFilter, country, region, sub_region, producer, grape, priceMin, priceMax, vintageMin, vintageMax, sortBy, resetFilters, gotoPage, nextPage, previousPage"
+                class="absolute inset-0 z-10 hidden items-center justify-center bg-card/60 backdrop-blur-[1px]"
+            >
+                <x-icon.loader-circle class="size-6 animate-spin text-primary" />
+            </div>
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-secondary/40">
                     <tr>
@@ -81,7 +166,6 @@
                         <x-th-sort column="vintage" :sort="$sort" :direction="$direction">Vintage</x-th-sort>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Format</th>
                         <x-th-sort column="unit_price" :sort="$sort" :direction="$direction" align="right">Price</x-th-sort>
-                        <x-th-sort column="stock" :sort="$sort" :direction="$direction" align="right">Stock</x-th-sort>
                         <th class="px-3 py-2"></th>
                     </tr>
                 </thead>
@@ -116,6 +200,9 @@
                                 @elseif(isset($fill['region']))
                                     <span class="text-xs">· </span><x-enriched-fact class="text-xs" :source="$fill['region']['source']">{{ $fill['region']['value'] }}</x-enriched-fact>
                                 @endif
+                                @if($product->sub_region)
+                                    <span class="text-xs"> · {{ $product->sub_region }}</span>
+                                @endif
                             </td>
                             <td class="px-3 py-2.5">
                                 @if($product->colour)
@@ -148,7 +235,7 @@
                                             class="w-24 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
                                             autofocus
                                         />
-                                        <button type="button" wire:click="savePrice" class="text-primary hover:text-primary/80" title="Save"><x-icon.check class="size-4" /></button>
+                                        <button type="button" wire:click="savePrice" wire:loading.attr="disabled" wire:target="savePrice" class="text-primary hover:text-primary/80" title="Save"><x-icon.check class="size-4" /></button>
                                         <button type="button" wire:click="cancelEditPrice" class="text-muted-foreground hover:text-foreground" title="Cancel"><x-icon.x class="size-4" /></button>
                                     </div>
                                 @elseif(in_array($product->supplier_id, $editableSupplierIds, true))
@@ -159,15 +246,18 @@
                                 @else
                                     <span class="whitespace-nowrap font-medium text-foreground">{{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '–' }}</span>
                                 @endif
+                                @if($product->price_per_litre)
+                                    <div class="text-xs text-muted-foreground">{{ Currency::format($product->price_per_litre, $currency) }}/L</div>
+                                @endif
                             </td>
-                            <td class="px-3 py-2.5 text-right text-muted-foreground">{{ $product->stock }}</td>
                             <td class="px-3 py-2.5 text-right">
                                 <div class="flex items-center justify-end gap-1">
-                                    <x-button wire:click="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
-                                        <x-icon.plus class="size-4" />
+                                    <x-button wire:click="addToBasket({{ $product->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
+                                        <x-icon.plus class="size-4" wire:loading.remove wire:target="addToBasket({{ $product->id }})" />
+                                        <x-icon.loader-circle class="size-4 animate-spin" wire:loading wire:target="addToBasket({{ $product->id }})" />
                                     </x-button>
                                     @if(in_array($product->supplier_id, $editableSupplierIds, true))
-                                        <x-button wire:click="deleteProduct({{ $product->id }})" wire:confirm="Delete {{ $product->wine_name }} from the catalogue?" variant="ghost" size="sm" title="Delete wine" class="text-destructive hover:bg-destructive/10">
+                                        <x-button wire:click="deleteProduct({{ $product->id }})" wire:confirm="Delete {{ $product->wine_name }} from the catalogue?" wire:loading.attr="disabled" wire:target="deleteProduct({{ $product->id }})" variant="ghost" size="sm" title="Delete wine" class="text-destructive hover:bg-destructive/10">
                                             <x-icon.trash-2 class="size-4" />
                                         </x-button>
                                     @endif

@@ -111,6 +111,33 @@ it('filters by colour', function () {
         ->assertDontSee('Pale One');
 });
 
+it('filters by region and price range and clears them', function () {
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Cheap White Burgundy', 'colour' => WineColour::White->value, 'region' => 'Burgundy', 'unit_price' => '18.00']);
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Grand Cru Burgundy', 'colour' => WineColour::White->value, 'region' => 'Burgundy', 'unit_price' => '120.00']);
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Loire White', 'colour' => WineColour::White->value, 'region' => 'Loire', 'unit_price' => '14.00']);
+
+    Livewire::test(Index::class)
+        ->set('region', 'Burgundy')
+        ->set('priceMax', '20')
+        ->assertSee('Cheap White Burgundy')
+        ->assertDontSee('Grand Cru Burgundy')
+        ->assertDontSee('Loire White')
+        ->call('resetFilters')
+        ->assertSet('region', '')
+        ->assertSet('priceMax', '')
+        ->assertSee('Grand Cru Burgundy')
+        ->assertSee('Loire White');
+});
+
+it('cascades: changing country clears the now-stale region and sub-region', function () {
+    Livewire::test(Index::class)
+        ->set('region', 'Burgundy')
+        ->set('sub_region', 'Côte de Nuits')
+        ->set('country', 'Italy')
+        ->assertSet('region', '')
+        ->assertSet('sub_region', '');
+});
+
 it('toggles sort direction on a column', function () {
     Livewire::test(Index::class)
         ->assertSet('sort', 'wine_name')
