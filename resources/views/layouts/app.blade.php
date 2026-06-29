@@ -35,7 +35,8 @@
         // (SPA navigation does not re-run head scripts, which dropped the class).
         (function () {
             const apply = () => {
-                const dark = localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                // Light by default; dark only when the user explicitly chose it.
+                const dark = localStorage.theme === 'dark';
                 document.documentElement.classList.toggle('dark', dark);
             };
             apply();
