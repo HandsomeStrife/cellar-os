@@ -49,7 +49,7 @@ class Index extends Component
 
     public string $productSearch = '';
 
-    /** @var array<int, array{product_id: int, wine_name: string, unit_price: string, quantity: int}> */
+    /** @var array<int, array{product_id: int, wine_name: string, unit_price: string, quantity: int, sold_by: string, case_size: int}> */
     public array $lines = [];
 
     private ?Plan $memoPlan = null;
@@ -86,6 +86,8 @@ class Index extends Component
                         'wine_name' => $product->wine_name,
                         'unit_price' => $product->unit_price ?? '0.00',
                         'quantity' => (int) $qty,
+                        'sold_by' => $product->sold_by->value,
+                        'case_size' => $product->case_size,
                     ];
                 }
             }
@@ -115,9 +117,12 @@ class Index extends Component
             return;
         }
 
+        // Case-sold wines are added (and stepped) a case at a time.
+        $step = $product->soldByCase() ? max(1, $product->case_size) : 1;
+
         foreach ($this->lines as $i => $line) {
             if ($line['product_id'] === $productId) {
-                $this->lines[$i]['quantity']++;
+                $this->lines[$i]['quantity'] += $step;
 
                 return;
             }
@@ -127,7 +132,9 @@ class Index extends Component
             'product_id' => $product->id,
             'wine_name' => $product->wine_name,
             'unit_price' => $product->unit_price ?? '0.00',
-            'quantity' => 1,
+            'quantity' => $step,
+            'sold_by' => $product->sold_by->value,
+            'case_size' => $product->case_size,
         ];
     }
 
@@ -147,6 +154,27 @@ class Index extends Component
         }
 
         $this->lines[$index]['quantity'] = $qty;
+    }
+
+    /**
+     * Set a case-sold line by the number of CASES (stored as bottles).
+     */
+    public function setLineCases(int $index, int $cases): void
+    {
+        abort_unless($this->entitled(), 403);
+
+        if (! isset($this->lines[$index])) {
+            return;
+        }
+
+        if ($cases <= 0) {
+            unset($this->lines[$index]);
+            $this->lines = array_values($this->lines);
+
+            return;
+        }
+
+        $this->lines[$index]['quantity'] = $cases * max(1, (int) ($this->lines[$index]['case_size'] ?? 1));
     }
 
     public function removeLine(int $index): void
@@ -181,15 +209,25 @@ class Index extends Component
             403
         );
 
-        $items = array_map(fn ($line) => new OrderItemData(
-            id: null,
-            order_id: null,
-            product_id: $line['product_id'],
-            wine_name: $line['wine_name'],
-            quantity_units: (int) $line['quantity'],
-            unit_price_at_order: number_format((float) $line['unit_price'], 2, '.', ''),
-            currency_at_order: $currency,
-        ), $this->lines);
+        // Snapshot the case framing from the authoritative product at order time.
+        $productRepo = new ProductRepository;
+        $items = array_map(function ($line) use ($currency, $productRepo) {
+            $product = $productRepo->find((int) $line['product_id']);
+            $isCase = $product !== null && $product->soldByCase();
+
+            return new OrderItemData(
+                id: null,
+                order_id: null,
+                product_id: $line['product_id'],
+                wine_name: $line['wine_name'],
+                quantity_units: (int) $line['quantity'],
+                unit_price_at_order: number_format((float) $line['unit_price'], 2, '.', ''),
+                currency_at_order: $currency,
+                sold_by_at_order: $product?->sold_by->value ?? 'bottle',
+                pack_size_at_order: $isCase ? $product->case_size : null,
+                pack_price_at_order: $isCase ? $product->displayPrice() : null,
+            );
+        }, $this->lines);
 
         (new CreateOrderAction)->execute(new OrderData(
             id: null,

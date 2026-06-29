@@ -31,7 +31,10 @@ class CreateOrderAction extends AbstractAction
                     'product_id' => $item->product_id,
                     'wine_name' => $item->wine_name,
                     'quantity_units' => $item->quantity_units,
+                    'sold_by_at_order' => $item->sold_by_at_order,
+                    'pack_size_at_order' => $item->pack_size_at_order,
                     'unit_price_at_order' => $item->unit_price_at_order,
+                    'pack_price_at_order' => $item->pack_price_at_order,
                     'currency_at_order' => $item->currency_at_order,
                 ]);
 

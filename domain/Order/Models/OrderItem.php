@@ -19,7 +19,10 @@ class OrderItem extends Model
         'product_id',
         'wine_name',
         'quantity_units',
+        'sold_by_at_order',
+        'pack_size_at_order',
         'unit_price_at_order',
+        'pack_price_at_order',
         'currency_at_order',
     ];
 
@@ -27,7 +30,9 @@ class OrderItem extends Model
     {
         return [
             'quantity_units' => 'integer',
+            'pack_size_at_order' => 'integer',
             'unit_price_at_order' => 'decimal:2',
+            'pack_price_at_order' => 'decimal:2',
         ];
     }
 

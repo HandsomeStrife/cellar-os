@@ -58,7 +58,7 @@
         <thead>
             <tr>
                 <th>Wine</th>
-                <th class="right">Qty (bottles)</th>
+                <th class="right">Qty</th>
                 <th class="right">Unit price</th>
                 <th class="right">Line total</th>
             </tr>
@@ -67,9 +67,21 @@
             @foreach($order->items as $item)
                 <tr>
                     <td>{{ $item->wine_name }}</td>
-                    <td class="right">{{ $item->quantity_units }}</td>
-                    <td class="right">{{ $item->currency_at_order }} {{ number_format((float) $item->unit_price_at_order, 2) }}</td>
-                    <td class="right">{{ $item->currency_at_order }} {{ number_format($item->quantity_units * (float) $item->unit_price_at_order, 2) }}</td>
+                    <td class="right">
+                        @if($item->soldByCaseAtOrder())
+                            {{ $item->casesAtOrder() }} {{ \Illuminate\Support\Str::plural('case', $item->casesAtOrder()) }} ({{ $item->quantity_units }} btl)
+                        @else
+                            {{ $item->quantity_units }} btl
+                        @endif
+                    </td>
+                    <td class="right">
+                        @if($item->soldByCaseAtOrder())
+                            {{ $item->currency_at_order }} {{ number_format((float) $item->casePriceAtOrder(), 2) }} /case
+                        @else
+                            {{ $item->currency_at_order }} {{ number_format((float) $item->unit_price_at_order, 2) }}
+                        @endif
+                    </td>
+                    <td class="right">{{ $item->currency_at_order }} {{ number_format($item->lineTotal(), 2) }}</td>
                 </tr>
             @endforeach
             <tr class="total-row">

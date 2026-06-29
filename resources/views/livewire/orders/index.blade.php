@@ -119,9 +119,22 @@
                                 @foreach($viewing->items as $item)
                                     <tr>
                                         <td class="px-3 py-2">{{ $item->wine_name }}</td>
-                                        <td class="px-3 py-2 text-right">{{ $item->quantity_units }}</td>
-                                        <td class="px-3 py-2 text-right tabular-nums">{{ Currency::format($item->unit_price_at_order, $item->currency_at_order) }}</td>
-                                        <td class="px-3 py-2 text-right tabular-nums">{{ Currency::format($item->quantity_units * (float) $item->unit_price_at_order, $item->currency_at_order) }}</td>
+                                        <td class="px-3 py-2 text-right">
+                                            @if($item->soldByCaseAtOrder())
+                                                {{ $item->casesAtOrder() }} {{ \Illuminate\Support\Str::plural('case', $item->casesAtOrder()) }}@if($item->looseBottlesAtOrder()) + {{ $item->looseBottlesAtOrder() }} btl @endif
+                                                <div class="text-xs text-muted-foreground">{{ $item->quantity_units }} btl</div>
+                                            @else
+                                                {{ $item->quantity_units }}
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2 text-right tabular-nums">
+                                            @if($item->soldByCaseAtOrder())
+                                                {{ Currency::format($item->casePriceAtOrder(), $item->currency_at_order) }}<span class="text-xs text-muted-foreground">/case</span>
+                                            @else
+                                                {{ Currency::format($item->unit_price_at_order, $item->currency_at_order) }}
+                                            @endif
+                                        </td>
+                                        <td class="px-3 py-2 text-right tabular-nums">{{ Currency::format($item->lineTotal(), $item->currency_at_order) }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -176,10 +189,18 @@
                 @if($lines !== [])
                     <div class="space-y-2 rounded-md border border-border p-3">
                         @foreach($lines as $i => $line)
+                            @php($isCaseLine = ($line['sold_by'] ?? 'bottle') === 'case')
+                            @php($caseSize = max(1, (int) ($line['case_size'] ?? 1)))
                             <div wire:key="line-{{ $i }}" class="flex items-center gap-3">
                                 <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ $line['wine_name'] }}</span>
-                                <span class="text-xs text-muted-foreground">{{ Currency::format($line['unit_price'], $currency) }}</span>
-                                <input type="number" min="1" value="{{ $line['quantity'] }}" wire:change="setLineQty({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                                @if($isCaseLine)
+                                    <span class="text-xs text-muted-foreground">{{ Currency::format((float) $line['unit_price'] * $caseSize, $currency) }}/case</span>
+                                    <input type="number" min="1" value="{{ intdiv((int) $line['quantity'], $caseSize) }}" wire:change="setLineCases({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                                    <span class="text-xs text-muted-foreground">{{ \Illuminate\Support\Str::plural('case', intdiv((int) $line['quantity'], $caseSize)) }}</span>
+                                @else
+                                    <span class="text-xs text-muted-foreground">{{ Currency::format($line['unit_price'], $currency) }}</span>
+                                    <input type="number" min="1" value="{{ $line['quantity'] }}" wire:change="setLineQty({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                                @endif
                                 <button type="button" wire:click="removeLine({{ $i }})" class="text-muted-foreground hover:text-destructive"><x-icon.x class="size-4" /></button>
                             </div>
                         @endforeach

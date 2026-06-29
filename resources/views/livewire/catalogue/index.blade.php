@@ -291,16 +291,35 @@
                     <div wire:key="basket-{{ $line['product']->id }}" class="flex items-center gap-3 border-b border-border pb-3 last:border-0 last:pb-0">
                         <div class="min-w-0 flex-1">
                             <p class="truncate font-medium text-foreground">{{ $line['product']->wine_name }}</p>
-                            <p class="text-xs text-muted-foreground">
-                                {{ $line['product']->unit_price !== null ? Currency::format($line['product']->unit_price, $currency) : '–' }} / bottle
-                            </p>
+                            @if($line['is_case'])
+                                <p class="text-xs text-muted-foreground">
+                                    {{ Currency::format($line['case_price'], $currency) }} / case ({{ $line['product']->case_size }} btl)
+                                    @if($line['product']->unit_price !== null) · {{ Currency::format($line['product']->unit_price, $currency) }} / btl @endif
+                                </p>
+                            @else
+                                <p class="text-xs text-muted-foreground">
+                                    {{ $line['product']->unit_price !== null ? Currency::format($line['product']->unit_price, $currency) : '–' }} / bottle
+                                </p>
+                            @endif
                         </div>
-                        <input
-                            type="number" min="1"
-                            value="{{ $line['qty'] }}"
-                            wire:change="setBasketQty({{ $line['product']->id }}, $event.target.value)"
-                            class="w-20 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
-                        />
+                        @if($line['is_case'])
+                            <div class="flex items-center gap-1">
+                                <input
+                                    type="number" min="1"
+                                    value="{{ $line['cases'] }}"
+                                    wire:change="setBasketCases({{ $line['product']->id }}, $event.target.value)"
+                                    class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                />
+                                <span class="text-xs text-muted-foreground">{{ \Illuminate\Support\Str::plural('case', $line['cases']) }}</span>
+                            </div>
+                        @else
+                            <input
+                                type="number" min="1"
+                                value="{{ $line['qty'] }}"
+                                wire:change="setBasketQty({{ $line['product']->id }}, $event.target.value)"
+                                class="w-20 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                            />
+                        @endif
                         <div class="w-24 text-right font-medium tabular-nums">{{ Currency::format($line['line_total'], $currency) }}</div>
                         <button type="button" wire:click="removeFromBasket({{ $line['product']->id }})" class="text-muted-foreground hover:text-destructive" title="Remove">
                             <x-icon.trash-2 class="size-4" />

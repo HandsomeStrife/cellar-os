@@ -169,17 +169,23 @@ class Index extends Component
     public function addToBasket(int $id): void
     {
         // Never basket a wine from a supplier you're not connected to.
-        if (! $this->isOrderableProduct($id)) {
+        $product = $this->orderableProduct($id);
+
+        if ($product === null) {
             return;
         }
 
-        $this->basket[$id] = ($this->basket[$id] ?? 0) + 1;
-        $this->dispatch('toast', message: 'Added to basket.');
+        // Case-sold wines are basketed (and stepped) a case at a time; the
+        // basket always stores the bottle count so checkout stays unit-based.
+        $step = $product->soldByCase() ? max(1, $product->case_size) : 1;
+
+        $this->basket[$id] = ($this->basket[$id] ?? 0) + $step;
+        $this->dispatch('toast', message: $product->soldByCase() ? 'Case added to basket.' : 'Added to basket.');
     }
 
     public function setBasketQty(int $id, int $qty): void
     {
-        if ($qty <= 0 || ! $this->isOrderableProduct($id)) {
+        if ($qty <= 0 || $this->orderableProduct($id) === null) {
             unset($this->basket[$id]);
 
             return;
@@ -189,20 +195,46 @@ class Index extends Component
     }
 
     /**
-     * Whether a product belongs to one of the company's connected suppliers.
+     * Set a case-sold line by the number of CASES (stored as bottles).
      */
+    public function setBasketCases(int $id, int $cases): void
+    {
+        $product = $this->orderableProduct($id);
+
+        if ($product === null || ! $product->soldByCase()) {
+            return;
+        }
+
+        if ($cases <= 0) {
+            unset($this->basket[$id]);
+
+            return;
+        }
+
+        $this->basket[$id] = $cases * max(1, $product->case_size);
+    }
+
     private function isOrderableProduct(int $id): bool
+    {
+        return $this->orderableProduct($id) !== null;
+    }
+
+    /**
+     * The product if it belongs to one of the company's connected suppliers,
+     * else null (the only wines a company may order).
+     */
+    private function orderableProduct(int $id): ?ProductData
     {
         $product = (new ProductRepository)->find($id);
 
         if ($product === null) {
-            return false;
+            return null;
         }
 
         $companyId = (new UserRepository)->getLoggedInUser()?->company_id ?? 0;
         $connectedIds = (new SupplierRepository)->connectedToCompany($companyId)->pluck('id')->all();
 
-        return in_array($product->supplier_id, $connectedIds, true);
+        return in_array($product->supplier_id, $connectedIds, true) ? $product : null;
     }
 
     public function removeFromBasket(int $id): void
@@ -281,6 +313,9 @@ class Index extends Component
                 quantity_units: $line['qty'],
                 unit_price_at_order: number_format((float) ($line['product']->unit_price ?? 0), 2, '.', ''),
                 currency_at_order: $currency,
+                sold_by_at_order: $line['product']->sold_by->value,
+                pack_size_at_order: $line['product']->soldByCase() ? $line['product']->case_size : null,
+                pack_price_at_order: $line['product']->soldByCase() ? $line['product']->displayPrice() : null,
             ), $lines);
 
             (new CreateOrderAction)->execute(new OrderData(
@@ -433,6 +468,9 @@ class Index extends Component
                 return [
                     'product' => $product,
                     'qty' => $qty,
+                    'is_case' => $product->soldByCase(),
+                    'cases' => $product->soldByCase() ? intdiv($qty, max(1, $product->case_size)) : null,
+                    'case_price' => $product->soldByCase() ? $product->displayPrice() : null,
                     'line_total' => (float) $product->unit_price * $qty,
                 ];
             })
