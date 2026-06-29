@@ -32,6 +32,22 @@ bug list, plus the first stage of case‑vs‑unit pricing. Shipped to `main`;
   filters structurally miss wines with empty columns (same authoritative‑only
   limit as `wine:backfill-attributes`).
 
+#### Added — case vs unit pricing, order & basket by the case (Phase 2c) · `33494fa`
+- Completes the case‑pricing loop end to end. `order_items` gains
+  `sold_by_at_order` / `pack_size_at_order` / `pack_price_at_order` (a
+  snapshot of how the wine was sold), while **`quantity_units` stays the
+  canonical bottle count** — so receive → inventory is unchanged (a 2‑case
+  order receives 12 bottles).
+- `OrderItemData` gains pure display helpers — `soldByCaseAtOrder()`,
+  `casesAtOrder()`, `looseBottlesAtOrder()`, `casePriceAtOrder()`,
+  `lineTotal()`.
+- **Catalogue basket**: case‑sold wines basket and step a case at a time;
+  `setBasketCases()` edits by the case; the basket shows `£x/case (6 btl)` +
+  a cases input. Checkout snapshots the framing.
+- **Manual order create**: `addLine` steps by case for case wines;
+  `setLineCases()` edits by the case; the order view modal + PDF render
+  "2 cases (12 btl) · £x/case".
+
 #### Added — case vs unit pricing, parser detection + review (Phase 2b) · `f45e8c4`
 - New `Domain\Supplier\Enums\ParsedWineFlag` formalises the review‑flag
   vocabulary (stable string values) and adds **`ambiguous_pricing`** ("Check
