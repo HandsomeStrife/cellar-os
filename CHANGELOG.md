@@ -7,6 +7,20 @@ All notable changes to CellarOS are recorded here. Format loosely follows
 
 ### Backend redesign — 2026-06-29
 
+#### Changed — backend shell + sidenav, all three back-offices (Phase 3c) · `e01d3e9`, `a5e591b`
+- **App shell / sidenav**: nav grouped by purpose (Trade / Account / Help) with
+  mono eyebrow labels, so the IA reads as structure not a flat list; refined
+  active state (tinted background + claret left rail + claret icon, not a heavy
+  full-claret pill); solid topbar (dropped the `backdrop-blur` glassmorphism).
+- **Admin + supplier-portal shells** unified to the same nav active state and
+  solid headers.
+- **`x-stat`** (the shared metric tile) de-slopped: removed the corner icon
+  badge and card shadow; values now read in IBM Plex Mono tabular numerals with
+  a small uppercase label — fixing the admin dashboard, admin AI-costs and
+  supplier-portal dashboard at once.
+- The content pages (catalogue, inventory, orders, suppliers, import) are
+  table-based and already consistent; the catalogue had its pass in Phase 1.
+
 #### Changed — dashboard redesigned, de-slopped (Phase 3b) · `70ce60d`
 - The old dashboard was a grid of identical icon→label→value cards (textbook
   AI-generated "slop"). Rebuilt to avoid the documented tells —
