@@ -18,8 +18,12 @@ All notable changes to CellarOS are recorded here. Format loosely follows
   badge and card shadow; values now read in IBM Plex Mono tabular numerals with
   a small uppercase label — fixing the admin dashboard, admin AI-costs and
   supplier-portal dashboard at once.
-- The content pages (catalogue, inventory, orders, suppliers, import) are
-  table-based and already consistent; the catalogue had its pass in Phase 1.
+- **Content pages**: a shared `x-page-header` (mono eyebrow + serif title +
+  subtitle + actions slot, matching the dashboard masthead) applied to
+  Catalogue, Suppliers, Import, Orders and Inventory (Orders' "New order" moved
+  into the header). `x-empty-state` de-slopped — the colored-circle icon chip
+  replaced by a muted icon + serif title; Catalogue/Orders empty states routed
+  through it.
 
 #### Changed — dashboard redesigned, de-slopped (Phase 3b) · `70ce60d`
 - The old dashboard was a grid of identical icon→label→value cards (textbook
