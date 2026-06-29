@@ -5,6 +5,27 @@ All notable changes to CellarOS are recorded here. Format loosely follows
 
 ## [Unreleased]
 
+### Backend redesign — 2026-06-29
+
+#### Changed — dashboard redesigned, de-slopped (Phase 3b) · `70ce60d`
+- The old dashboard was a grid of identical icon→label→value cards (textbook
+  AI-generated "slop"). Rebuilt to avoid the documented tells —
+  cards-for-everything, one-sided accent borders, gradients/glassmorphism,
+  monospace-everything, motion-without-meaning — within the existing
+  paper/claret/Archivo/IBM-Plex-Mono design system.
+- Headline figures grouped by typography + alignment + a single hairline rule
+  (no boxes); in-stock value leads in the serif display face.
+- **Signature**: a "cellar composition" bar drawn in the wines' own colours.
+- Data in mono tabular numerals; action-first "Needs attention"; provenance as
+  ranked region/country indices with inline tracking bars ("Unknown" excluded
+  from place rankings, rendered last in the composition). Getting-started
+  de-carded into a real numbered sequence.
+
+#### Changed — backend light mode by default (Phase 3a) · `cd013e5`
+- The app/admin/supplier/guide shells followed the OS `prefers-color-scheme`,
+  so dark-OS users got a dark backend. Now light by default; dark applies only
+  when the user explicitly toggles it. Guest/marketing were already light.
+
 ### Catalogue UX overhaul — 2026-06-29
 
 A focused pass over the catalogue (browse/filter/price) driven by the trade
