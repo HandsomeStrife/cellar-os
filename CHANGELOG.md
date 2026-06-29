@@ -32,6 +32,27 @@ bug list, plus the first stage of case‑vs‑unit pricing. Shipped to `main`;
   filters structurally miss wines with empty columns (same authoritative‑only
   limit as `wine:backfill-attributes`).
 
+#### Fixed — `case_size` pack-string parsing + Flint catalogue correction (Phase 2d) · `65125f5`
+- **Root cause**: Flint Wines' "Case Size" column holds pack descriptors like
+  `12x75cl`; `NormaliseService::parseInt` digit-stripped them to `1275`
+  (`6x75cl`→675, `3x150cl`→3150). The catalogue's Format column rendered
+  "750ml · 1275/case"; with case pricing live it would also corrupt pack maths.
+  2,991 active priced wines were affected (~24% of the catalogue), and since
+  the rows rode golden, prod had the same garbage.
+- **Parser fix**: `NormaliseService` now parses `N x SIZE[unit]` into both the
+  case quantity AND the bottle size — `12x75cl` → case 12 × 750ml, `3x150cl` →
+  case 3 × 1500ml (magnums), `12x37.5cl` → case 12 × 375ml (halves). An explicit
+  bottle-size column still wins; a plain numeric case size is unchanged.
+- **Data correction**: re-parsed Flint's two on-disk tabular sources
+  (inventory + broking) with hand-set column mappings (the model was
+  rate-limited; the headers were unambiguous), committing via the idempotent
+  upsert. Flint's lists carry separate per-bottle and per-case prices, so the
+  corrected rows are now `sold_by=case` with `pack_price` populated — a
+  real-data proof of Phases 2a–2c. Result: **2,864 → 0** garbage rows; 3,960
+  Flint wines correctly case-priced; 268 orphaned magnum/half rows archived.
+- _Deferred_: Eurowines (125 wines, a PDF that needs LLM extraction) and two
+  single stragglers — to be re-parsed once the API limit resets.
+
 #### Added — case vs unit pricing, order & basket by the case (Phase 2c) · `33494fa`
 - Completes the case‑pricing loop end to end. `order_items` gains
   `sold_by_at_order` / `pack_size_at_order` / `pack_price_at_order` (a
