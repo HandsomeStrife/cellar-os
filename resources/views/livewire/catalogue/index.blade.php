@@ -239,12 +239,19 @@
                                         <button type="button" wire:click="cancelEditPrice" class="text-muted-foreground hover:text-foreground" title="Cancel"><x-icon.x class="size-4" /></button>
                                     </div>
                                 @elseif(in_array($product->supplier_id, $editableSupplierIds, true))
-                                    <button type="button" wire:click="startEditPrice({{ $product->id }}, '{{ $product->unit_price }}')" class="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground" title="Edit price">
-                                        {{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '–' }}
+                                    <button type="button" wire:click="startEditPrice({{ $product->id }}, '{{ $product->unit_price }}')" class="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground" title="Edit price (per bottle)">
+                                        {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
+                                        @if($product->soldByCase())<span class="text-xs font-normal text-muted-foreground">/case</span>@endif
                                         <x-icon.pencil class="size-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                                     </button>
                                 @else
-                                    <span class="whitespace-nowrap font-medium text-foreground">{{ $product->unit_price !== null ? Currency::format($product->unit_price, $currency) : '–' }}</span>
+                                    <span class="whitespace-nowrap font-medium text-foreground">
+                                        {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
+                                        @if($product->soldByCase())<span class="text-xs font-normal text-muted-foreground">/case</span>@endif
+                                    </span>
+                                @endif
+                                @if($product->perBottleEquivalent() !== null)
+                                    <div class="text-xs text-muted-foreground">≈ {{ Currency::format($product->perBottleEquivalent(), $currency) }} / btl</div>
                                 @endif
                                 @if($product->price_per_litre)
                                     <div class="text-xs text-muted-foreground">{{ Currency::format($product->price_per_litre, $currency) }}/L</div>

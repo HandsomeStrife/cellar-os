@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Domain\Import\Services;
 
 use Domain\Catalogue\Data\ProductData;
+use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Catalogue\Enums\WineColour;
 
 /**
@@ -58,7 +59,11 @@ class NormaliseService
             vintage: $this->parseVintage($value('vintage')),
             format_ml: $formatMl,
             case_size: $this->parseInt($value('case_size')) ?? 6,
+            // Per-row per-case vs per-bottle detection is a later phase; tabular
+            // imports default to the canonical per-bottle unit for now.
+            sold_by: SellingUnit::Bottle,
             unit_price: $unitPrice !== null ? number_format($unitPrice, 2, '.', '') : null,
+            pack_price: null,
             price_per_litre: $pricePerLitre !== null ? number_format($pricePerLitre, 2, '.', '') : null,
             stock: $this->parseInt($value('stock')) ?? 0,
             latitude: $coords['lat'] ?? null,

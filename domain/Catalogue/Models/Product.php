@@ -6,6 +6,7 @@ namespace Domain\Catalogue\Models;
 
 use Database\Factories\ProductFactory;
 use Domain\Catalogue\Data\ProductData;
+use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,7 +30,9 @@ class Product extends Model
         'vintage',
         'format_ml',
         'case_size',
+        'sold_by',
         'unit_price',
+        'pack_price',
         'price_per_litre',
         'stock',
         'last_seen_at',
@@ -46,7 +49,9 @@ class Product extends Model
         return [
             'grape' => 'array',
             'colour' => WineColour::class,
+            'sold_by' => SellingUnit::class,
             'unit_price' => 'decimal:2',
+            'pack_price' => 'decimal:2',
             'price_per_litre' => 'decimal:2',
             'latitude' => 'decimal:6',
             'longitude' => 'decimal:6',
