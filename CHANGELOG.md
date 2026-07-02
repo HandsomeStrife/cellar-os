@@ -5,6 +5,38 @@ All notable changes to CellarOS are recorded here. Format loosely follows
 
 ## [Unreleased]
 
+### Design review remediation — 2026-07-02 · `074a42f`
+
+A full unbiased design review (independent reviewer over 17 screenshots of
+every surface in light/dark/desktop/mobile, plus a second pass) produced 24
+findings; 15 fixed:
+
+- **Mobile catalogue** — was a sideways-scrolling desktop table with Price
+  off-screen; now a stacked list at small widths (name + meta + price with
+  explicit basis + add-to-basket).
+- **Mobile dashboard overflow** — grid items lacked `min-w-0`; a long nowrap
+  supplier name inflated the track 32px past the viewport. Fixed.
+- **Orders** — the per-row live status `<select>` (one-misclick lifecycle
+  edits) is now a read-only badge; the status control lives in the order view.
+- **Price basis always stated** — `/btl` or `/case` on every catalogue price.
+- **Inventory** — broken product links render as explicit degraded rows;
+  paperclip counts only show when attachments exist; archive toggle is
+  verb-labelled.
+- **Suppliers** — card grid rebuilt as tables (both tabs), consistent with
+  every other list.
+- **Admin** — dashboard rebuilt from filler into an operational view (live
+  queues: new enquiries, documents awaiting analysis, 7-day AI spend);
+  suppliers list shows the Tier badge instead of an always-"Active" status.
+- **Dashboard honesty** — "my suppliers" counts connected suppliers (was the
+  whole directory), KPIs de-jargoned, Uncategorised segment neutral + named,
+  zero counts not printed.
+- **Consistency** — th-sort headers uppercase like their siblings; `x-stat`
+  unified with the divided-row treatment; dark-mode swatch rings; repetitive
+  eyebrows dropped; scrims hardened.
+
+Deferred (product decisions): sequential PO numbers, full-page order
+composer, import dropzone, default catalogue sort, login focus-ring colour.
+
 ### Backend redesign — 2026-06-29
 
 #### Changed — backend shell + sidenav, all three back-offices (Phase 3c) · `e01d3e9`, `a5e591b`
