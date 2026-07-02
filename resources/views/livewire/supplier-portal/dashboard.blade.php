@@ -2,7 +2,7 @@
     <div>
         <h2 class="font-serif text-2xl font-semibold">Welcome{{ $supplierUser?->name ? ', '.$supplierUser->name : '' }}</h2>
         <p class="mt-1 text-sm text-muted-foreground">
-            {{ $supplier?->name }} — upload your portfolios and price sheets, and we'll prepare them for the CellarOS catalogue.
+            {{ $supplier?->name }}. Upload your portfolios and price sheets, and we'll prepare them for the CellarOS catalogue.
         </p>
     </div>
 

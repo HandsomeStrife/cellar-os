@@ -3,7 +3,7 @@
         <a href="{{ route('suppliers') }}" wire:navigate class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <x-icon.chevron-right class="size-4 rotate-180" /> Back to suppliers
         </a>
-        <h2 class="mt-2 font-serif text-2xl font-semibold">{{ $supplierName }} — documents</h2>
+        <h2 class="mt-2 font-serif text-2xl font-semibold">{{ $supplierName }} documents</h2>
         <p class="mt-1 text-sm text-muted-foreground">Upload this supplier's portfolio or price sheet and we'll prepare it for your catalogue.</p>
     </div>
 

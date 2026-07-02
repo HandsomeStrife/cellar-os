@@ -6,9 +6,7 @@
 ])
 
 <div {{ $attributes->merge(['class' => 'flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card/50 text-center '.($compact ? 'p-6' : 'p-12')]) }}>
-    <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-        <x-icon.lock class="size-6" />
-    </span>
+    <x-icon.lock class="size-7 text-muted-foreground/45" />
     <div>
         <p class="font-serif text-lg font-semibold">{{ $title }}</p>
         @if($message)

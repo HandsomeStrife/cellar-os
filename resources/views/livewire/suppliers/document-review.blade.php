@@ -3,7 +3,7 @@
         <a href="{{ route('suppliers.documents', $uuid) }}" wire:navigate class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <x-icon.chevron-right class="size-4 rotate-180" /> Back to documents
         </a>
-        <h2 class="mt-2 font-serif text-2xl font-semibold">{{ $supplierName }} — review parsed wines</h2>
+        <h2 class="mt-2 font-serif text-2xl font-semibold">Review parsed wines: {{ $supplierName }}</h2>
         @if($document)
             <p class="mt-1 text-sm text-muted-foreground">
                 <x-badge :color="$document->status->getColour()">{{ $document->status->getLabel() }}</x-badge>
@@ -44,7 +44,7 @@
                 </dl>
                 <p class="mt-2 text-xs text-muted-foreground">This recipe is reused (and refined) for this supplier's next upload.</p>
             @else
-                <p class="text-sm text-muted-foreground">No recipe yet — analyse the document to learn one.</p>
+                <p class="text-sm text-muted-foreground">No recipe yet. Analyse the document to learn one.</p>
             @endif
         </x-card>
 
@@ -59,7 +59,7 @@
                 @if($canCommit)
                     <x-button wire:click="approveAll" wire:confirm="Add all proposed wines to your catalogue?" class="w-full" size="sm">Approve all proposed</x-button>
                 @else
-                    <p class="text-xs text-muted-foreground">This supplier's shared catalogue is managed centrally — parsed wines here are review-only.</p>
+                    <p class="text-xs text-muted-foreground">This supplier's shared catalogue is managed centrally, so parsed wines here are review-only.</p>
                 @endif
                 <x-button wire:click="saveRecipe" variant="outline" class="w-full" size="sm">Save corrections to recipe</x-button>
                 <div>

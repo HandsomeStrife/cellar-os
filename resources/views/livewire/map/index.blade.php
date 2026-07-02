@@ -1,15 +1,7 @@
 <div>
     @if($total === 0)
         <x-card>
-            <div class="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <x-icon.map class="size-6" />
-                </span>
-                <div>
-                    <p class="font-medium text-foreground">Nothing to map yet</p>
-                    <p class="mx-auto max-w-md text-sm text-muted-foreground">Wines with latitude &amp; longitude appear here. Import or add geo-located products to see your global sourcing.</p>
-                </div>
-            </div>
+            <x-empty-state icon="map" title="Nothing to map yet" message="Wines with latitude &amp; longitude appear here. Import or add geo-located products to see your global sourcing." />
         </x-card>
     @else
         <div class="grid gap-4 lg:grid-cols-4">

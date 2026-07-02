@@ -18,7 +18,7 @@
                 @elseif($supplier?->tier === \Domain\Supplier\Enums\SupplierTier::Listed)
                     Listed publicly. Mark it onboarded once it manages its own portal account.
                 @else
-                    Onboarded — this supplier self-manages via the portal.
+                    Onboarded: this supplier self-manages via the portal.
                 @endif
             </p>
             <div class="flex gap-2">
@@ -117,7 +117,7 @@
     </x-card>
 
     {{-- CRM notes — relationship log, list-access intel, chase-ups. Admin-only. --}}
-    <x-card title="Notes" subtitle="Relationship log — visible to admins only.">
+    <x-card title="Notes" subtitle="Relationship log, visible to admins only.">
         <form wire:submit="addNote" class="flex items-start gap-2">
             <div class="grow">
                 <x-input.textarea name="newNote" wire:model="newNote" rows="2" placeholder="e.g. Spoke to sales — priced list arrives quarterly by email; chase in September." />
@@ -153,9 +153,9 @@
                         <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">How we import ({{ $mode }})</p>
                         <p class="mt-1 text-foreground">
                             @switch($strategy)
-                                @case('pattern') Deterministic pattern rules — re-imports are free @break
-                                @case('tabular') Learned column mapping — re-imports are free @break
-                                @default LLM extraction — re-imports re-bill tokens
+                                @case('pattern') Deterministic pattern rules; re-imports are free @break
+                                @case('tabular') Learned column mapping; re-imports are free @break
+                                @default LLM extraction; re-imports re-bill tokens
                             @endswitch
                         </p>
                         <p class="mt-0.5 text-xs text-muted-foreground">Confidence {{ number_format(($profile->confidence ?? 0) * 100) }}%{{ $profile->model ? ' · '.$profile->model : '' }}</p>

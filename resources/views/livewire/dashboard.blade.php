@@ -48,7 +48,7 @@
                     <div
                         class="h-full border-r border-background/60 last:border-r-0"
                         style="width: {{ $compositionTotal > 0 ? round($qty / $compositionTotal * 100, 2) : 0 }}%; background-color: {{ $colourSwatch($colour) }}"
-                        title="{{ $colour }} — {{ number_format($qty) }} bottles"
+                        title="{{ $colour }}: {{ number_format($qty) }} bottles"
                     ></div>
                 @endforeach
             </div>

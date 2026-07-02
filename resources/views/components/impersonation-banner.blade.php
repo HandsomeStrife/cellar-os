@@ -12,7 +12,7 @@
                     {{ auth('web')->user()?->email }}
                 @endif
             </strong>
-            — you are impersonating this account as an administrator.
+            &middot; you are impersonating this account as an administrator.
         </span>
         <form method="POST" action="{{ route('admin.impersonate.stop') }}">
             @csrf

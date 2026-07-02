@@ -1,6 +1,6 @@
 <div class="space-y-6">
     <p class="text-sm text-muted-foreground">
-        Every billable Claude API call made by the parsing pipeline (column mappings, document studies, extractions, LWIN matching), priced in USD at the model's published rates. Pattern-mode and tabular re-parses run deterministically and cost nothing — they never appear here.
+        Every billable Claude API call made by the parsing pipeline (column mappings, document studies, extractions, LWIN matching), priced in USD at the model's published rates. Pattern-mode and tabular re-parses run deterministically and cost nothing, so they never appear here.
     </p>
 
     <div class="grid gap-4 sm:grid-cols-3">

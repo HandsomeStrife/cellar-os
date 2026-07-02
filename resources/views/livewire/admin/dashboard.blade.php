@@ -49,7 +49,7 @@
                 <a href="{{ route('admin.costs') }}" class="flex items-center justify-between gap-4 py-3 transition hover:bg-accent/40">
                     <div>
                         <p class="text-sm font-medium text-foreground">AI spend, last 7 days</p>
-                        <p class="text-sm text-muted-foreground">{{ number_format($aiWeek['calls']) }} billable {{ \Illuminate\Support\Str::plural('call', $aiWeek['calls']) }} — full ledger in AI costs.</p>
+                        <p class="text-sm text-muted-foreground">{{ number_format($aiWeek['calls']) }} billable {{ \Illuminate\Support\Str::plural('call', $aiWeek['calls']) }}. The full ledger is in AI costs.</p>
                     </div>
                     <span class="flex shrink-0 items-center gap-2">
                         <span class="font-mono text-xl tabular-nums text-muted-foreground">${{ number_format($aiWeek['cost_usd'], 2) }}</span>

@@ -11,19 +11,12 @@
     @elseif($venues->isEmpty())
         {{-- No venue yet --}}
         <x-card>
-            <div class="flex flex-col items-center justify-center gap-3 py-10 text-center">
-                <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <x-icon.building-2 class="size-6" />
-                </span>
-                <div>
-                    <p class="font-medium text-foreground">Create your first venue</p>
-                    <p class="text-sm text-muted-foreground">Inventory is tracked per venue (a restaurant, bar or store).</p>
-                </div>
+            <x-empty-state icon="building-2" title="Create your first venue" message="Inventory is tracked per venue (a restaurant, bar or store).">
                 <x-button wire:click="$set('showVenueForm', true)">
                     <x-icon.plus class="size-4" />
                     New venue
                 </x-button>
-            </div>
+            </x-empty-state>
         </x-card>
     @else
         <x-page-header title="Inventory" subtitle="Received stock by venue." />
@@ -82,13 +75,7 @@
         {{-- Table --}}
         @if($rows->isEmpty())
             <x-card>
-                <div class="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                    <span class="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <x-icon.package class="size-6" />
-                    </span>
-                    <p class="font-medium text-foreground">{{ $showArchived ? 'Nothing archived' : 'No stock yet' }}</p>
-                    <p class="text-sm text-muted-foreground">{{ $showArchived ? 'Archived lines will appear here.' : 'Receive stock or fulfil a purchase order to build inventory.' }}</p>
-                </div>
+                <x-empty-state icon="package" :title="$showArchived ? 'Nothing archived' : 'No stock yet'" :message="$showArchived ? 'Archived lines will appear here.' : 'Receive stock or fulfil a purchase order to build inventory.'" />
             </x-card>
         @else
             <div class="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
@@ -121,7 +108,7 @@
                                             <x-icon.circle-alert class="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                                             Product removed from catalogue
                                         </div>
-                                        <div class="text-xs text-muted-foreground">Stock line #{{ $item->id }} — the count is still yours; archive it if it's no longer needed.</div>
+                                        <div class="text-xs text-muted-foreground">Stock line #{{ $item->id }}. The count is still yours; archive it if it's no longer needed.</div>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5">
