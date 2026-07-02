@@ -34,8 +34,19 @@ findings; 15 fixed:
   unified with the divided-row treatment; dark-mode swatch rings; repetitive
   eyebrows dropped; scrims hardened.
 
-Deferred (product decisions): sequential PO numbers, full-page order
-composer, import dropzone, default catalogue sort, login focus-ring colour.
+#### Deferred items, completed · `a169eed`
+- **Sequential PO numbers** — `orders.po_number` ("PO-2026-0042"), per company
+  per year, row-locked, never reused; existing orders backfilled. Shown in the
+  list, order view, PDF header, and email subject/attachment name.
+- **Full-page order composer** — `/orders/new` replaces the create modal:
+  catalogue search, a case-aware lines table, and a details rail with running
+  total + bottle count. Basket prefill and venue defaulting carried over.
+- **Import dropzone** — drag-and-drop upload replaces the naked native file
+  input; wizard step 4 renamed Done → Import.
+- **Wine-name cleanup** — the parser strips leading punctuation and unwraps
+  leading quoted phrases; 16 live names cleaned (legitimate elisions kept).
+- **Focus vs error** — input focus is ring-only (soft halo); only errors
+  recolour the border, always with a message.
 
 ### Backend redesign — 2026-06-29
 
