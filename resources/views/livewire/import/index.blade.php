@@ -6,10 +6,10 @@
             plan="Starter"
         />
     @else
-        <x-page-header eyebrow="Catalogue" title="Import a price list" subtitle="Upload a supplier's CSV or Excel file and map the columns once." />
+        <x-page-header title="Import a price list" subtitle="Upload a supplier's CSV or Excel file and map the columns once." />
 
         {{-- Stepper --}}
-        @php($steps = ['Upload', 'Map columns', 'Preview', 'Done'])
+        @php($steps = ['Upload', 'Map columns', 'Preview', 'Import'])
         <ol class="flex flex-wrap items-center gap-2 text-sm">
             @foreach($steps as $i => $label)
                 @php($n = $i + 1)

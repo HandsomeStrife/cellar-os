@@ -12,14 +12,15 @@
         <x-stat label="Analysed" :value="$analysedCount" icon="circle-check" />
     </div>
 
-    <x-card title="Upload a portfolio">
+    {{-- Title and button describe the same act — the upload itself happens in Documents. --}}
+    <x-card title="Send us your price list">
         <p class="text-sm text-muted-foreground">
-            Send us your portfolio or price list in whatever format you have (CSV, Excel or PDF). We'll review it and extract
-            the wines into a standard format. You can do this from the Documents area.
+            Upload your portfolio or price list in whatever format you have (CSV, Excel or PDF) from the Documents area.
+            We'll review it and extract the wines into a standard format.
         </p>
         <div class="mt-4">
             <x-button :href="route('supplier.documents')" wire:navigate>
-                <x-icon.upload class="size-4" /> Go to Documents
+                <x-icon.upload class="size-4" /> Upload in Documents
             </x-button>
         </div>
     </x-card>

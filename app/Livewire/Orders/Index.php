@@ -70,6 +70,12 @@ class Index extends Component
 
         $this->reset(['supplierId', 'venueId', 'notes', 'productSearch', 'lines']);
 
+        // Receiving needs a venue eventually — when there's only one, assume it.
+        $venues = $this->accessibleVenues();
+        if ($venues->count() === 1) {
+            $this->venueId = $venues->first()->id;
+        }
+
         // Pre-fill from the catalogue basket if present — only connected wines.
         $basket = session('order-basket', []);
 

@@ -38,7 +38,9 @@
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Company</th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Contact</th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Location</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+                        {{-- Tier (Listed/Onboarded/Private) is what admins actually manage here;
+                             "Status: Active" on every row said nothing. --}}
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tier</th>
                         <th class="px-3 py-2"></th>
                     </tr>
                 </thead>
@@ -46,9 +48,13 @@
                     @foreach($suppliers as $supplier)
                         <tr wire:key="supplier-{{ $supplier->id }}" class="hover:bg-accent/40">
                             <td class="px-3 py-2.5 font-medium">{{ $supplier->name }}</td>
-                            <td class="px-3 py-2.5 text-muted-foreground">{{ $supplier->contact ?: '—' }}</td>
+                            {{-- Research notes can end up in the contact field — clamp so one
+                                 verbose cell doesn't triple the row height. --}}
+                            <td class="max-w-xs px-3 py-2.5 text-muted-foreground">
+                                <span class="line-clamp-1" title="{{ $supplier->contact }}">{{ $supplier->contact ?: '—' }}</span>
+                            </td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $supplier->location ?: '—' }}</td>
-                            <td class="px-3 py-2.5"><x-badge :color="$supplier->status->getColour()">{{ $supplier->status->getLabel() }}</x-badge></td>
+                            <td class="px-3 py-2.5"><x-badge :color="$supplier->tier?->getColour() ?? 'gray'">{{ $supplier->tier?->getLabel() ?? '—' }}</x-badge></td>
                             <td class="px-3 py-2.5 text-right">
                                 <x-button :href="route('admin.suppliers.show', $supplier->uuid)" wire:navigate variant="outline" size="sm">Manage</x-button>
                             </td>

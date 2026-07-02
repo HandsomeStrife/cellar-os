@@ -1,7 +1,7 @@
 @use('Domain\Shared\Support\Currency')
 
 <div class="space-y-6">
-    <x-page-header eyebrow="Browse" title="Catalogue" subtitle="Wines from the suppliers you're connected to." />
+    <x-page-header title="Catalogue" subtitle="Wines from the suppliers you're connected to." />
 
     {{-- Toolbar --}}
     @php($inputClasses = 'block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40')
@@ -143,16 +143,58 @@
             </x-empty-state>
         </x-card>
     @else
-        <div class="relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
-            {{-- Loading veil: any browse-affecting request dims the table and
+        <div class="relative">
+            {{-- Loading veil: any browse-affecting request dims the results and
                  blocks interaction so the result swap reads as deliberate. --}}
             <div
                 wire:loading.flex
                 wire:target="search, colour, supplierFilter, country, region, sub_region, producer, grape, priceMin, priceMax, vintageMin, vintageMax, sortBy, resetFilters, gotoPage, nextPage, previousPage"
-                class="absolute inset-0 z-10 hidden items-center justify-center bg-card/60 backdrop-blur-[1px]"
+                class="absolute inset-0 z-10 hidden items-center justify-center rounded-lg bg-card/60"
             >
                 <x-icon.loader-circle class="size-6 animate-spin text-primary" />
             </div>
+
+            {{-- Small screens: a stacked list — name + price first, no sideways scrolling. --}}
+            <div class="divide-y divide-border rounded-lg border border-border bg-card shadow-sm sm:hidden">
+                @foreach($products as $product)
+                    @php($fill = $enriched[$product->id] ?? [])
+                    @php($rowColour = $product->colour ?? ($fill['colour']['value'] ?? null))
+                    @php($rowCountry = $product->country ?: ($fill['country']['value'] ?? null))
+                    <div wire:key="m-product-{{ $product->id }}" class="flex items-center gap-3 p-3">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-medium text-foreground">{{ $product->wine_name }}</p>
+                            @if($product->producer)
+                                <p class="truncate text-xs text-muted-foreground">{{ $product->producer }}</p>
+                            @endif
+                            <p class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                                @if($rowColour)
+                                    <span class="inline-flex items-center gap-1">
+                                        <span class="size-2 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $rowColour->getSwatch() }}"></span>
+                                        {{ $rowColour->getLabel() }}
+                                    </span>
+                                    <span aria-hidden="true">·</span>
+                                @endif
+                                @if($rowCountry){{ $rowCountry }} <span aria-hidden="true">·</span>@endif
+                                {{ $product->vintage ?? 'NV' }} <span aria-hidden="true">·</span> {{ $product->format_ml }}ml
+                            </p>
+                        </div>
+                        <div class="shrink-0 text-right">
+                            <p class="whitespace-nowrap text-sm font-medium text-foreground">
+                                {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
+                                @if($product->displayPrice() !== null)<span class="text-xs font-normal text-muted-foreground">{{ $product->soldByCase() ? '/case' : '/btl' }}</span>@endif
+                            </p>
+                            @if($product->perBottleEquivalent() !== null)
+                                <p class="text-xs text-muted-foreground">≈ {{ Currency::format($product->perBottleEquivalent(), $currency) }} /btl</p>
+                            @endif
+                        </div>
+                        <x-button wire:click="addToBasket({{ $product->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
+                            <x-icon.plus class="size-4" />
+                        </x-button>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="hidden overflow-x-auto rounded-lg border border-border bg-card shadow-sm sm:block">
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-secondary/40">
                     <tr>
@@ -203,13 +245,13 @@
                             <td class="px-3 py-2.5">
                                 @if($product->colour)
                                     <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                        <span class="size-3 rounded-full ring-1 ring-border" style="background-color: {{ $product->colour->getSwatch() }}"></span>
+                                        <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $product->colour->getSwatch() }}"></span>
                                         {{ $product->colour->getLabel() }}
                                     </span>
                                 @elseif(isset($fill['colour']))
                                     <x-enriched-fact :source="$fill['colour']['source']">
                                         <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                            <span class="size-3 rounded-full ring-1 ring-border" style="background-color: {{ $fill['colour']['value']->getSwatch() }}"></span>
+                                            <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $fill['colour']['value']->getSwatch() }}"></span>
                                             {{ $fill['colour']['value']->getLabel() }}
                                         </span>
                                     </x-enriched-fact>
@@ -237,13 +279,14 @@
                                 @elseif(in_array($product->supplier_id, $editableSupplierIds, true))
                                     <button type="button" wire:click="startEditPrice({{ $product->id }}, '{{ $product->unit_price }}')" class="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground" title="Edit price (per bottle)">
                                         {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
-                                        @if($product->soldByCase())<span class="text-xs font-normal text-muted-foreground">/case</span>@endif
+                                        {{-- the price basis is always stated — a trade buyer must never guess bottle vs case --}}
+                                        @if($product->displayPrice() !== null)<span class="text-xs font-normal text-muted-foreground">{{ $product->soldByCase() ? '/case' : '/btl' }}</span>@endif
                                         <x-icon.pencil class="size-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                                     </button>
                                 @else
                                     <span class="whitespace-nowrap font-medium text-foreground">
                                         {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
-                                        @if($product->soldByCase())<span class="text-xs font-normal text-muted-foreground">/case</span>@endif
+                                        @if($product->displayPrice() !== null)<span class="text-xs font-normal text-muted-foreground">{{ $product->soldByCase() ? '/case' : '/btl' }}</span>@endif
                                     </span>
                                 @endif
                                 @if($product->perBottleEquivalent() !== null)
@@ -270,6 +313,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
 
         <div>{{ $products->links() }}</div>

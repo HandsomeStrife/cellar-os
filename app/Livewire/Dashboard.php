@@ -114,9 +114,10 @@ class Dashboard extends Component
             'plan' => $this->companyPlan(),
             'hasVenue' => $venues->isNotEmpty(),
             'currency' => $venues->first()?->base_currency ?? 'GBP',
-            // headline
+            // headline — "suppliers" on MY cellar dashboard means the ones I'm
+            // connected to, not the whole directory.
             'productCount' => $productRepo->count(),
-            'activeSuppliers' => $supplierRepo->countActive(),
+            'activeSuppliers' => $supplierRepo->connectedToCompany($companyId)->count(),
             'supplierCount' => $supplierRepo->count(),
             'inventoryBottles' => $bottles,
             'inventoryValue' => $value,
@@ -133,7 +134,8 @@ class Dashboard extends Component
             'topRegions' => array_slice($byRegion, 0, 8, true),
             'lowStockItems' => array_slice($lowStock, 0, 10),
             'recentOrders' => $recentOrders,
-            'colourSwatch' => fn (string $label) => WineColour::tryFrom($label)?->getSwatch() ?? '#94a3b8',
+            // Unknown/uncategorised gets a neutral grey — it's a data gap, not a wine colour.
+            'colourSwatch' => fn (string $label) => WineColour::tryFrom($label)?->getSwatch() ?? '#a8a29e',
         ]);
     }
 }

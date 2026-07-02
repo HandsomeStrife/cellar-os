@@ -1,24 +1,62 @@
-<div class="space-y-6">
-    <div>
-        <h2 class="font-serif text-2xl font-semibold">Welcome{{ $admin?->name ? ', '.\Illuminate\Support\Str::before($admin->name, ' ') : '' }}</h2>
-        <p class="mt-1 text-sm text-muted-foreground">Platform overview.</p>
+<div class="space-y-8">
+    <x-page-header title="Back office" subtitle="Platform state and the queues that need an admin." />
+
+    {{-- Platform figures --}}
+    <div class="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
+        <x-stat label="Users" :value="number_format($userCount)" />
+        <x-stat label="Suppliers" :value="number_format($supplierCount)" />
+        <x-stat label="Wines" :value="number_format($productCount)" />
+        <x-stat label="Orders" :value="number_format($orderCount)" />
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <x-stat label="Users" :value="number_format($userCount)" icon="users" />
-        <x-stat label="Suppliers" :value="number_format($supplierCount)" icon="building-2" />
-        <x-stat label="Wines" :value="number_format($productCount)" icon="wine" />
-        <x-stat label="Orders" :value="number_format($orderCount)" icon="clipboard-list" />
-    </div>
-
-    <x-card title="Management">
-        <a href="{{ route('admin.users') }}" class="flex items-center gap-3 rounded-md p-2 transition hover:bg-accent">
-            <span class="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary"><x-icon.users class="size-5" /></span>
-            <div>
-                <p class="text-sm font-medium text-foreground">Users</p>
-                <p class="text-sm text-muted-foreground">View accounts, change plans, remove users.</p>
-            </div>
-            <x-icon.chevron-right class="ml-auto size-4 text-muted-foreground" />
-        </a>
-    </x-card>
+    {{-- Work queues: each row is a real, current queue with a direct route in. --}}
+    <section>
+        <h3 class="font-serif text-lg font-semibold">Needs an admin</h3>
+        <ul class="mt-3 divide-y divide-border border-y border-border">
+            <li>
+                <a href="{{ route('admin.enquiries') }}" class="flex items-center justify-between gap-4 py-3 transition hover:bg-accent/40">
+                    <div>
+                        <p class="text-sm font-medium text-foreground">New enquiries</p>
+                        <p class="text-sm text-muted-foreground">Contact-form messages nobody has read yet.</p>
+                    </div>
+                    <span class="flex shrink-0 items-center gap-2">
+                        <span @class([
+                            'font-mono text-xl tabular-nums',
+                            'font-semibold text-primary' => $newEnquiries > 0,
+                            'text-muted-foreground' => $newEnquiries === 0,
+                        ])>{{ number_format($newEnquiries) }}</span>
+                        <x-icon.chevron-right class="size-4 text-muted-foreground" />
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.suppliers') }}" class="flex items-center justify-between gap-4 py-3 transition hover:bg-accent/40">
+                    <div>
+                        <p class="text-sm font-medium text-foreground">Documents awaiting analysis</p>
+                        <p class="text-sm text-muted-foreground">Uploaded price lists that haven't been parsed.</p>
+                    </div>
+                    <span class="flex shrink-0 items-center gap-2">
+                        <span @class([
+                            'font-mono text-xl tabular-nums',
+                            'font-semibold text-primary' => $awaitingAnalysis > 0,
+                            'text-muted-foreground' => $awaitingAnalysis === 0,
+                        ])>{{ number_format($awaitingAnalysis) }}</span>
+                        <x-icon.chevron-right class="size-4 text-muted-foreground" />
+                    </span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.costs') }}" class="flex items-center justify-between gap-4 py-3 transition hover:bg-accent/40">
+                    <div>
+                        <p class="text-sm font-medium text-foreground">AI spend, last 7 days</p>
+                        <p class="text-sm text-muted-foreground">{{ number_format($aiWeek['calls']) }} billable {{ \Illuminate\Support\Str::plural('call', $aiWeek['calls']) }} — full ledger in AI costs.</p>
+                    </div>
+                    <span class="flex shrink-0 items-center gap-2">
+                        <span class="font-mono text-xl tabular-nums text-muted-foreground">${{ number_format($aiWeek['cost_usd'], 2) }}</span>
+                        <x-icon.chevron-right class="size-4 text-muted-foreground" />
+                    </span>
+                </a>
+            </li>
+        </ul>
+    </section>
 </div>

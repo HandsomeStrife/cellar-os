@@ -58,9 +58,9 @@
         <div
             x-show="sidebarOpen"
             x-cloak
-            x-transition.opacity
             x-on:click="sidebarOpen = false"
             class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+            aria-hidden="true"
         ></div>
 
         {{-- Sidebar --}}

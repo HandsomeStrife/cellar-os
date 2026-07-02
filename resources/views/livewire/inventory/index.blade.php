@@ -26,7 +26,7 @@
             </div>
         </x-card>
     @else
-        <x-page-header eyebrow="Stock" title="Inventory" subtitle="Received stock by venue." />
+        <x-page-header title="Inventory" subtitle="Received stock by venue." />
 
         {{-- Toolbar --}}
         <div class="flex flex-wrap items-center gap-3">
@@ -58,9 +58,10 @@
             </div>
 
             <div class="ml-auto flex items-center gap-2">
+                {{-- Label states the action, not the current state — "Active" alone read as a status. --}}
                 <x-button wire:click="$toggle('showArchived')" variant="{{ $showArchived ? 'secondary' : 'outline' }}" size="sm">
                     <x-icon.archive class="size-4" />
-                    {{ $showArchived ? 'Viewing archived' : 'Active' }}
+                    {{ $showArchived ? 'Back to active stock' : 'Show archived' }}
                 </x-button>
 
                 @if($canManualAdd)
@@ -108,9 +109,19 @@
                             @php($product = $row['product'])
                             <tr wire:key="inv-{{ $item->id }}" class="hover:bg-accent/40">
                                 <td class="px-3 py-2.5">
-                                    <div class="font-medium text-foreground">{{ $product?->wine_name ?? 'Unknown product' }}</div>
-                                    @if($product?->producer)
-                                        <div class="text-xs text-muted-foreground">{{ $product->producer }}</div>
+                                    @if($product)
+                                        <div class="font-medium text-foreground">{{ $product->wine_name }}</div>
+                                        @if($product->producer)
+                                            <div class="text-xs text-muted-foreground">{{ $product->producer }}</div>
+                                        @endif
+                                    @else
+                                        {{-- Degraded row: the catalogue product behind this stock line is gone.
+                                             Say so plainly instead of dressing it up as a normal wine. --}}
+                                        <div class="flex items-center gap-1.5 font-medium text-muted-foreground">
+                                            <x-icon.circle-alert class="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                                            Product removed from catalogue
+                                        </div>
+                                        <div class="text-xs text-muted-foreground">Stock line #{{ $item->id }} — the count is still yours; archive it if it's no longer needed.</div>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5">
@@ -132,14 +143,18 @@
                                 </td>
                                 <td class="px-3 py-2.5">
                                     @if($canAttachments)
-                                        <button type="button" wire:click="openAttachments({{ $item->id }})" class="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                                        {{-- A claret paperclip shouting "0" on every row is noise; quiet until there's something attached. --}}
+                                        <button type="button" wire:click="openAttachments({{ $item->id }})" @class([
+                                            'inline-flex items-center gap-1 text-sm',
+                                            'text-primary hover:underline' => count($item->attachments) > 0,
+                                            'text-muted-foreground/60 hover:text-foreground' => count($item->attachments) === 0,
+                                        ]) title="{{ count($item->attachments) > 0 ? count($item->attachments).' attached' : 'Attach a file' }}">
                                             <x-icon.paperclip class="size-4" />
-                                            {{ count($item->attachments) }}
+                                            @if(count($item->attachments) > 0){{ count($item->attachments) }}@endif
                                         </button>
                                     @else
-                                        <span class="inline-flex items-center gap-1 text-sm text-muted-foreground" title="Pro feature">
+                                        <span class="inline-flex items-center gap-1 text-sm text-muted-foreground/60" title="Pro feature">
                                             <x-icon.lock class="size-3.5" />
-                                            {{ count($item->attachments) }}
                                         </span>
                                     @endif
                                 </td>

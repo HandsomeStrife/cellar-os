@@ -11,7 +11,7 @@
         @php($supplierMap = $suppliers->keyBy('id'))
         @php($venueMap = $venues->keyBy('id'))
 
-        <x-page-header eyebrow="Purchasing" title="Orders" subtitle="Build, send and receive purchase orders.">
+        <x-page-header title="Orders" subtitle="Build, send and receive purchase orders.">
             <x-slot:actions>
                 <x-button wire:click="openCreate">
                     <x-icon.plus class="size-4" />
@@ -53,12 +53,10 @@
                             <tr wire:key="order-{{ $order->id }}" class="hover:bg-accent/40">
                                 <td class="px-3 py-2.5 font-medium">#{{ $order->uuid ? strtoupper(substr($order->uuid, 0, 8)) : $order->id }}</td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $supplierMap[$order->supplier_id]->name ?? '–' }}</td>
+                                {{-- Status is read-only here — changing an order's lifecycle is an
+                                     explicit act in the order view, not a one-misclick list edit. --}}
                                 <td class="px-3 py-2.5">
-                                    <select wire:change="setStatus({{ $order->id }}, $event.target.value)" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
-                                        @foreach($statuses as $status)
-                                            <option value="{{ $status->value }}" @selected($status === $order->status)>{{ $status->getLabel() }}</option>
-                                        @endforeach
-                                    </select>
+                                    <x-badge :color="$order->status->getColour()">{{ $order->status->getLabel() }}</x-badge>
                                 </td>
                                 <td class="px-3 py-2.5 text-right tabular-nums">{{ Currency::format($order->total, data_get($order->items, '0.currency_at_order', $currency)) }}</td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $order->created_at?->format('j M Y') }}</td>
@@ -98,7 +96,14 @@
                             <span class="text-muted-foreground">Supplier:</span>
                             <span class="font-medium">{{ $supplierMap[$viewing->supplier_id]->name ?? '–' }}</span>
                         </div>
-                        <x-badge :color="$viewing->status->getColour()">{{ $viewing->status->getLabel() }}</x-badge>
+                        <div class="flex items-center gap-2">
+                            <label for="order-status" class="text-xs uppercase tracking-wider text-muted-foreground">Status</label>
+                            <select id="order-status" wire:change="setStatus({{ $viewing->id }}, $event.target.value)" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                                @foreach($statuses as $status)
+                                    <option value="{{ $status->value }}" @selected($status === $viewing->status)>{{ $status->getLabel() }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto rounded-md border border-border">

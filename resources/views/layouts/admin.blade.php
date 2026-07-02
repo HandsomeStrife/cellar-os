@@ -35,7 +35,7 @@
 </head>
 <body class="min-h-screen bg-background text-foreground antialiased">
     <div x-data="{ sidebarOpen: false }" class="flex min-h-screen">
-        <div x-show="sidebarOpen" x-cloak x-transition.opacity x-on:click="sidebarOpen = false" class="fixed inset-0 z-30 bg-black/50 lg:hidden"></div>
+        <div x-show="sidebarOpen" x-cloak x-on:click="sidebarOpen = false" class="fixed inset-0 z-30 bg-black/50 lg:hidden" aria-hidden="true"></div>
 
         <aside x-bind:class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'" class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static">
             <div class="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">

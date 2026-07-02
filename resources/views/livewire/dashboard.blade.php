@@ -25,9 +25,9 @@
             <dl class="flex flex-wrap gap-x-8 gap-y-4">
                 @foreach([
                     ['bottles', number_format($inventoryBottles)],
-                    ['labels', number_format($inventoryLabels)],
-                    ['suppliers', number_format($activeSuppliers)],
-                    ['catalogue', number_format($productCount)],
+                    ['distinct wines', number_format($inventoryLabels)],
+                    ['my suppliers', number_format($activeSuppliers)],
+                    ['wines to browse', number_format($productCount)],
                 ] as [$label, $val])
                     <div class="border-l border-border pl-4">
                         <dd class="font-mono text-2xl font-medium tabular-nums">{{ $val }}</dd>
@@ -54,9 +54,9 @@
             </div>
             <ul class="mt-3 flex flex-wrap gap-x-6 gap-y-1.5">
                 @foreach($byColour as $colour => $qty)
-                    <li class="inline-flex items-center gap-2 text-sm">
-                        <span class="size-2.5 rounded-full ring-1 ring-border" style="background-color: {{ $colourSwatch($colour) }}"></span>
-                        <span>{{ $colour }}</span>
+                    <li class="inline-flex items-center gap-2 text-sm {{ $colour === 'Unknown' ? 'text-muted-foreground' : '' }}">
+                        <span class="size-2.5 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $colourSwatch($colour) }}"></span>
+                        <span>{{ $colour === 'Unknown' ? 'Uncategorised' : $colour }}</span>
                         <span class="font-mono text-xs tabular-nums text-muted-foreground">{{ $compositionTotal > 0 ? round($qty / $compositionTotal * 100) : 0 }}%</span>
                     </li>
                 @endforeach
@@ -64,12 +64,17 @@
         </section>
 
         {{-- What needs you, and what just happened --}}
+        {{-- min-w-0 on the grid children: without it a long nowrap supplier
+             name sets the track's min-content and overflows small screens. --}}
         <div class="grid gap-x-12 gap-y-10 lg:grid-cols-2">
-            <section>
+            <section class="min-w-0">
                 <h3 class="flex items-baseline gap-3 font-serif text-lg font-semibold">
                     Needs attention
+                    {{-- Only counts that are non-zero earn a mention. --}}
                     @if($outOfStockCount + $lowStockCount > 0)
-                        <span class="font-mono text-xs font-normal uppercase tracking-wider text-primary">{{ $outOfStockCount }} out · {{ $lowStockCount }} low</span>
+                        <span class="font-mono text-xs font-normal uppercase tracking-wider text-primary">
+                            {{ collect([$outOfStockCount > 0 ? "{$outOfStockCount} out" : null, $lowStockCount > 0 ? "{$lowStockCount} low" : null])->filter()->implode(' · ') }}
+                        </span>
                     @endif
                 </h3>
                 @if($lowStockItems === [] && $outOfStockCount === 0)
@@ -87,14 +92,9 @@
                         @endforeach
                     </ul>
                 @endif
-                @if($openOrderCount > 0)
-                    <a href="{{ route('orders') }}" wire:navigate class="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
-                        {{ $openOrderCount }} open {{ Str::plural('order', $openOrderCount) }} to follow up <x-icon.chevron-right class="size-4" />
-                    </a>
-                @endif
             </section>
 
-            <section>
+            <section class="min-w-0">
                 <div class="flex items-baseline justify-between">
                     <h3 class="font-serif text-lg font-semibold">Recent orders</h3>
                     <a href="{{ route('orders') }}" wire:navigate class="text-sm text-primary hover:underline">View all</a>
@@ -113,6 +113,11 @@
                 @empty
                     <p class="mt-4 text-sm text-muted-foreground">No orders yet.</p>
                 @endforelse
+                @if($openOrderCount > 0)
+                    <a href="{{ route('orders') }}" wire:navigate class="mt-4 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                        {{ $openOrderCount }} open {{ Str::plural('order', $openOrderCount) }} to follow up <x-icon.chevron-right class="size-4" />
+                    </a>
+                @endif
             </section>
         </div>
 

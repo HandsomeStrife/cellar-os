@@ -1,5 +1,5 @@
 <div class="space-y-6">
-    <x-page-header eyebrow="Sourcing" title="Suppliers" subtitle="The merchants you buy from, and others you can connect to." />
+    <x-page-header title="Suppliers" subtitle="The merchants you buy from, and others you can connect to." />
 
     {{-- Tabs --}}
     <div class="flex items-center gap-1 border-b border-border">
@@ -27,41 +27,58 @@
         @if($mine->isEmpty())
             <x-card><x-empty-state icon="users" title="No suppliers yet" message="Connect to a listed supplier under Discover, or add your own." /></x-card>
         @else
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach($mine as $supplier)
-                    @php($owned = $supplier->created_by_company_id === $currentCompanyId)
-                    <div wire:key="mine-{{ $supplier->id }}" class="flex flex-col rounded-lg border border-border bg-card p-5 shadow-sm">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <h3 class="truncate font-serif text-lg font-semibold">{{ $supplier->name }}</h3>
-                                @if($supplier->location)
-                                    <p class="mt-0.5 flex items-center gap-1 truncate text-sm text-muted-foreground"><x-icon.map-pin class="size-3.5 shrink-0" /> {{ $supplier->location }}</p>
-                                @endif
-                            </div>
-                            <x-badge :color="$supplier->tier->getColour()">{{ $supplier->tier->getLabel() }}</x-badge>
-                        </div>
-
-                        <dl class="mt-4 flex-1 space-y-1.5 text-sm">
-                            @if($supplier->contact)<div class="flex items-center gap-2 text-muted-foreground"><x-icon.user class="size-4 shrink-0" /><span class="truncate text-foreground">{{ $supplier->contact }}</span></div>@endif
-                            @if($supplier->email)<div class="flex items-center gap-2 text-muted-foreground"><x-icon.mail class="size-4 shrink-0" /><span class="truncate text-foreground">{{ $supplier->email }}</span></div>@endif
-                            <div class="flex items-center gap-2 text-muted-foreground">
-                                <x-icon.map-pin class="size-4 shrink-0" />
-                                <span class="truncate">{{ ($allocations[$supplier->id] ?? []) === [] ? 'No venues allocated' : count($allocations[$supplier->id]).' '.\Illuminate\Support\Str::plural('venue', count($allocations[$supplier->id])) }}</span>
-                            </div>
-                        </dl>
-
-                        <div class="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-                            <x-button wire:click="startAllocate({{ $supplier->id }})" variant="outline" size="sm"><x-icon.map-pin class="size-4" /> Venues</x-button>
-                            <x-button :href="route('suppliers.documents', $supplier->uuid)" wire:navigate variant="outline" size="sm"><x-icon.file-text class="size-4" /> Documents</x-button>
-                            @if($owned)
-                                <x-button wire:click="edit({{ $supplier->id }})" variant="ghost" size="sm" aria-label="Edit"><x-icon.pencil class="size-4" /></x-button>
-                                <x-button wire:click="delete({{ $supplier->id }})" wire:confirm="Delete {{ $supplier->name }}? This cannot be undone." variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" aria-label="Delete"><x-icon.trash-2 class="size-4" /></x-button>
-                            @else
-                                <x-button wire:click="disconnect({{ $supplier->id }})" wire:confirm="Remove {{ $supplier->name }} from your suppliers?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10">Disconnect</x-button>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
+            {{-- A table, like every other list in the app — suppliers scan as
+                 rows, not as a grid of uneven cards. --}}
+            <div class="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+                <table class="w-full text-sm">
+                    <thead class="border-b border-border bg-secondary/40">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Supplier</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tier</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Contact</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Venues</th>
+                            <th class="px-3 py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        @foreach($mine as $supplier)
+                            @php($owned = $supplier->created_by_company_id === $currentCompanyId)
+                            @php($venueCount = count($allocations[$supplier->id] ?? []))
+                            <tr wire:key="mine-{{ $supplier->id }}" class="hover:bg-accent/40">
+                                <td class="max-w-xs px-3 py-2.5">
+                                    <div class="truncate font-medium text-foreground">{{ $supplier->name }}</div>
+                                    @if($supplier->location)
+                                        <div class="truncate text-xs text-muted-foreground">{{ $supplier->location }}</div>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-2.5"><x-badge :color="$supplier->tier->getColour()">{{ $supplier->tier->getLabel() }}</x-badge></td>
+                                <td class="max-w-xs px-3 py-2.5">
+                                    @if($supplier->contact || $supplier->email)
+                                        @if($supplier->contact)<div class="truncate text-foreground">{{ $supplier->contact }}</div>@endif
+                                        @if($supplier->email)<div class="truncate text-xs text-muted-foreground">{{ $supplier->email }}</div>@endif
+                                    @else
+                                        <span class="text-muted-foreground">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-3 py-2.5 text-muted-foreground">
+                                    {{ $venueCount === 0 ? 'None' : $venueCount.' '.\Illuminate\Support\Str::plural('venue', $venueCount) }}
+                                </td>
+                                <td class="px-3 py-2.5 text-right">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <x-button wire:click="startAllocate({{ $supplier->id }})" variant="ghost" size="sm"><x-icon.map-pin class="size-4" /> Venues</x-button>
+                                        <x-button :href="route('suppliers.documents', $supplier->uuid)" wire:navigate variant="ghost" size="sm"><x-icon.file-text class="size-4" /> Documents</x-button>
+                                        @if($owned)
+                                            <x-button wire:click="edit({{ $supplier->id }})" variant="ghost" size="sm" title="Edit supplier"><x-icon.pencil class="size-4" /></x-button>
+                                            <x-button wire:click="delete({{ $supplier->id }})" wire:confirm="Delete {{ $supplier->name }}? This cannot be undone." variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" title="Delete supplier"><x-icon.trash-2 class="size-4" /></x-button>
+                                        @else
+                                            <x-button wire:click="disconnect({{ $supplier->id }})" wire:confirm="Remove {{ $supplier->name }} from your suppliers?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" title="Remove from my suppliers"><x-icon.x class="size-4" /> Disconnect</x-button>
+                                        @endif
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
     @else
@@ -74,21 +91,33 @@
         @if($discover->isEmpty())
             <x-card><x-empty-state icon="users" title="Nothing to discover" message="You're connected to every listed supplier." /></x-card>
         @else
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach($discover as $supplier)
-                    <div wire:key="disc-{{ $supplier->id }}" class="flex flex-col rounded-lg border border-border bg-card p-5 shadow-sm">
-                        <div class="flex items-start justify-between gap-3">
-                            <div class="min-w-0">
-                                <h3 class="truncate font-serif text-lg font-semibold">{{ $supplier->name }}</h3>
-                                @if($supplier->location)<p class="mt-0.5 truncate text-sm text-muted-foreground">{{ $supplier->location }}</p>@endif
-                            </div>
-                            <x-badge :color="$supplier->tier->getColour()">{{ $supplier->tier->getLabel() }}</x-badge>
-                        </div>
-                        <div class="mt-4 border-t border-border pt-4">
-                            <x-button wire:click="connect({{ $supplier->id }})" size="sm"><x-icon.plus class="size-4" /> Connect</x-button>
-                        </div>
-                    </div>
-                @endforeach
+            <div class="overflow-x-auto rounded-lg border border-border bg-card shadow-sm">
+                <table class="w-full text-sm">
+                    <thead class="border-b border-border bg-secondary/40">
+                        <tr>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Supplier</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Location</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tier</th>
+                            <th class="px-3 py-2"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border">
+                        @foreach($discover as $supplier)
+                            <tr wire:key="disc-{{ $supplier->id }}" class="hover:bg-accent/40">
+                                <td class="max-w-xs px-3 py-2.5">
+                                    <span class="block truncate font-medium text-foreground">{{ $supplier->name }}</span>
+                                </td>
+                                <td class="max-w-xs px-3 py-2.5 text-muted-foreground">
+                                    <span class="block truncate">{{ $supplier->location ?: '—' }}</span>
+                                </td>
+                                <td class="px-3 py-2.5"><x-badge :color="$supplier->tier->getColour()">{{ $supplier->tier->getLabel() }}</x-badge></td>
+                                <td class="px-3 py-2.5 text-right">
+                                    <x-button wire:click="connect({{ $supplier->id }})" variant="outline" size="sm"><x-icon.plus class="size-4" /> Connect</x-button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
     @endif
