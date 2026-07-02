@@ -30,6 +30,7 @@ use App\Livewire\Guide;
 use App\Livewire\Import\Index as ImportIndex;
 use App\Livewire\Inventory\Index as InventoryIndex;
 use App\Livewire\Map\Index as MapIndex;
+use App\Livewire\Orders\Create as OrderCreate;
 use App\Livewire\Orders\Index as OrderIndex;
 use App\Livewire\SupplierPortal\Auth\ForgotPassword as SupplierForgotPassword;
 use App\Livewire\SupplierPortal\Auth\Login as SupplierLogin;
@@ -76,6 +77,7 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/inventory', InventoryIndex::class)->name('inventory');
     Route::get('/inventory/attachments/{id}/download', DownloadAttachmentController::class)->name('inventory.attachments.download');
     Route::get('/orders', OrderIndex::class)->name('orders');
+    Route::get('/orders/new', OrderCreate::class)->name('orders.create');
     Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
     Route::get('/map', MapIndex::class)->name('map');
     Route::get('/team', CompanyTeam::class)->name('team');

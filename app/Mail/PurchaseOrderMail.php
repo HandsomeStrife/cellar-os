@@ -25,7 +25,8 @@ class PurchaseOrderMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: 'Purchase Order from CellarOS');
+        // The PO number in the subject is what the supplier files and replies against.
+        return new Envelope(subject: 'Purchase Order '.$this->order->displayNumber().' from CellarOS');
     }
 
     public function content(): Content
@@ -42,7 +43,7 @@ class PurchaseOrderMail extends Mailable
     public function attachments(): array
     {
         return [
-            Attachment::fromData(fn () => $this->pdf, 'purchase-order.pdf')
+            Attachment::fromData(fn () => $this->pdf, strtolower($this->order->displayNumber()).'.pdf')
                 ->withMime('application/pdf'),
         ];
     }

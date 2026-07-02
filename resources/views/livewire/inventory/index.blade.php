@@ -32,7 +32,7 @@
         <div class="flex flex-wrap items-center gap-3">
             <select
                 wire:change="selectVenue($event.target.value)"
-                class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
             >
                 @foreach($venues as $venue)
                     <option value="{{ $venue->id }}" @selected($venue->id === $venueId)>{{ $venue->name }}</option>
@@ -53,7 +53,7 @@
                     type="search"
                     wire:model.live.debounce.300ms="search"
                     placeholder="Search wines in stock…"
-                    class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                    class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
                 />
             </div>
 
@@ -202,7 +202,7 @@
                         type="search"
                         wire:model.live.debounce.300ms="productSearch"
                         placeholder="Search the catalogue…"
-                        class="mb-2 mt-1.5 block w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                        class="mb-2 mt-1.5 block w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                     />
                     <x-input.select name="addProductId" :options="$productOptions" placeholder="Select a wine" wire:model="addProductId" />
                 </div>

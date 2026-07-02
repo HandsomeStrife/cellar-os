@@ -13,7 +13,7 @@
 
         <x-page-header title="Orders" subtitle="Build, send and receive purchase orders.">
             <x-slot:actions>
-                <x-button wire:click="openCreate">
+                <x-button :href="route('orders.create')" wire:navigate>
                     <x-icon.plus class="size-4" />
                     New order
                 </x-button>
@@ -22,7 +22,7 @@
 
         {{-- Toolbar --}}
         <div class="flex flex-wrap items-center gap-3">
-            <select wire:model.live="statusFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+            <select wire:model.live="statusFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
                 <option value="">All statuses</option>
                 @foreach($statuses as $status)
                     <option value="{{ $status->value }}">{{ $status->getLabel() }}</option>
@@ -51,7 +51,7 @@
                     <tbody class="divide-y divide-border">
                         @foreach($orders as $order)
                             <tr wire:key="order-{{ $order->id }}" class="hover:bg-accent/40">
-                                <td class="px-3 py-2.5 font-medium">#{{ $order->uuid ? strtoupper(substr($order->uuid, 0, 8)) : $order->id }}</td>
+                                <td class="px-3 py-2.5 font-mono text-xs font-medium">{{ $order->displayNumber() }}</td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $supplierMap[$order->supplier_id]->name ?? '–' }}</td>
                                 {{-- Status is read-only here — changing an order's lifecycle is an
                                      explicit act in the order view, not a one-misclick list edit. --}}
@@ -89,7 +89,7 @@
 
         {{-- View modal --}}
         @if($viewing !== null)
-            <x-modal model="viewingId" title="Order #{{ $viewing->uuid ? strtoupper(substr($viewing->uuid, 0, 8)) : $viewing->id }}" max-width="2xl">
+            <x-modal model="viewingId" title="Order {{ $viewing->displayNumber() }}" max-width="2xl">
                 <div class="space-y-4">
                     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
                         <div>
@@ -98,7 +98,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <label for="order-status" class="text-xs uppercase tracking-wider text-muted-foreground">Status</label>
-                            <select id="order-status" wire:change="setStatus({{ $viewing->id }}, $event.target.value)" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                            <select id="order-status" wire:change="setStatus({{ $viewing->id }}, $event.target.value)" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
                                 @foreach($statuses as $status)
                                     <option value="{{ $status->value }}" @selected($status === $viewing->status)>{{ $status->getLabel() }}</option>
                                 @endforeach
@@ -159,66 +159,5 @@
             </x-modal>
         @endif
 
-        {{-- Create modal --}}
-        <x-modal model="showCreate" title="New purchase order" max-width="2xl">
-            <form wire:submit="createOrder" class="space-y-4">
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <x-input.select name="supplierId" label="Supplier" :options="$suppliers->pluck('name', 'id')->all()" placeholder="Select a supplier" wire:model="supplierId" />
-                    <x-input.select name="venueId" label="Deliver to (optional)" :options="$venues->pluck('name', 'id')->all()" placeholder="No venue" wire:model="venueId" />
-                </div>
-
-                {{-- Add wines --}}
-                <div>
-                    <x-input.label>Add wines</x-input.label>
-                    <div class="mt-1.5 flex gap-2">
-                        <input type="search" wire:model.live.debounce.300ms="productSearch" placeholder="Search catalogue…" class="block w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
-                    </div>
-                    @if($productSearch !== '' && $productOptions !== [])
-                        <div class="mt-2 max-h-40 divide-y divide-border overflow-y-auto rounded-md border border-border">
-                            @foreach($productOptions as $pid => $label)
-                                <button type="button" wire:click="addLine({{ $pid }})" class="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent">
-                                    <span>{{ $label }}</span>
-                                    <x-icon.plus class="size-4 text-muted-foreground" />
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
-                    <x-input.error :messages="$errors->get('lines')" />
-                </div>
-
-                {{-- Lines --}}
-                @if($lines !== [])
-                    <div class="space-y-2 rounded-md border border-border p-3">
-                        @foreach($lines as $i => $line)
-                            @php($isCaseLine = ($line['sold_by'] ?? 'bottle') === 'case')
-                            @php($caseSize = max(1, (int) ($line['case_size'] ?? 1)))
-                            <div wire:key="line-{{ $i }}" class="flex items-center gap-3">
-                                <span class="min-w-0 flex-1 truncate text-sm font-medium">{{ $line['wine_name'] }}</span>
-                                @if($isCaseLine)
-                                    <span class="text-xs text-muted-foreground">{{ Currency::format((float) $line['unit_price'] * $caseSize, $currency) }}/case</span>
-                                    <input type="number" min="1" value="{{ intdiv((int) $line['quantity'], $caseSize) }}" wire:change="setLineCases({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
-                                    <span class="text-xs text-muted-foreground">{{ \Illuminate\Support\Str::plural('case', intdiv((int) $line['quantity'], $caseSize)) }}</span>
-                                @else
-                                    <span class="text-xs text-muted-foreground">{{ Currency::format($line['unit_price'], $currency) }}</span>
-                                    <input type="number" min="1" value="{{ $line['quantity'] }}" wire:change="setLineQty({{ $i }}, $event.target.value)" class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
-                                @endif
-                                <button type="button" wire:click="removeLine({{ $i }})" class="text-muted-foreground hover:text-destructive"><x-icon.x class="size-4" /></button>
-                            </div>
-                        @endforeach
-                        <div class="flex items-center justify-end gap-2 border-t border-border pt-2 text-sm">
-                            <span class="text-muted-foreground">Total</span>
-                            <span class="font-semibold">{{ Currency::format($linesTotal, $currency) }}</span>
-                        </div>
-                    </div>
-                @endif
-
-                <x-input.textarea name="notes" label="Notes (optional)" wire:model="notes" rows="2" />
-
-                <div class="flex items-center justify-end gap-2 pt-2">
-                    <x-button type="button" variant="outline" wire:click="$set('showCreate', false)">Cancel</x-button>
-                    <x-button type="submit">Create order</x-button>
-                </div>
-            </form>
-        </x-modal>
     @endif
 </div>

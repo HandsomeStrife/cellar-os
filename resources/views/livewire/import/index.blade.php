@@ -45,13 +45,28 @@
                             wire:model="supplierId"
                         />
 
-                        <div>
-                            <x-input.label>Price-list file</x-input.label>
-                            <input
-                                type="file"
-                                wire:model="upload"
-                                class="mt-1.5 block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/80"
-                            />
+                        <div x-data="{ dragging: false }">
+                            <x-input.label for="upload-file">Price-list file</x-input.label>
+                            {{-- Dropzone: the label wraps a hidden file input, so click-to-browse
+                                 and drag-and-drop both feed the same wire:model. --}}
+                            <label
+                                for="upload-file"
+                                x-on:dragover.prevent="dragging = true"
+                                x-on:dragleave.prevent="dragging = false"
+                                x-on:drop.prevent="dragging = false; $refs.file.files = $event.dataTransfer.files; $refs.file.dispatchEvent(new Event('change'))"
+                                x-bind:class="dragging ? 'border-ring bg-accent/40' : 'border-input'"
+                                class="mt-1.5 flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed bg-card px-6 py-10 text-center transition hover:bg-accent/30"
+                            >
+                                <x-icon.upload class="size-6 text-muted-foreground" />
+                                @if($upload)
+                                    <p class="text-sm font-medium text-foreground">{{ $upload->getClientOriginalName() }}</p>
+                                    <p class="text-xs text-muted-foreground">Choose a different file, or continue below.</p>
+                                @else
+                                    <p class="text-sm font-medium text-foreground">Drop your price list here, or click to browse</p>
+                                    <p class="text-xs text-muted-foreground">CSV or Excel, up to 10 MB</p>
+                                @endif
+                                <input id="upload-file" type="file" x-ref="file" wire:model="upload" accept=".csv,.txt,.xls,.xlsx" class="sr-only" />
+                            </label>
                             <x-input.error :messages="$errors->get('upload')" />
                             <div wire:loading wire:target="upload" class="mt-1 text-xs text-muted-foreground">Reading file…</div>
                         </div>
@@ -78,7 +93,7 @@
                             </x-input.label>
                             <select
                                 wire:model="mapping.{{ $field }}"
-                                class="select-field mt-1.5 block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                class="select-field mt-1.5 block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                             >
                                 <option value="">– skip –</option>
                                 @foreach($headers as $header)

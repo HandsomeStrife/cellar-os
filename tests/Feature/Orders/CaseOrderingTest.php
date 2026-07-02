@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Livewire\Catalogue\Index as CatalogueIndex;
+use App\Livewire\Orders\Create as OrdersCreate;
 use App\Livewire\Orders\Index as OrdersIndex;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Models\Product;
@@ -79,8 +80,7 @@ it('receives a case order into inventory as bottles (no conversion)', function (
 });
 
 it('adds and snapshots a case line through the manual order create flow', function () {
-    Livewire::test(OrdersIndex::class)
-        ->call('openCreate')
+    Livewire::test(OrdersCreate::class)
         ->set('supplierId', $this->supplier->id)
         ->call('addLine', $this->caseWine->id)             // +1 case = 6 bottles
         ->call('addLine', $this->caseWine->id)             // +1 case = 12 bottles

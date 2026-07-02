@@ -26,6 +26,7 @@ class OrderData extends AbstractData
         public ?string $total,
         public ?string $notes,
         public array $items,
+        public ?string $po_number = null,
         public ?CarbonImmutable $created_at = null,
     ) {}
 
@@ -34,6 +35,7 @@ class OrderData extends AbstractData
         return new self(
             id: $model->id,
             uuid: $model->uuid,
+            po_number: $model->po_number,
             company_id: $model->company_id,
             supplier_id: $model->supplier_id,
             venue_id: $model->venue_id,
@@ -49,5 +51,15 @@ class OrderData extends AbstractData
     public function toModel(): Order
     {
         return Order::findOrFail($this->id);
+    }
+
+    /**
+     * The number a human quotes to a supplier — "PO-2026-0042", falling back
+     * to a uuid fragment only for rows that somehow predate numbering.
+     */
+    public function displayNumber(): string
+    {
+        return $this->po_number
+            ?? ($this->uuid ? '#'.strtoupper(substr($this->uuid, 0, 8)) : '#'.$this->id);
     }
 }

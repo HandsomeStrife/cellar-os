@@ -8,20 +8,16 @@ use App\Livewire\Concerns\WithTenant;
 use App\Mail\PurchaseOrderMail;
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
-use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Inventory\Actions\AddInventoryItemAction;
-use Domain\Order\Actions\CreateOrderAction;
 use Domain\Order\Actions\DeleteOrderAction;
 use Domain\Order\Actions\UpdateOrderStatusAction;
 use Domain\Order\Data\OrderData;
-use Domain\Order\Data\OrderItemData;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Repositories\OrderRepository;
 use Domain\Order\Services\OrderPdfService;
 use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\Venue\Repositories\VenueRepository;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -36,21 +32,7 @@ class Index extends Component
 
     public string $statusFilter = '';
 
-    public bool $showCreate = false;
-
     public ?int $viewingId = null;
-
-    // Create form
-    public ?int $supplierId = null;
-
-    public ?int $venueId = null;
-
-    public string $notes = '';
-
-    public string $productSearch = '';
-
-    /** @var array<int, array{product_id: int, wine_name: string, unit_price: string, quantity: int, sold_by: string, case_size: int}> */
-    public array $lines = [];
 
     private ?Plan $memoPlan = null;
 
@@ -62,196 +44,6 @@ class Index extends Component
     private function entitled(): bool
     {
         return $this->plan()->can(Feature::CreatePurchaseOrders);
-    }
-
-    public function openCreate(): void
-    {
-        abort_unless($this->entitled(), 403);
-
-        $this->reset(['supplierId', 'venueId', 'notes', 'productSearch', 'lines']);
-
-        // Receiving needs a venue eventually — when there's only one, assume it.
-        $venues = $this->accessibleVenues();
-        if ($venues->count() === 1) {
-            $this->venueId = $venues->first()->id;
-        }
-
-        // Pre-fill from the catalogue basket if present — only connected wines.
-        $basket = session('order-basket', []);
-
-        if (is_array($basket) && $basket !== []) {
-            $productRepo = new ProductRepository;
-            $connected = $this->connectedSupplierIds();
-
-            foreach ($basket as $productId => $qty) {
-                $product = $productRepo->find((int) $productId);
-
-                if ($product !== null && in_array($product->supplier_id, $connected, true)) {
-                    $this->lines[] = [
-                        'product_id' => $product->id,
-                        'wine_name' => $product->wine_name,
-                        'unit_price' => $product->unit_price ?? '0.00',
-                        'quantity' => (int) $qty,
-                        'sold_by' => $product->sold_by->value,
-                        'case_size' => $product->case_size,
-                    ];
-                }
-            }
-        }
-
-        $this->showCreate = true;
-    }
-
-    /**
-     * Supplier ids the company is connected to (the only wines it may order).
-     *
-     * @return array<int, int>
-     */
-    private function connectedSupplierIds(): array
-    {
-        return (new SupplierRepository)->connectedToCompany($this->currentUser()?->company_id ?? 0)
-            ->pluck('id')->all();
-    }
-
-    public function addLine(int $productId): void
-    {
-        abort_unless($this->entitled(), 403);
-
-        $product = (new ProductRepository)->find($productId);
-
-        if ($product === null || ! in_array($product->supplier_id, $this->connectedSupplierIds(), true)) {
-            return;
-        }
-
-        // Case-sold wines are added (and stepped) a case at a time.
-        $step = $product->soldByCase() ? max(1, $product->case_size) : 1;
-
-        foreach ($this->lines as $i => $line) {
-            if ($line['product_id'] === $productId) {
-                $this->lines[$i]['quantity'] += $step;
-
-                return;
-            }
-        }
-
-        $this->lines[] = [
-            'product_id' => $product->id,
-            'wine_name' => $product->wine_name,
-            'unit_price' => $product->unit_price ?? '0.00',
-            'quantity' => $step,
-            'sold_by' => $product->sold_by->value,
-            'case_size' => $product->case_size,
-        ];
-    }
-
-    public function setLineQty(int $index, int $qty): void
-    {
-        abort_unless($this->entitled(), 403);
-
-        if (! isset($this->lines[$index])) {
-            return;
-        }
-
-        if ($qty <= 0) {
-            unset($this->lines[$index]);
-            $this->lines = array_values($this->lines);
-
-            return;
-        }
-
-        $this->lines[$index]['quantity'] = $qty;
-    }
-
-    /**
-     * Set a case-sold line by the number of CASES (stored as bottles).
-     */
-    public function setLineCases(int $index, int $cases): void
-    {
-        abort_unless($this->entitled(), 403);
-
-        if (! isset($this->lines[$index])) {
-            return;
-        }
-
-        if ($cases <= 0) {
-            unset($this->lines[$index]);
-            $this->lines = array_values($this->lines);
-
-            return;
-        }
-
-        $this->lines[$index]['quantity'] = $cases * max(1, (int) ($this->lines[$index]['case_size'] ?? 1));
-    }
-
-    public function removeLine(int $index): void
-    {
-        abort_unless($this->entitled(), 403);
-
-        unset($this->lines[$index]);
-        $this->lines = array_values($this->lines);
-    }
-
-    public function createOrder(): void
-    {
-        abort_unless($this->entitled(), 403);
-
-        $user = $this->currentUser();
-        $userId = $user?->id;
-        $currency = (new VenueRepository)->currencyForCompany($user?->company_id ?? 0);
-
-        $this->validate([
-            'supplierId' => 'required|integer|exists:suppliers,id',
-            // Venue (if any) must be one the current user can access.
-            'venueId' => ['nullable', 'integer', Rule::in($this->accessibleVenueIds())],
-            'lines' => 'required|array|min:1',
-            'lines.*.product_id' => 'required|integer|exists:products,id',
-            'lines.*.quantity' => 'required|integer|min:1',
-            'lines.*.unit_price' => 'required|numeric|min:0',
-        ], [], ['lines' => 'order lines']);
-
-        // You can only order from a supplier your company is connected to.
-        abort_unless(
-            (new SupplierRepository)->isConnectedToCompany($this->supplierId, $user?->company_id ?? 0),
-            403
-        );
-
-        // Snapshot the case framing from the authoritative product at order time.
-        $productRepo = new ProductRepository;
-        $items = array_map(function ($line) use ($currency, $productRepo) {
-            $product = $productRepo->find((int) $line['product_id']);
-            $isCase = $product !== null && $product->soldByCase();
-
-            return new OrderItemData(
-                id: null,
-                order_id: null,
-                product_id: $line['product_id'],
-                wine_name: $line['wine_name'],
-                quantity_units: (int) $line['quantity'],
-                unit_price_at_order: number_format((float) $line['unit_price'], 2, '.', ''),
-                currency_at_order: $currency,
-                sold_by_at_order: $product?->sold_by->value ?? 'bottle',
-                pack_size_at_order: $isCase ? $product->case_size : null,
-                pack_price_at_order: $isCase ? $product->displayPrice() : null,
-            );
-        }, $this->lines);
-
-        (new CreateOrderAction)->execute(new OrderData(
-            id: null,
-            uuid: null,
-            company_id: $user?->company_id,
-            supplier_id: $this->supplierId,
-            venue_id: $this->venueId,
-            created_by: $userId,
-            status: OrderStatus::Draft,
-            total: null,
-            notes: $this->notes !== '' ? $this->notes : null,
-            items: $items,
-        ));
-
-        session()->forget('order-basket');
-        $this->reset(['showCreate', 'supplierId', 'venueId', 'notes', 'productSearch', 'lines']);
-        $this->resetPage();
-        $this->dispatch('toast', message: 'Order created.');
     }
 
     public function setStatus(int $id, string $status): void
@@ -373,31 +165,15 @@ class Index extends Component
             }
         }
 
-        $productOptions = [];
-
-        if ($entitled && $this->showCreate) {
-            // The product picker only offers wines from connected suppliers.
-            $productOptions = (new ProductRepository)->search(term: $this->productSearch, perPage: 25, supplierIds: $this->connectedSupplierIds())
-                ->getCollection()
-                ->mapWithKeys(fn ($p) => [$p->id => $p->wine_name.($p->vintage ? " ({$p->vintage})" : '')])
-                ->all();
-        }
-
-        $user = $this->currentUser();
-        $venues = $this->accessibleVenues();
-
         return view('livewire.orders.index', [
             'entitled' => $entitled,
             'canEmail' => $this->plan()->can(Feature::SendPurchaseOrderEmail),
-            'currency' => (new VenueRepository)->currencyForCompany($user?->company_id ?? 0),
+            'currency' => (new VenueRepository)->currencyForCompany($companyId),
             'orders' => $orders,
             'viewing' => $viewing,
             'statuses' => OrderStatus::cases(),
-            // Only the company's connected suppliers can be ordered from.
             'suppliers' => (new SupplierRepository)->connectedToCompany($companyId),
-            'venues' => $venues,
-            'productOptions' => $productOptions,
-            'linesTotal' => collect($this->lines)->sum(fn ($l) => $l['quantity'] * (float) $l['unit_price']),
+            'venues' => $this->accessibleVenues(),
         ]);
     }
 }

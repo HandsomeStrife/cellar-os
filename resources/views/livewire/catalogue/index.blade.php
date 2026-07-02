@@ -4,8 +4,8 @@
     <x-page-header title="Catalogue" subtitle="Wines from the suppliers you're connected to." />
 
     {{-- Toolbar --}}
-    @php($inputClasses = 'block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40')
-    @php($selectClasses = 'select-field block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40')
+    @php($inputClasses = 'block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40')
+    @php($selectClasses = 'select-field block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40')
     <div x-data="{ filtersOpen: @js($filterCount > 0) }" class="space-y-3">
         <div class="flex flex-wrap items-center gap-3">
             <div class="relative w-full max-w-xs">
@@ -16,11 +16,11 @@
                     type="search"
                     wire:model.live.debounce.300ms="search"
                     placeholder="Search wine or producer…"
-                    class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                    class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
                 />
             </div>
 
-            <select wire:model.live="colour" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+            <select wire:model.live="colour" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
                 <option value="">All colours</option>
                 @foreach($colours as $colourOption)
                     <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
@@ -28,7 +28,7 @@
             </select>
 
             @if($connectedSuppliers->isNotEmpty())
-                <select wire:model.live="supplierFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                <select wire:model.live="supplierFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
                     <option value="">All my suppliers</option>
                     @foreach($connectedSuppliers as $connectedSupplier)
                         <option value="{{ $connectedSupplier->id }}">{{ $connectedSupplier->name }}</option>
@@ -270,7 +270,7 @@
                                             wire:model="priceInput"
                                             wire:keydown.enter="savePrice"
                                             wire:keydown.escape="cancelEditPrice"
-                                            class="w-24 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                            class="w-24 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                                             autofocus
                                         />
                                         <button type="button" wire:click="savePrice" wire:loading.attr="disabled" wire:target="savePrice" class="text-primary hover:text-primary/80" title="Save"><x-icon.check class="size-4" /></button>
@@ -348,7 +348,7 @@
                                     type="number" min="1"
                                     value="{{ $line['cases'] }}"
                                     wire:change="setBasketCases({{ $line['product']->id }}, $event.target.value)"
-                                    class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                    class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                                 />
                                 <span class="text-xs text-muted-foreground">{{ \Illuminate\Support\Str::plural('case', $line['cases']) }}</span>
                             </div>
@@ -357,7 +357,7 @@
                                 type="number" min="1"
                                 value="{{ $line['qty'] }}"
                                 wire:change="setBasketQty({{ $line['product']->id }}, $event.target.value)"
-                                class="w-20 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
+                                class="w-20 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                             />
                         @endif
                         <div class="w-24 text-right font-medium tabular-nums">{{ Currency::format($line['line_total'], $currency) }}</div>

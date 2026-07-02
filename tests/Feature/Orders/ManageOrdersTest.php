@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Orders\Create;
 use App\Livewire\Orders\Index;
 use App\Mail\PurchaseOrderMail;
 use Domain\Billing\Enums\Plan;
@@ -43,12 +44,11 @@ it('shows an upgrade gate for free users', function () {
 it('forbids creating orders for free users', function () {
     $this->actingAs(userOnPlan(Plan::Free));
 
-    Livewire::test(Index::class)->call('openCreate')->assertForbidden();
+    Livewire::test(Create::class)->assertForbidden();
 });
 
 it('creates an order with line items and computes the total', function () {
-    Livewire::test(Index::class)
-        ->call('openCreate')
+    Livewire::test(Create::class)
         ->set('supplierId', $this->supplier->id)
         ->call('addLine', $this->product->id)
         ->call('setLineQty', 0, 12)
@@ -66,8 +66,7 @@ it('creates an order with line items and computes the total', function () {
 });
 
 it('requires a supplier and at least one line', function () {
-    Livewire::test(Index::class)
-        ->call('openCreate')
+    Livewire::test(Create::class)
         ->call('createOrder')
         ->assertHasErrors(['supplierId', 'lines']);
 });
@@ -75,7 +74,7 @@ it('requires a supplier and at least one line', function () {
 it('prefills the create form from the catalogue basket', function () {
     session(['order-basket' => [$this->product->id => 6]]);
 
-    $component = Livewire::test(Index::class)->call('openCreate');
+    $component = Livewire::test(Create::class);
 
     expect($component->get('lines'))->toHaveCount(1)
         ->and($component->get('lines')[0]['quantity'])->toBe(6)
@@ -254,14 +253,14 @@ it('blocks the PDF download for free users', function () {
 it('forbids line edits for free users', function () {
     $this->actingAs(userOnPlan(Plan::Free));
 
-    Livewire::test(Index::class)->call('addLine', $this->product->id)->assertForbidden();
+    // The composer page itself is gated, so line edits are unreachable.
+    Livewire::test(Create::class)->assertForbidden();
 });
 
 it('rejects attaching another user\'s venue', function () {
     $otherVenue = Venue::factory()->create(['company_id' => User::factory()->create()->company_id]);
 
-    Livewire::test(Index::class)
-        ->call('openCreate')
+    Livewire::test(Create::class)
         ->set('supplierId', $this->supplier->id)
         ->set('venueId', $otherVenue->id)
         ->call('addLine', $this->product->id)
@@ -275,8 +274,7 @@ it('does not add an order line for an unconnected supplier\'s wine', function ()
     $stranger = Supplier::factory()->create();
     $strangerWine = Product::factory()->create(['supplier_id' => $stranger->id]);
 
-    Livewire::test(Index::class)
-        ->call('openCreate')
+    Livewire::test(Create::class)
         ->call('addLine', $strangerWine->id)
         ->assertSet('lines', []);
 });
@@ -284,8 +282,7 @@ it('does not add an order line for an unconnected supplier\'s wine', function ()
 it('forbids ordering from a supplier the company is not connected to', function () {
     $stranger = Supplier::factory()->create();
 
-    Livewire::test(Index::class)
-        ->call('openCreate')
+    Livewire::test(Create::class)
         ->set('supplierId', $stranger->id)
         ->call('addLine', $this->product->id)
         ->call('createOrder')
@@ -297,8 +294,7 @@ it('forbids ordering from a supplier the company is not connected to', function 
 it('accepts the user\'s own venue', function () {
     $venue = Venue::factory()->create(['company_id' => $this->user->company_id]);
 
-    Livewire::test(Index::class)
-        ->call('openCreate')
+    Livewire::test(Create::class)
         ->set('supplierId', $this->supplier->id)
         ->set('venueId', $venue->id)
         ->call('addLine', $this->product->id)
@@ -315,12 +311,39 @@ it('rejects an invalid status value', function () {
 });
 
 it('rejects an order line with a non-existent product', function () {
-    Livewire::test(Index::class)
-        ->call('openCreate')
+    Livewire::test(Create::class)
         ->set('supplierId', $this->supplier->id)
         ->set('lines', [['product_id' => 999999, 'wine_name' => 'Ghost', 'unit_price' => '10.00', 'quantity' => 1]])
         ->call('createOrder')
         ->assertHasErrors('lines.0.product_id');
 
     expect(Order::count())->toBe(0);
+});
+
+it('assigns sequential PO numbers per company per year', function () {
+    $make = fn () => Livewire::test(Create::class)
+        ->set('supplierId', $this->supplier->id)
+        ->call('addLine', $this->product->id)
+        ->call('createOrder')
+        ->assertHasNoErrors();
+
+    $make();
+    $make();
+
+    $year = now()->format('Y');
+    expect(Order::orderBy('id')->pluck('po_number')->all())
+        ->toBe(["PO-{$year}-0001", "PO-{$year}-0002"]);
+
+    // A different company starts its own sequence — numbers are per tenant.
+    $other = userOnPlan(Plan::Starter);
+    (new ConnectCompanyToSupplierAction)->execute($other->company_id, $this->supplier->id);
+    $this->actingAs($other);
+
+    Livewire::test(Create::class)
+        ->set('supplierId', $this->supplier->id)
+        ->call('addLine', $this->product->id)
+        ->call('createOrder')
+        ->assertHasNoErrors();
+
+    expect(Order::where('company_id', $other->company_id)->value('po_number'))->toBe("PO-{$year}-0001");
 });

@@ -28,7 +28,7 @@
                     <div class="muted">Purchase Order</div>
                 </td>
                 <td class="right">
-                    <h1>PO #{{ $order->uuid ? substr($order->uuid, 0, 8) : $order->id }}</h1>
+                    <h1>{{ $order->displayNumber() }}</h1>
                     <div class="muted">{{ $order->created_at?->format('j F Y') }}</div>
                     <div class="muted">Status: {{ $order->status->getLabel() }}</div>
                 </td>

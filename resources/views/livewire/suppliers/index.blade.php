@@ -19,7 +19,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div class="relative w-full max-w-xs">
                 <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground"><x-icon.search class="size-4" /></span>
-                <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search your suppliers…" class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
+                <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search your suppliers…" class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40" />
             </div>
             <x-button wire:click="create"><x-icon.plus class="size-4" /> Add a supplier</x-button>
         </div>
@@ -85,7 +85,7 @@
         {{-- Discover --}}
         <div class="relative w-full max-w-xs">
             <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground"><x-icon.search class="size-4" /></span>
-            <input type="search" wire:model.live.debounce.300ms="discoverSearch" placeholder="Search listed suppliers…" class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40" />
+            <input type="search" wire:model.live.debounce.300ms="discoverSearch" placeholder="Search listed suppliers…" class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40" />
         </div>
 
         @if($discover->isEmpty())

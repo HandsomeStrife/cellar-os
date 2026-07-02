@@ -19,7 +19,7 @@
             x-bind:type="show ? 'text' : 'password'"
             type="password"
             {{ $attributes->merge(['name' => $name, 'id' => $id, 'autocomplete' => 'current-password'])->class([
-                'block w-full rounded-md border border-input bg-card px-3 py-2 pr-10 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50',
+                'block w-full rounded-md border border-input bg-card px-3 py-2 pr-10 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50',
                 'border-destructive focus:border-destructive focus:ring-destructive/30' => $hasError,
             ]) }}
         />

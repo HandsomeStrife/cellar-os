@@ -25,7 +25,14 @@ class NormaliseService
             ? trim((string) $row[$mapping[$field]])
             : null;
 
+        // Strip stray leading punctuation ("'Cuvee', De Martino") — parse
+        // artifacts that would otherwise sort to the top of the catalogue.
+        // A leading QUOTED phrase loses both quotes; lone strays are trimmed.
         $wineName = $value('wine_name');
+        if ($wineName !== null) {
+            $wineName = preg_replace('/^[\'"’‘`]\s*([^\'"’‘`]+)[\'"’‘`]/u', '$1', $wineName) ?? $wineName;
+            $wineName = ltrim($wineName, " \t'\"’‘`,.;:");
+        }
 
         if ($wineName === null || $wineName === '') {
             return null;

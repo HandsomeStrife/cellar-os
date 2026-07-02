@@ -1,7 +1,7 @@
 <div class="space-y-6">
     <div class="flex items-center gap-3">
         <label for="status-filter" class="text-sm text-muted-foreground">Filter</label>
-        <select id="status-filter" wire:model.live="status" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+        <select id="status-filter" wire:model.live="status" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
             <option value="">All statuses</option>
             @foreach($statuses as $s)
                 <option value="{{ $s->value }}">{{ $s->label() }}</option>
@@ -42,7 +42,7 @@
                             <td class="px-3 py-3 whitespace-nowrap text-muted-foreground">{{ $enquiry->created_at?->format('j M Y, H:i') }}</td>
                             <td class="px-3 py-3">
                                 <div class="flex items-center justify-end gap-2">
-                                    <select wire:change="mark('{{ $enquiry->uuid }}', $event.target.value)" aria-label="Set status" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40">
+                                    <select wire:change="mark('{{ $enquiry->uuid }}', $event.target.value)" aria-label="Set status" class="select-field rounded-md border border-input bg-card px-2 py-1 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
                                         @foreach($statuses as $s)
                                             <option value="{{ $s->value }}" @selected($s === $enquiry->status)>{{ $s->label() }}</option>
                                         @endforeach

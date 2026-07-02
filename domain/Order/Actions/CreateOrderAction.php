@@ -15,6 +15,7 @@ class CreateOrderAction extends AbstractAction
     {
         return DB::transaction(function () use ($data) {
             $order = Order::create([
+                'po_number' => $this->nextPoNumber($data->company_id),
                 'company_id' => $data->company_id,
                 'supplier_id' => $data->supplier_id,
                 'venue_id' => $data->venue_id,
@@ -45,5 +46,29 @@ class CreateOrderAction extends AbstractAction
 
             return $order->fresh('items')->getData();
         });
+    }
+
+    /**
+     * Next sequential PO number for the company, per year (PO-2026-0042).
+     * Zero-padded so string ordering matches numeric ordering; the row lock
+     * keeps concurrent creations from taking the same number. Numbers are
+     * never reused — deletions leave gaps, as trade convention expects.
+     */
+    private function nextPoNumber(?int $companyId): string
+    {
+        $year = now()->format('Y');
+        $prefix = "PO-{$year}-";
+
+        $latest = Order::query()
+            ->when($companyId === null, fn ($query) => $query->whereNull('company_id'))
+            ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
+            ->where('po_number', 'like', $prefix.'%')
+            ->lockForUpdate()
+            ->orderByDesc('po_number')
+            ->value('po_number');
+
+        $sequence = $latest !== null ? (int) substr($latest, strlen($prefix)) + 1 : 1;
+
+        return sprintf('%s%04d', $prefix, $sequence);
     }
 }
