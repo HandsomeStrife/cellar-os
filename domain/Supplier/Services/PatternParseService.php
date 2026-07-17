@@ -23,16 +23,21 @@ use Domain\Catalogue\Enums\WineColour;
  *   section_regex:  PCRE body with a named group `value`; a matching row is a
  *                   section header, not a wine
  *   section_field:  where the current section value lands (e.g. region)
- *   sections:       [{regex, set?, clears?}] — multi-level header rules for
- *                   documents whose headers nest (type page → country → region).
- *                   A row matching `regex` is a header, not a wine: `set`
- *                   assigns literal field values ({colour: "Sparkling"}),
+ *   sections:       [{regex, set?, clears?, skip?}] — multi-level header rules
+ *                   for documents whose headers nest (type page → country →
+ *                   region). A row matching `regex` is a header, not a wine:
+ *                   `set` assigns literal field values ({colour: "Sparkling"}),
  *                   named groups in the regex capture dynamic ones
  *                   ((?<country>…)), and `clears` drops now-stale narrower
  *                   context. Every later wine row inherits the accumulated
  *                   values into its empty fields. Header text is matched both
  *                   raw and with drop-cap letter-spacing folded ("S PAIN" →
  *                   "SPAIN"); all-caps captures are title-cased.
+ *                   `skip: true` marks a NON-WINE section (spirits, beer,
+ *                   sake…): every row after it is discarded until a section
+ *                   rule without skip matches.
+ *   pages:          {min?, max?} — 1-based inclusive page window; rows outside
+ *                   it are ignored entirely (front matter, spirits back pages).
  *   colour_map:     {code => WineColour value} for style shorthands (r, w, sp…)
  *   format_unit:    appended to a bare numeric format_ml (e.g. "cl" → "75cl")
  */
@@ -41,8 +46,8 @@ class PatternParseService
     /**
      * @param  array<int, array{page: int, y: float, cells: array<int, array{text: string, x0: float, x1: float}>}>  $rows
      * @param  array<string, mixed>  $rules
-     * @param  array{section?: string, section_values?: array<string, string>, carry?: array<string, string>}  $state  carry/section context threaded across page batches
-     * @return array{rows: array<int, array<string, string>>, matched: int, residue: int, state: array{section: string, section_values: array<string, string>, carry: array<string, string>}}
+     * @param  array{section?: string, section_values?: array<string, string>, carry?: array<string, string>, skipping?: bool}  $state  carry/section context threaded across page batches
+     * @return array{rows: array<int, array<string, string>>, matched: int, residue: int, state: array{section: string, section_values: array<string, string>, carry: array<string, string>, skipping: bool}}
      */
     public function parse(array $rows, array $rules, array $state = []): array
     {
@@ -56,8 +61,15 @@ class PatternParseService
         $section = (string) ($state['section'] ?? '');
         $sectionValues = (array) ($state['section_values'] ?? []);
         $carryValues = (array) ($state['carry'] ?? []);
+        $skipping = (bool) ($state['skipping'] ?? false);
 
         foreach ($rows as $row) {
+            // Pages outside the recipe's window (front matter, non-wine back
+            // pages) are not part of the list at all.
+            if (($rules['pages']['min'] !== null && $row['page'] < $rules['pages']['min'])
+                || ($rules['pages']['max'] !== null && $row['page'] > $rules['pages']['max'])) {
+                continue;
+            }
             $fields = [];
             $textParts = [];
 
@@ -84,7 +96,16 @@ class PatternParseService
             // Section headers update context and are never wines. Multi-level
             // rules run first: each accumulates its own fields so a type
             // header and a country header both shape the same wine row.
-            if ($this->matchSections($text, $rules['sections'], $sectionValues)) {
+            $matched = $this->matchSections($text, $rules['sections'], $sectionValues);
+            if ($matched !== null) {
+                // A skip section (spirits, beer…) suspends wine collection; any
+                // ordinary section header resumes it.
+                $skipping = $matched['skip'];
+
+                continue;
+            }
+
+            if ($skipping) {
                 continue;
             }
 
@@ -147,7 +168,7 @@ class PatternParseService
             'rows' => $wines,
             'matched' => count($wines),
             'residue' => $residue,
-            'state' => ['section' => $section, 'section_values' => $sectionValues, 'carry' => $carryValues],
+            'state' => ['section' => $section, 'section_values' => $sectionValues, 'carry' => $carryValues, 'skipping' => $skipping],
         ];
     }
 
@@ -155,15 +176,17 @@ class PatternParseService
      * Try each multi-level section rule against the row text (raw, then with
      * drop-cap letter-spacing folded). On a match the row is a header: static
      * `set` values and named-group captures update the running context,
-     * `clears` drops fields the new section invalidates.
+     * `clears` drops fields the new section invalidates. Returns the matched
+     * rule (so the caller can honour its `skip`), or null.
      *
-     * @param  array<int, array{regex: string, set: array<string, string>, clears: array<int, string>}>  $sectionRules
+     * @param  array<int, array{regex: string, set: array<string, string>, clears: array<int, string>, skip: bool}>  $sectionRules
      * @param  array<string, string>  $sectionValues
+     * @return array{regex: string, set: array<string, string>, clears: array<int, string>, skip: bool}|null
      */
-    private function matchSections(string $text, array $sectionRules, array &$sectionValues): bool
+    private function matchSections(string $text, array $sectionRules, array &$sectionValues): ?array
     {
         if ($sectionRules === []) {
-            return false;
+            return null;
         }
 
         $candidates = [$text];
@@ -190,11 +213,11 @@ class PatternParseService
                     }
                 }
 
-                return true;
+                return $rule;
             }
         }
 
-        return false;
+        return null;
     }
 
     /**
@@ -251,7 +274,7 @@ class PatternParseService
      * Validate/normalise LLM-written rules so nothing unsafe or broken executes.
      *
      * @param  array<string, mixed>  $rules
-     * @return array{zones: array<int, array{field: string, x_min: float, x_max: float}>, row_regex: string, require: array<int, string>, carry: array<int, string>, section_regex: string, section_field: string, sections: array<int, array{regex: string, set: array<string, string>, clears: array<int, string>}>, colour_map: array<string, string>, format_unit: string}
+     * @return array{zones: array<int, array{field: string, x_min: float, x_max: float}>, row_regex: string, require: array<int, string>, carry: array<int, string>, section_regex: string, section_field: string, sections: array<int, array{regex: string, set: array<string, string>, clears: array<int, string>, skip: bool}>, pages: array{min: int|null, max: int|null}, colour_map: array<string, string>, format_unit: string}
      */
     public function sanitise(array $rules): array
     {
@@ -296,8 +319,11 @@ class PatternParseService
                 'regex' => $regex,
                 'set' => $set,
                 'clears' => array_values(array_intersect((array) ($rule['clears'] ?? []), $fields)),
+                'skip' => (bool) ($rule['skip'] ?? false),
             ];
         }
+
+        $pages = (array) ($rules['pages'] ?? []);
 
         return [
             'zones' => $zones,
@@ -307,6 +333,10 @@ class PatternParseService
             'section_regex' => $this->validRegex((string) ($rules['section_regex'] ?? '')),
             'section_field' => in_array($rules['section_field'] ?? '', $fields, true) ? (string) $rules['section_field'] : '',
             'sections' => array_slice($sections, 0, 60),
+            'pages' => [
+                'min' => is_numeric($pages['min'] ?? null) ? (int) $pages['min'] : null,
+                'max' => is_numeric($pages['max'] ?? null) ? (int) $pages['max'] : null,
+            ],
             'colour_map' => $colourMap,
             'format_unit' => in_array($rules['format_unit'] ?? '', ['cl', 'ml', 'l'], true) ? (string) $rules['format_unit'] : '',
         ];

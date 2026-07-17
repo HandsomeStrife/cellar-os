@@ -224,3 +224,40 @@ it('threads multi-section context across page batches via state', function () {
 
     expect($batchTwo['rows'][0]['colour'])->toBe('Red');
 });
+
+it('discards rows in skip sections and outside the page window', function () {
+    $rules = [
+        'zones' => [
+            ['field' => 'wine_name', 'x_min' => '30', 'x_max' => '400'],
+            ['field' => 'unit_price', 'x_min' => '500', 'x_max' => '580'],
+        ],
+        'require' => ['wine_name', 'unit_price'],
+        'pages' => ['min' => 3, 'max' => 91],
+        'sections' => [
+            ['regex' => '^RED WINES$', 'set' => ['colour' => 'Red']],
+            ['regex' => '^(?:SPIRITS|SAKE)$', 'skip' => true, 'clears' => ['colour']],
+        ],
+    ];
+
+    $rows = [
+        cellRow(2, 10, [[52, 'Index Entry Wine'], [543, '6.00']]),      // before page window
+        cellRow(5, 10, [[52, 'RED WINES']]),
+        cellRow(5, 20, [[52, 'Barolo, Brovia'], [543, '30.00']]),
+        cellRow(5, 30, [[52, 'SAKE']]),
+        cellRow(5, 40, [[52, 'Junmai Ginjo'], [543, '25.00']]),          // in a skip section
+        cellRow(6, 10, [[52, 'RED WINES']]),                             // resumes collection
+        cellRow(6, 20, [[52, 'Chianti, Fontodi'], [543, '28.00']]),
+        cellRow(93, 10, [[52, 'Whisky Thing'], [543, '40.00']]),         // after page window
+    ];
+
+    $service = new PatternParseService;
+    $result = $service->parse($rows, $rules);
+
+    expect(array_column($result['rows'], 'wine_name'))->toBe(['Barolo, Brovia', 'Chianti, Fontodi'])
+        ->and($result['rows'][1]['colour'])->toBe('Red');
+
+    // Skip state threads across batches.
+    $batchOne = $service->parse([cellRow(50, 10, [[52, 'SPIRITS']])], $rules);
+    $batchTwo = $service->parse([cellRow(51, 10, [[52, 'Gin Thing'], [543, '20.00']])], $rules, $batchOne['state']);
+    expect($batchTwo['matched'])->toBe(0);
+});

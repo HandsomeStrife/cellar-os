@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Livewire\Suppliers\DocumentReview;
 use Domain\Catalogue\Models\Product;
 use Domain\Company\Models\Company;
+use Domain\Supplier\Actions\ApproveAllForDocumentAction;
 use Domain\Supplier\Actions\ConnectCompanyToSupplierAction;
 use Domain\Supplier\Enums\ParsedWineStatus;
 use Domain\Supplier\Enums\ParseMode;
@@ -127,6 +128,41 @@ it('parses a PDF via chunked extraction and learns a document recipe', function 
         ->and($wines->first()->payload['colour'])->toBe('White'); // normalised to enum value
 
     expect(SupplierParseProfile::where('supplier_id', $supplier->id)->first()->mode)->toBe(ParseMode::Document);
+});
+
+it('flags spirits and sake as non-wine and colours vermouth fortified', function () {
+    Storage::fake('local');
+    $supplier = Supplier::factory()->create();
+    Storage::disk('local')->put('supplier-documents/list.pdf', 'dummy');
+
+    $doc = SupplierDocument::factory()->create([
+        'supplier_id' => $supplier->id, 'file_name' => 'list.pdf', 'file_type' => 'application/pdf',
+        'storage_path' => 'supplier-documents/list.pdf', 'status' => SupplierDocumentStatus::AwaitingAnalysis->value,
+    ]);
+
+    app()->instance(DocumentTextExtractor::class, new FakeDocumentTextExtractor(pages: 2));
+    fakeClaude(new FakeClaudeClient(wines: [
+        ['wine_name' => 'VSOP Grande Champagne', 'producer' => 'Maxime Trijol - Cognac', 'unit_price' => '45.00'],
+        ['wine_name' => 'Junmai Ginjo', 'producer' => 'Kanpai', 'unit_price' => '25.00'],
+        ['wine_name' => 'Vermouth Naturale Rosso', 'producer' => 'Societa Agricola', 'unit_price' => '19.00'],
+        ['wine_name' => 'Barolo Cerretta', 'producer' => 'Brovia', 'colour' => 'Red', 'unit_price' => '60.00'],
+    ]));
+
+    runAnalysis($doc->id);
+
+    $byName = ParsedWine::where('supplier_document_id', $doc->id)->get()
+        ->keyBy(fn ($w) => $w->payload['wine_name']);
+
+    expect($byName['VSOP Grande Champagne']->flag)->toBe('non_wine')
+        ->and($byName['Junmai Ginjo']->flag)->toBe('non_wine')
+        ->and($byName['Vermouth Naturale Rosso']->flag)->toBeNull()
+        ->and($byName['Vermouth Naturale Rosso']->payload['colour'])->toBe('Fortified')
+        ->and($byName['Barolo Cerretta']->flag)->toBeNull();
+
+    // Bulk approve must leave the flagged spirits out of the catalogue.
+    (new ApproveAllForDocumentAction)->execute($doc->id, skipFlagged: true);
+    expect(Product::where('supplier_id', $supplier->id)->pluck('wine_name')->all())
+        ->toBe(['Vermouth Naturale Rosso', 'Barolo Cerretta']);
 });
 
 it('only previews the first chunk of a large PDF until the full run is confirmed', function () {

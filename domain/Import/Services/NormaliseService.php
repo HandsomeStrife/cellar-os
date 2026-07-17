@@ -90,7 +90,10 @@ class NormaliseService
             region: $region,
             sub_region: $this->nullableString($value('sub_region')),
             grape: $this->parseGrapes($value('grape')),
-            colour: $this->normaliseColour($value('colour')),
+            colour: $this->normaliseColour($value('colour'))
+                // Vermouth is aromatised fortified wine by definition — lists
+                // rarely give it a colour column, but the name is unambiguous.
+                ?? (preg_match('/\bvermouth\b/iu', $wineName) === 1 ? WineColour::Fortified : null),
             vintage: $this->parseVintage($value('vintage')),
             format_ml: $formatMl,
             case_size: $caseSize,

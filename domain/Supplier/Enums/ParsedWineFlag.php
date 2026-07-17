@@ -17,6 +17,7 @@ enum ParsedWineFlag: string
     case MissingPrice = 'missing_price';
     case LowConfidence = 'low_confidence';
     case AmbiguousPricing = 'ambiguous_pricing';
+    case NonWine = 'non_wine';
 
     public function getLabel(): string
     {
@@ -26,6 +27,7 @@ enum ParsedWineFlag: string
             self::MissingPrice => 'Missing price',
             self::LowConfidence => 'Low confidence',
             self::AmbiguousPricing => 'Check case vs bottle',
+            self::NonWine => 'Not a wine?',
         };
     }
 
@@ -39,6 +41,7 @@ enum ParsedWineFlag: string
             self::SuspectedHeading => 'gray',
             self::LowConfidence => 'amber',
             self::AmbiguousPricing => 'amber',
+            self::NonWine => 'gray',
         };
     }
 }
