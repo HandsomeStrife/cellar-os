@@ -5,7 +5,9 @@
 <ul>
     <li><strong>Search</strong> by wine name or producer.</li>
     <li><strong>Filter</strong> by country and colour. Filters are kept in the URL, so a filtered view is shareable and bookmarkable.</li>
-    <li><strong>Sort</strong> any column (name, origin, vintage, price, stock), click the header again to flip the direction.</li>
+    <li><strong>Sort</strong> any column (name, country, region, vintage, price), click the header again to flip the direction.</li>
+    <li><strong>Columns</strong> lets you choose which details are shown in the table — your choice is remembered.</li>
+    <li><strong>Click a wine's name</strong> to open a panel with everything CellarOS knows about it.</li>
 </ul>
 
 <h2>Filled-in wine details</h2>

@@ -73,13 +73,35 @@ class Index extends Component
     public string $vintageMax = '';
 
     /**
-     * Filters held in the "More filters" panel (search/colour/supplier live in
-     * the always-visible toolbar and are counted separately).
+     * Filters held in the "Filters" panel (search/supplier live in the
+     * always-visible toolbar and are counted separately).
      */
     private const PANEL_FILTERS = [
-        'country', 'region', 'sub_region', 'producer', 'grape',
+        'colour', 'country', 'region', 'sub_region', 'producer', 'grape',
         'priceMin', 'priceMax', 'vintageMin', 'vintageMax',
     ];
+
+    /**
+     * The optional table columns a user can show/hide. Wine, price and the
+     * basket actions always render.
+     */
+    public const COLUMNS = [
+        'country' => 'Country',
+        'region' => 'Region',
+        'grapes' => 'Grapes',
+        'colour' => 'Colour',
+        'vintage' => 'Vintage',
+        'format' => 'Format',
+    ];
+
+    /** @var array<int, string> */
+    #[Session(key: 'catalogue-columns')]
+    public array $visibleColumns = ['country', 'region', 'grapes', 'colour', 'vintage', 'format'];
+
+    // Wine detail slideover.
+    public bool $showDetail = false;
+
+    public ?int $detailId = null;
 
     public string $sort = ProductRepository::DEFAULT_SORT;
 
@@ -99,10 +121,15 @@ class Index extends Component
 
     public function updated($property): void
     {
-        $filters = ['search', 'colour', 'supplierFilter', ...self::PANEL_FILTERS];
+        $filters = ['search', 'supplierFilter', ...self::PANEL_FILTERS];
 
         if (in_array($property, $filters, true)) {
             $this->resetPage();
+        }
+
+        // Only known column keys, in the canonical order (guards a tampered payload).
+        if ($property === 'visibleColumns' || str_starts_with((string) $property, 'visibleColumns.')) {
+            $this->visibleColumns = array_values(array_intersect(array_keys(self::COLUMNS), $this->visibleColumns));
         }
 
         // Cascade: changing a broader geography clears the narrower selections
@@ -120,9 +147,23 @@ class Index extends Component
     public function resetFilters(): void
     {
         $this->reset([
-            'search', 'colour', 'supplierFilter', 'sort', 'direction', ...self::PANEL_FILTERS,
+            'search', 'supplierFilter', 'sort', 'direction', ...self::PANEL_FILTERS,
         ]);
         $this->resetPage();
+    }
+
+    /**
+     * Open the detail slideover for a wine — only ever one from the company's
+     * browsable (connected-supplier) catalogue.
+     */
+    public function showWine(int $id): void
+    {
+        if ($this->orderableProduct($id) === null) {
+            return;
+        }
+
+        $this->detailId = $id;
+        $this->showDetail = true;
     }
 
     public function sortBy(string $column): void
@@ -480,7 +521,26 @@ class Index extends Component
         // Wines the buyer may edit/delete inline: only their own private suppliers'.
         $editableSupplierIds = $connected->filter(fn ($s) => $s->created_by_company_id === $companyId)->pluck('id')->all();
 
+        // The wine open in the detail slideover, with its own enrichment fills
+        // and supplier name (only ever a connected supplier's wine).
+        $detail = null;
+        $detailFill = [];
+        $detailSupplier = null;
+        if ($this->detailId !== null) {
+            $detail = $repository->find($this->detailId);
+            if ($detail === null || ! in_array($detail->supplier_id, $connectedIds, true)) {
+                $detail = null;
+            } else {
+                $detailFill = $this->enrichments([$detail])[$detail->id] ?? [];
+                $detailSupplier = $connected->firstWhere('id', $detail->supplier_id);
+            }
+        }
+
         return view('livewire.catalogue.index', [
+            'columns' => self::COLUMNS,
+            'detail' => $detail,
+            'detailFill' => $detailFill,
+            'detailSupplier' => $detailSupplier,
             'products' => $products,
             'enriched' => $enriched,
             'countries' => $repository->countries($connectedIds),

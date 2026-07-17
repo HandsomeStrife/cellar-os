@@ -1,7 +1,9 @@
 <div class="space-y-6">
-    <x-page-header title="Suppliers" subtitle="The merchants you buy from, and others you can connect to." />
+    <x-page-header title="Suppliers" subtitle="The merchants you buy from." />
 
-    {{-- Tabs --}}
+    {{-- Tabs — Discover is hidden for now (remove the guard to restore it,
+         along with the discover branch + guide mention below). --}}
+    @if(false)
     <div class="flex items-center gap-1 border-b border-border">
         <button type="button" wire:click="$set('tab', 'mine')" @class([
             'border-b-2 px-4 py-2 text-sm font-medium transition',
@@ -14,6 +16,7 @@
             'border-transparent text-muted-foreground hover:text-foreground' => $tab !== 'discover',
         ])>Discover</button>
     </div>
+    @endif
 
     @if($tab === 'mine')
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -25,7 +28,7 @@
         </div>
 
         @if($mine->isEmpty())
-            <x-card><x-empty-state icon="users" title="No suppliers yet" message="Connect to a listed supplier under Discover, or add your own." /></x-card>
+            <x-card><x-empty-state icon="users" title="No suppliers yet" message="Add your first supplier to get started." /></x-card>
         @else
             {{-- A table, like every other list in the app — suppliers scan as
                  rows, not as a grid of uneven cards. --}}

@@ -7,7 +7,7 @@
     ];
 @endphp
 
-<p>CellarOS ships with ready-made demo accounts so you can explore from a few different starting points. Every account uses the password <code>password</code>, and they browse the platform's <em>real</em> supplier catalogues — thousands of wines from the trade suppliers listed in Discover.</p>
+<p>CellarOS ships with ready-made demo accounts so you can explore from a few different starting points. Every account uses the password <code>password</code>, and they browse the platform's <em>real</em> supplier catalogues — thousands of wines from real trade suppliers.</p>
 
 <div class="callout">
     These are sample accounts for trying out CellarOS. They share demo data, so please don't store anything you want to keep in them.

@@ -20,13 +20,6 @@
                 />
             </div>
 
-            <select wire:model.live="colour" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
-                <option value="">All colours</option>
-                @foreach($colours as $colourOption)
-                    <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
-                @endforeach
-            </select>
-
             @if($connectedSuppliers->isNotEmpty())
                 <select wire:model.live="supplierFilter" class="select-field rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
                     <option value="">All my suppliers</option>
@@ -44,6 +37,28 @@
                 @endif
             </x-button>
 
+            {{-- Column picker: which optional table columns this user sees. --}}
+            <div x-data="{ colsOpen: false }" x-on:keydown.escape="colsOpen = false" class="relative">
+                <x-button type="button" variant="outline" @click="colsOpen = ! colsOpen" x-bind:aria-expanded="colsOpen.toString()" aria-haspopup="menu">
+                    <x-icon.columns-3 class="size-4" />
+                    Columns
+                </x-button>
+                <div
+                    x-show="colsOpen"
+                    x-cloak
+                    x-transition
+                    x-on:click.outside="colsOpen = false"
+                    class="absolute left-0 z-20 mt-2 w-44 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
+                >
+                    @foreach($columns as $columnKey => $columnLabel)
+                        <label class="flex cursor-pointer items-center gap-2.5 rounded px-2.5 py-1.5 text-sm transition hover:bg-accent">
+                            <input type="checkbox" value="{{ $columnKey }}" wire:model.live="visibleColumns" class="accent-primary" />
+                            {{ $columnLabel }}
+                        </label>
+                    @endforeach
+                </div>
+            </div>
+
             <div class="ml-auto">
                 <x-button wire:click="$set('showBasket', true)" variant="outline">
                     <x-icon.clipboard-list class="size-4" />
@@ -58,6 +73,16 @@
         {{-- Expandable filter panel (every filterable column) --}}
         <div x-show="filtersOpen" x-cloak x-transition.opacity class="rounded-lg border border-border bg-card p-4 shadow-sm">
             <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label class="block">
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Colour</span>
+                    <select wire:model.live="colour" class="{{ $selectClasses }}">
+                        <option value="">All colours</option>
+                        @foreach($colours as $colourOption)
+                            <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
+                        @endforeach
+                    </select>
+                </label>
+
                 <label class="block">
                     <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Country</span>
                     <select wire:model.live="country" class="{{ $selectClasses }}">
@@ -161,7 +186,7 @@
                     @php($rowColour = $product->colour ?? ($fill['colour']['value'] ?? null))
                     @php($rowCountry = $product->country ?: ($fill['country']['value'] ?? null))
                     <div wire:key="m-product-{{ $product->id }}" class="flex items-center gap-3 p-3">
-                        <div class="min-w-0 flex-1">
+                        <button type="button" wire:click="showWine({{ $product->id }})" class="min-w-0 flex-1 text-left">
                             <p class="truncate text-sm font-medium text-foreground">{{ $product->wine_name }}</p>
                             @if($product->producer)
                                 <p class="truncate text-xs text-muted-foreground">{{ $product->producer }}</p>
@@ -177,7 +202,7 @@
                                 @if($rowCountry){{ $rowCountry }} <span aria-hidden="true">·</span>@endif
                                 {{ $product->vintage ?? 'NV' }} <span aria-hidden="true">·</span> {{ $product->format_ml }}ml
                             </p>
-                        </div>
+                        </button>
                         <div class="shrink-0 text-right">
                             <p class="whitespace-nowrap text-sm font-medium text-foreground">
                                 {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
@@ -194,73 +219,111 @@
                 @endforeach
             </div>
 
+            {{-- The actions column is pinned so the basket "+" stays reachable
+                 however many columns are on (the sticky cells need opaque
+                 colour-mix backgrounds to mask rows scrolling beneath them). --}}
+            @php($stickyHead = 'sticky right-0 z-10 bg-[color-mix(in_srgb,hsl(var(--secondary))_40%,hsl(var(--card)))]')
+            @php($stickyCell = 'sticky right-0 bg-card group-hover:bg-[color-mix(in_srgb,hsl(var(--accent))_40%,hsl(var(--card)))]')
             <div class="hidden overflow-x-auto rounded-lg border border-border bg-card shadow-sm sm:block">
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-secondary/40">
                     <tr>
                         <x-th-sort column="wine_name" :sort="$sort" :direction="$direction">Wine</x-th-sort>
-                        <x-th-sort column="country" :sort="$sort" :direction="$direction">Origin</x-th-sort>
-                        <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Colour</th>
-                        <x-th-sort column="vintage" :sort="$sort" :direction="$direction">Vintage</x-th-sort>
-                        <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Format</th>
+                        @if(in_array('country', $visibleColumns, true))
+                            <x-th-sort column="country" :sort="$sort" :direction="$direction">Country</x-th-sort>
+                        @endif
+                        @if(in_array('region', $visibleColumns, true))
+                            <x-th-sort column="region" :sort="$sort" :direction="$direction">Region</x-th-sort>
+                        @endif
+                        @if(in_array('grapes', $visibleColumns, true))
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Grapes</th>
+                        @endif
+                        @if(in_array('colour', $visibleColumns, true))
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Colour</th>
+                        @endif
+                        @if(in_array('vintage', $visibleColumns, true))
+                            <x-th-sort column="vintage" :sort="$sort" :direction="$direction">Vintage</x-th-sort>
+                        @endif
+                        @if(in_array('format', $visibleColumns, true))
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Format</th>
+                        @endif
                         <x-th-sort column="unit_price" :sort="$sort" :direction="$direction" align="right">Price</x-th-sort>
-                        <th class="px-3 py-2"></th>
+                        <th class="px-3 py-2 {{ $stickyHead }}"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-border">
                     @foreach($products as $product)
                         @php($fill = $enriched[$product->id] ?? [])
-                        <tr wire:key="product-{{ $product->id }}" class="hover:bg-accent/40">
+                        <tr wire:key="product-{{ $product->id }}" class="group hover:bg-accent/40">
                             <td class="px-3 py-2.5">
-                                <div class="font-medium text-foreground">{{ $product->wine_name }}</div>
+                                <button type="button" wire:click="showWine({{ $product->id }})" class="text-left font-medium text-foreground transition hover:text-primary">
+                                    {{ $product->wine_name }}
+                                </button>
                                 @if($product->producer)
                                     <div class="text-xs text-muted-foreground">{{ $product->producer }}</div>
                                 @endif
-                                @if($product->grape)
-                                    <div class="text-xs text-muted-foreground">{{ implode(', ', $product->grape) }}</div>
-                                @elseif(isset($fill['grape']))
-                                    <div class="text-xs text-muted-foreground">
+                            </td>
+                            @if(in_array('country', $visibleColumns, true))
+                                <td class="px-3 py-2.5 text-muted-foreground">
+                                    @if($product->country)
+                                        {{ $product->country }}
+                                    @elseif(isset($fill['country']))
+                                        <x-enriched-fact :source="$fill['country']['source']">{{ $fill['country']['value'] }}</x-enriched-fact>
+                                    @else
+                                        –
+                                    @endif
+                                </td>
+                            @endif
+                            @if(in_array('region', $visibleColumns, true))
+                                <td class="px-3 py-2.5 text-muted-foreground">
+                                    @if($product->region)
+                                        {{ $product->region }}
+                                    @elseif(isset($fill['region']))
+                                        <x-enriched-fact :source="$fill['region']['source']">{{ $fill['region']['value'] }}</x-enriched-fact>
+                                    @else
+                                        –
+                                    @endif
+                                    @if($product->sub_region)
+                                        <span class="text-xs text-muted-foreground/80">{{ $product->sub_region }}</span>
+                                    @endif
+                                </td>
+                            @endif
+                            @if(in_array('grapes', $visibleColumns, true))
+                                <td class="px-3 py-2.5 text-muted-foreground">
+                                    @if($product->grape)
+                                        {{ implode(', ', $product->grape) }}
+                                    @elseif(isset($fill['grape']))
                                         <x-enriched-fact :source="$fill['grape']['source']">{{ implode(', ', $fill['grape']['value']) }}</x-enriched-fact>
-                                    </div>
-                                @endif
-                            </td>
-                            <td class="px-3 py-2.5 text-muted-foreground">
-                                {{-- Country and region render independently so own + enriched values mix correctly. --}}
-                                @if($product->country)
-                                    {{ $product->country }}
-                                @elseif(isset($fill['country']))
-                                    <x-enriched-fact :source="$fill['country']['source']">{{ $fill['country']['value'] }}</x-enriched-fact>
-                                @else
-                                    –
-                                @endif
-                                @if($product->region)
-                                    <span class="text-xs"> · {{ $product->region }}</span>
-                                @elseif(isset($fill['region']))
-                                    <span class="text-xs">· </span><x-enriched-fact class="text-xs" :source="$fill['region']['source']">{{ $fill['region']['value'] }}</x-enriched-fact>
-                                @endif
-                                @if($product->sub_region)
-                                    <span class="text-xs"> · {{ $product->sub_region }}</span>
-                                @endif
-                            </td>
-                            <td class="px-3 py-2.5">
-                                @if($product->colour)
-                                    <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                        <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $product->colour->getSwatch() }}"></span>
-                                        {{ $product->colour->getLabel() }}
-                                    </span>
-                                @elseif(isset($fill['colour']))
-                                    <x-enriched-fact :source="$fill['colour']['source']">
+                                    @else
+                                        –
+                                    @endif
+                                </td>
+                            @endif
+                            @if(in_array('colour', $visibleColumns, true))
+                                <td class="px-3 py-2.5">
+                                    @if($product->colour)
                                         <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
-                                            <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $fill['colour']['value']->getSwatch() }}"></span>
-                                            {{ $fill['colour']['value']->getLabel() }}
+                                            <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $product->colour->getSwatch() }}"></span>
+                                            {{ $product->colour->getLabel() }}
                                         </span>
-                                    </x-enriched-fact>
-                                @else
-                                    –
-                                @endif
-                            </td>
-                            <td class="px-3 py-2.5 text-muted-foreground">{{ $product->vintage ?? 'NV' }}</td>
-                            <td class="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{{ $product->format_ml }}ml · {{ $product->case_size }}/case</td>
+                                    @elseif(isset($fill['colour']))
+                                        <x-enriched-fact :source="$fill['colour']['source']">
+                                            <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                                <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $fill['colour']['value']->getSwatch() }}"></span>
+                                                {{ $fill['colour']['value']->getLabel() }}
+                                            </span>
+                                        </x-enriched-fact>
+                                    @else
+                                        –
+                                    @endif
+                                </td>
+                            @endif
+                            @if(in_array('vintage', $visibleColumns, true))
+                                <td class="px-3 py-2.5 text-muted-foreground">{{ $product->vintage ?? 'NV' }}</td>
+                            @endif
+                            @if(in_array('format', $visibleColumns, true))
+                                <td class="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{{ $product->format_ml }}ml · {{ $product->case_size }}/case</td>
+                            @endif
                             <td class="px-3 py-2.5 text-right">
                                 @if($editingPriceId === $product->id)
                                     <div class="flex items-center justify-end gap-1">
@@ -296,7 +359,7 @@
                                     <div class="text-xs text-muted-foreground">{{ Currency::format($product->price_per_litre, $currency) }}/L</div>
                                 @endif
                             </td>
-                            <td class="px-3 py-2.5 text-right">
+                            <td class="px-3 py-2.5 text-right {{ $stickyCell }}">
                                 <div class="flex items-center justify-end gap-1">
                                     <x-button wire:click="addToBasket({{ $product->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
                                         <x-icon.plus class="size-4" wire:loading.remove wire:target="addToBasket({{ $product->id }})" />
@@ -318,6 +381,138 @@
 
         <div>{{ $products->links() }}</div>
     @endif
+
+    {{-- Wine detail slideover --}}
+    <x-slideover model="showDetail" max-width="lg">
+        <x-slot:header>
+            @if($detail)
+                <h2 class="font-serif text-xl font-semibold leading-snug">{{ $detail->wine_name }}</h2>
+                @if($detail->producer)
+                    <p class="mt-0.5 text-sm text-muted-foreground">{{ $detail->producer }}</p>
+                @endif
+            @else
+                <h2 class="font-serif text-xl font-semibold">Wine details</h2>
+            @endif
+        </x-slot:header>
+
+        @if($detail)
+            <div class="space-y-6">
+                {{-- Price --}}
+                <div class="rounded-lg border border-border bg-secondary/40 px-4 py-3">
+                    <p class="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">{{ $detail->soldByCase() ? 'Price per case' : 'Price per bottle' }}</p>
+                    <p class="mt-1 font-serif text-2xl font-semibold">
+                        {{ $detail->displayPrice() !== null ? Currency::format($detail->displayPrice(), $currency) : '–' }}
+                    </p>
+                    <p class="mt-0.5 space-x-3 text-xs text-muted-foreground">
+                        @if($detail->perBottleEquivalent() !== null)
+                            <span>≈ {{ Currency::format($detail->perBottleEquivalent(), $currency) }} / bottle</span>
+                        @endif
+                        @if($detail->price_per_litre)
+                            <span>{{ Currency::format($detail->price_per_litre, $currency) }} / litre</span>
+                        @endif
+                    </p>
+                </div>
+
+                {{-- Attributes --}}
+                <dl class="divide-y divide-border text-sm">
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Supplier</dt>
+                        <dd class="text-right font-medium text-foreground">{{ $detailSupplier?->name ?? '–' }}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Colour</dt>
+                        <dd class="text-right">
+                            @if($detail->colour)
+                                <span class="inline-flex items-center gap-1.5">
+                                    <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $detail->colour->getSwatch() }}"></span>
+                                    {{ $detail->colour->getLabel() }}
+                                </span>
+                            @elseif(isset($detailFill['colour']))
+                                <x-enriched-fact :source="$detailFill['colour']['source']">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $detailFill['colour']['value']->getSwatch() }}"></span>
+                                        {{ $detailFill['colour']['value']->getLabel() }}
+                                    </span>
+                                </x-enriched-fact>
+                            @else
+                                –
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Grapes</dt>
+                        <dd class="text-right">
+                            @if($detail->grape)
+                                {{ implode(', ', $detail->grape) }}
+                            @elseif(isset($detailFill['grape']))
+                                <x-enriched-fact :source="$detailFill['grape']['source']">{{ implode(', ', $detailFill['grape']['value']) }}</x-enriched-fact>
+                            @else
+                                –
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Country</dt>
+                        <dd class="text-right">
+                            @if($detail->country)
+                                {{ $detail->country }}
+                            @elseif(isset($detailFill['country']))
+                                <x-enriched-fact :source="$detailFill['country']['source']">{{ $detailFill['country']['value'] }}</x-enriched-fact>
+                            @else
+                                –
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Region</dt>
+                        <dd class="text-right">
+                            @if($detail->region)
+                                {{ $detail->region }}
+                            @elseif(isset($detailFill['region']))
+                                <x-enriched-fact :source="$detailFill['region']['source']">{{ $detailFill['region']['value'] }}</x-enriched-fact>
+                            @else
+                                –
+                            @endif
+                        </dd>
+                    </div>
+                    @if($detail->sub_region)
+                        <div class="flex items-start justify-between gap-4 py-2.5">
+                            <dt class="shrink-0 text-muted-foreground">Sub-region</dt>
+                            <dd class="text-right">{{ $detail->sub_region }}</dd>
+                        </div>
+                    @endif
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Vintage</dt>
+                        <dd class="text-right">{{ $detail->vintage ?? 'NV' }}</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Format</dt>
+                        <dd class="text-right">{{ $detail->format_ml }}ml</dd>
+                    </div>
+                    <div class="flex items-start justify-between gap-4 py-2.5">
+                        <dt class="shrink-0 text-muted-foreground">Sold by</dt>
+                        <dd class="text-right">{{ $detail->soldByCase() ? 'Case of '.$detail->case_size : 'Bottle' }} ({{ $detail->case_size }}/case)</dd>
+                    </div>
+                    @if($detail->last_seen_at)
+                        <div class="flex items-start justify-between gap-4 py-2.5">
+                            <dt class="shrink-0 text-muted-foreground">Last seen in price list</dt>
+                            <dd class="text-right">{{ $detail->last_seen_at->format('j M Y') }}</dd>
+                        </div>
+                    @endif
+                </dl>
+            </div>
+        @endif
+
+        <x-slot:footer>
+            <x-button variant="outline" wire:click="$set('showDetail', false)">Close</x-button>
+            @if($detail)
+                <x-button wire:click="addToBasket({{ $detail->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $detail->id }})">
+                    <x-icon.plus class="size-4" />
+                    {{ $detail->soldByCase() ? 'Add case to basket' : 'Add to basket' }}
+                </x-button>
+            @endif
+        </x-slot:footer>
+    </x-slideover>
 
     {{-- Basket modal --}}
     <x-modal model="showBasket" title="Order basket" max-width="2xl">
