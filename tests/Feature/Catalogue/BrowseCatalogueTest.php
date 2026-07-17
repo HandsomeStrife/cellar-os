@@ -140,13 +140,44 @@ it('cascades: changing country clears the now-stale region and sub-region', func
 
 it('toggles sort direction on a column', function () {
     Livewire::test(Index::class)
-        ->assertSet('sort', 'wine_name')
+        ->assertSet('sort', ProductRepository::DEFAULT_SORT)
         ->assertSet('direction', 'asc')
         ->call('sortBy', 'unit_price')
         ->assertSet('sort', 'unit_price')
         ->assertSet('direction', 'asc')
         ->call('sortBy', 'unit_price')
         ->assertSet('direction', 'desc');
+});
+
+it('defaults to cellar order: type, then country, region and sub-region', function () {
+    $make = fn (array $attributes) => Product::factory()->create(
+        ['supplier_id' => $this->supplier->id] + $attributes
+    );
+
+    $make(['wine_name' => 'Rioja Reserva', 'colour' => WineColour::Red, 'country' => 'Spain', 'region' => 'Rioja']);
+    $make(['wine_name' => 'Vintage Port', 'colour' => WineColour::Fortified, 'country' => 'Portugal']);
+    $make(['wine_name' => 'Sancerre', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Loire']);
+    $make(['wine_name' => 'Champagne Brut', 'colour' => WineColour::Sparkling, 'country' => 'France']);
+    $make(['wine_name' => 'Chablis', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => null]);
+    $make(['wine_name' => 'Mystery Wine', 'colour' => null, 'country' => 'France']);
+    $make(['wine_name' => 'Meursault Charmes', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => 'Meursault']);
+    $make(['wine_name' => 'Corton-Charlemagne', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => 'Aloxe-Corton']);
+
+    $names = (new ProductRepository)->search(supplierIds: [$this->supplier->id])
+        ->getCollection()
+        ->pluck('wine_name')
+        ->all();
+
+    expect($names)->toBe([
+        'Champagne Brut',      // Sparkling first
+        'Corton-Charlemagne',  // White > France > Burgundy > Aloxe-Corton
+        'Meursault Charmes',   // ... > Burgundy > Meursault
+        'Chablis',             // ... > Burgundy, no sub-region (named sub-regions first)
+        'Sancerre',            // ... > France > Loire
+        'Rioja Reserva',       // Red > Spain
+        'Vintage Port',        // Fortified after the core types
+        'Mystery Wine',        // unknown type last
+    ]);
 });
 
 it('edits a price inline and recomputes price per litre', function () {

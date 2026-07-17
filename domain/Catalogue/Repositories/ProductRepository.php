@@ -7,6 +7,7 @@ namespace Domain\Catalogue\Repositories;
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\WineColour;
 use Domain\Catalogue\Models\Product;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
@@ -27,8 +28,7 @@ class ProductRepository
         // Archived wines (dropped out of their supplier's current list) are
         // hidden from every browse surface; direct id/uuid lookups still work
         // so existing inventory/order references render fine.
-        return Product::whereNull('archived_at')
-            ->orderBy('wine_name')
+        return $this->applyCellarOrder(Product::whereNull('archived_at'))
             ->paginate($perPage)
             ->through(fn (Product $product) => $product->getData());
     }
@@ -37,6 +37,13 @@ class ProductRepository
      * Sortable columns, mapped to allow-list lookups (never trust raw input).
      */
     public const SORTABLE = ['wine_name', 'producer', 'country', 'region', 'sub_region', 'vintage', 'unit_price'];
+
+    /**
+     * The default "cellar list" ordering: wines grouped by type in the trade's
+     * conventional sequence (sparkling → white → rosé → orange → red → the
+     * rest), then by country, region and sub-region within each type.
+     */
+    public const DEFAULT_SORT = 'cellar';
 
     /**
      * @param  array<int, int>|null  $supplierIds  restrict to these suppliers (null = all)
@@ -53,15 +60,15 @@ class ProductRepository
         ?float $priceMax = null,
         ?int $vintageMin = null,
         ?int $vintageMax = null,
-        string $sort = 'wine_name',
+        string $sort = self::DEFAULT_SORT,
         string $direction = 'asc',
         int $perPage = 24,
         ?array $supplierIds = null,
     ): LengthAwarePaginator {
-        $sort = in_array($sort, self::SORTABLE, true) ? $sort : 'wine_name';
+        $sort = in_array($sort, self::SORTABLE, true) ? $sort : self::DEFAULT_SORT;
         $direction = strtolower($direction) === 'desc' ? 'desc' : 'asc';
 
-        return Product::query()
+        $query = Product::query()
             ->whereNull('archived_at')
             ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
             ->when($term !== null && $term !== '', function ($query) use ($term) {
@@ -79,10 +86,42 @@ class ProductRepository
             ->when($priceMin !== null, fn ($query) => $query->where('unit_price', '>=', $priceMin))
             ->when($priceMax !== null, fn ($query) => $query->where('unit_price', '<=', $priceMax))
             ->when($vintageMin !== null, fn ($query) => $query->where('vintage', '>=', $vintageMin))
-            ->when($vintageMax !== null, fn ($query) => $query->where('vintage', '<=', $vintageMax))
-            ->orderBy($sort, $direction)
+            ->when($vintageMax !== null, fn ($query) => $query->where('vintage', '<=', $vintageMax));
+
+        $query = $sort === self::DEFAULT_SORT
+            ? $this->applyCellarOrder($query)
+            : $query->orderBy($sort, $direction);
+
+        return $query
             ->paginate($perPage)
             ->through(fn (Product $product) => $product->getData());
+    }
+
+    /**
+     * Type (in WineColour display order, unknowns last) → country → region →
+     * sub-region, empty geography sorting after named geography at each level,
+     * with wine name as the final tie-break.
+     *
+     * @param  Builder<Product>  $query
+     * @return Builder<Product>
+     */
+    private function applyCellarOrder($query)
+    {
+        $case = 'CASE colour';
+        foreach (WineColour::cases() as $colour) {
+            $case .= sprintf(" WHEN '%s' THEN %d", $colour->value, $colour->getSortOrder());
+        }
+        $case .= ' ELSE 99 END';
+
+        return $query
+            ->orderByRaw($case)
+            ->orderByRaw("(country IS NULL OR country = '')")
+            ->orderBy('country')
+            ->orderByRaw("(region IS NULL OR region = '')")
+            ->orderBy('region')
+            ->orderByRaw("(sub_region IS NULL OR sub_region = '')")
+            ->orderBy('sub_region')
+            ->orderBy('wine_name');
     }
 
     public function count(): int

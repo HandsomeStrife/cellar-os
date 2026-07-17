@@ -20,6 +20,23 @@ enum WineColour: string
     }
 
     /**
+     * Position in the trade's conventional list order (sparkling first,
+     * fortified and other oddities last). Drives the catalogue's default sort.
+     */
+    public function getSortOrder(): int
+    {
+        return match ($this) {
+            self::Sparkling => 1,
+            self::White => 2,
+            self::Rose => 3,
+            self::Orange => 4,
+            self::Red => 5,
+            self::Dessert => 6,
+            self::Fortified => 7,
+        };
+    }
+
+    /**
      * Hex swatch used in the catalogue/inventory UI.
      */
     public function getSwatch(): string

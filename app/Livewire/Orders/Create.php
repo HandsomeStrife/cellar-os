@@ -236,7 +236,7 @@ class Create extends Component
 
         if ($this->productSearch !== '') {
             // The product picker only offers wines from connected suppliers.
-            $productOptions = (new ProductRepository)->search(term: $this->productSearch, perPage: 25, supplierIds: $this->connectedSupplierIds())
+            $productOptions = (new ProductRepository)->search(term: $this->productSearch, sort: 'wine_name', perPage: 25, supplierIds: $this->connectedSupplierIds())
                 ->getCollection()
                 ->mapWithKeys(fn ($p) => [$p->id => $p->wine_name.($p->vintage ? " ({$p->vintage})" : '')])
                 ->all();

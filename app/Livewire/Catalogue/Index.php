@@ -81,7 +81,7 @@ class Index extends Component
         'priceMin', 'priceMax', 'vintageMin', 'vintageMax',
     ];
 
-    public string $sort = 'wine_name';
+    public string $sort = ProductRepository::DEFAULT_SORT;
 
     public string $direction = 'asc';
 
@@ -120,7 +120,7 @@ class Index extends Component
     public function resetFilters(): void
     {
         $this->reset([
-            'search', 'colour', 'supplierFilter', ...self::PANEL_FILTERS,
+            'search', 'colour', 'supplierFilter', 'sort', 'direction', ...self::PANEL_FILTERS,
         ]);
         $this->resetPage();
     }
