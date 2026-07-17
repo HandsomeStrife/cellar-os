@@ -66,7 +66,7 @@
         {{-- Sidebar --}}
         <aside
             x-bind:class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
-            class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0"
+            class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0"
         >
             <div class="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
                 <a href="{{ route('dashboard') }}" wire:navigate class="inline-flex items-center gap-2.5">
