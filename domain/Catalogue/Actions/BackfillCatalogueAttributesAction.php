@@ -6,6 +6,7 @@ namespace Domain\Catalogue\Actions;
 
 use Domain\Catalogue\Models\Lwin;
 use Domain\Catalogue\Models\Product;
+use Domain\Catalogue\Support\WineColourFromName;
 use Domain\Import\Services\NormaliseService;
 use Domain\Shared\Actions\AbstractAction;
 
@@ -15,11 +16,14 @@ use Domain\Shared\Actions\AbstractAction;
  * values (fill only where a column is empty; the supplier's own data always
  * wins). Cross-vendor wine_facts stay render-only by design.
  *
- * Three passes, in order of authority:
+ * Four passes, in order of authority:
  *   1. LWIN reference (country/region/sub_region/colour/producer) for linked wines.
  *   2. region -> country derivation (geography is deterministic; many fine-wine
  *      lists omit country because it's implicit in the region).
- *   3. geocode lat/lng from region/country so wines appear on the sourcing map.
+ *   3. colour from the wine's NAME (WineColourFromName — explicit style words,
+ *      then single-colour appellations/grapes; for lists like O.W. Loeb's
+ *      that carry no colour column or section at all).
+ *   4. geocode lat/lng from region/country so wines appear on the sourcing map.
  *
  * Idempotent: re-running only touches still-empty columns.
  */
@@ -28,15 +32,41 @@ class BackfillCatalogueAttributesAction extends AbstractAction
     public function __construct(private NormaliseService $normalise = new NormaliseService) {}
 
     /**
-     * @return array{lwin: int, country: int, geo: int}
+     * @return array{lwin: int, country: int, colour: int, geo: int}
      */
     public function execute(bool $apply = true): array
     {
         return [
             'lwin' => $this->fromLwin($apply),
             'country' => $this->countryFromRegion($apply),
+            'colour' => $this->colourFromName($apply),
             'geo' => $this->geocodeMissing($apply),
         ];
+    }
+
+    /** Pass 3 — deterministic colour from explicit name words / single-colour appellations and grapes. */
+    private function colourFromName(bool $apply): int
+    {
+        $touched = 0;
+
+        Product::whereNull('archived_at')
+            ->whereNull('colour')
+            ->orderBy('id')
+            ->chunkById(500, function ($products) use (&$touched, $apply) {
+                foreach ($products as $product) {
+                    $colour = WineColourFromName::infer($product->wine_name, $product->producer);
+                    if ($colour === null) {
+                        continue;
+                    }
+
+                    $touched++;
+                    if ($apply) {
+                        Product::whereKey($product->id)->update(['colour' => $colour->value]);
+                    }
+                }
+            });
+
+        return $touched;
     }
 
     /** Pass 1 — fill empties from the matched LWIN reference row. */

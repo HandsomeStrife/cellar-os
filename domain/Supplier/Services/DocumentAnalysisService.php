@@ -6,6 +6,7 @@ namespace Domain\Supplier\Services;
 
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\SellingUnit;
+use Domain\Catalogue\Support\NonWineVocabulary;
 use Domain\Import\Services\NormaliseService;
 use Domain\Supplier\Actions\SaveColumnMappingAction;
 use Domain\Supplier\Actions\SaveParseProfileAction;
@@ -404,36 +405,10 @@ class DocumentAnalysisService
         ];
     }
 
-    /**
-     * Spirit/sake/cider vocabulary that marks a row as not-a-wine. Distilled
-     * and non-grape drinks only — fortified WINES (port, sherry, madeira,
-     * vermouth) stay out of this list on purpose.
-     */
-    private const NON_WINE_MARKERS = [
-        'armagnac', 'cognac', 'calvados', 'eau de vie', 'eaux de vie', 'brandy',
-        'grappa', 'marc de', 'whisky', 'whiskey', 'bourbon', 'gin', 'vodka',
-        'rum', 'tequila', 'mezcal', 'pastis', 'absinthe', 'liqueur',
-        'sake', 'umeshu', 'yuzushu', 'junmai', 'ginjo', 'honjozo', 'daiginjo',
-        'cider', 'sidre', 'sydre', 'perry', 'beer', 'lager',
-    ];
-
     /** Name/producer vocabulary check for distilled and non-grape drinks. */
     private function looksLikeNonWine(ProductData $product): bool
     {
-        $haystack = mb_strtolower($product->wine_name.' '.((string) $product->producer));
-
-        // Fortified-wine styles whose names contain a marker word anyway.
-        if (preg_match('/\b(?:liqueur muscat|muscat liqueur|vin de liqueur)\b/u', $haystack) === 1) {
-            return false;
-        }
-
-        foreach (self::NON_WINE_MARKERS as $marker) {
-            if (preg_match('/\b'.preg_quote($marker, '/').'\b/u', $haystack) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return NonWineVocabulary::matches($product->wine_name, $product->producer);
     }
 
     /**

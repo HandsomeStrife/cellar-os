@@ -30,9 +30,9 @@ class BackfillCatalogueAttributes extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            '%s from LWIN: %d wine(s) · country from region: %d · geocoded: %d',
+            '%s from LWIN: %d wine(s) · country from region: %d · colour from name: %d · geocoded: %d',
             $apply ? 'Filled' : 'Would fill',
-            $stats['lwin'], $stats['country'], $stats['geo'],
+            $stats['lwin'], $stats['country'], $stats['colour'], $stats['geo'],
         ));
 
         if ($apply) {
