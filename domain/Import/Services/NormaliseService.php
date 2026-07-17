@@ -41,7 +41,12 @@ class NormaliseService
         $unitPrice = $this->parsePrice($value('unit_price'));
         $country = $this->nullableString($value('country'));
         $region = $this->standardiseRegion($value('region'));
-        $producer = $this->nullableString($value('producer'));
+        // Producer columns often carry a trailing vintage ("Quinta dos Roques
+        // 2023", "Rustenberg 2022/23") — the year belongs to the vintage field,
+        // never the producer name.
+        $producer = $this->nullableString(
+            preg_replace('/\s+(?:19|20)\d{2}(?:\/\d{2,4})?$/', '', $value('producer') ?? '') ?: null
+        );
 
         // Some lists pack the case quantity AND bottle size into one cell, e.g.
         // "12x75cl" (a case of 12 × 750ml). Parse both rather than letting the
@@ -266,7 +271,11 @@ class NormaliseService
         $named = [
             'magnum' => 1500,
             'jeroboam' => 3000,
+            'methuselah' => 6000,
             'half' => 375,
+            '½' => 375,
+            'quarter' => 187,
+            '¼' => 187,
             'piccolo' => 200,
             'split' => 187,
         ];

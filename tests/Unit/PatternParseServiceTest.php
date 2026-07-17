@@ -158,3 +158,69 @@ it('parses bbox XML into y-clustered, x-sorted cell rows', function () {
         ->and(array_column($rows[0]['cells'], 'text'))->toBe(['GIANNI MASCIARELLI,', 'TREBBIANO', '£12.40']);
     expect(array_column($rows[1]['cells'], 'text'))->toBe(['NEXT']);
 });
+
+it('applies multi-level section rules: static sets, named captures, clears and drop-cap folding', function () {
+    // A Wright-style layout: type headers (letter-spaced drop caps), country
+    // headers, and region+colour combo headers all shaping the same rows.
+    $rules = [
+        'zones' => [
+            ['field' => 'wine_name', 'x_min' => '30', 'x_max' => '400'],
+            ['field' => 'unit_price', 'x_min' => '500', 'x_max' => '555'],
+            ['field' => 'format_ml', 'x_min' => '555', 'x_max' => '580'],
+        ],
+        'require' => ['wine_name', 'unit_price'],
+        'sections' => [
+            ['regex' => '^SPARKLING WINES?(?: \(continued\))?$', 'set' => ['colour' => 'Sparkling'], 'clears' => ['country', 'region']],
+            ['regex' => '^CHAMPAGNES?(?: \(continued\))?$', 'set' => ['colour' => 'Sparkling', 'country' => 'France', 'region' => 'Champagne']],
+            ['regex' => '^(?<region>[A-ZÉ ]+?) ?, ?(?<colour>RED|WHITE|ROSÉ)$'],
+            ['regex' => '^(?<country>PORTUGAL|SPAIN|FRANCE)$'],
+        ],
+    ];
+
+    $rows = [
+        cellRow(5, 10, [[199, 'S PARKLING W INES (continued)']]),
+        cellRow(5, 20, [[52, 'P ORTUGAL']]),
+        cellRow(5, 30, [[52, 'Bairrada Sparkling, Luis Pato'], [543, '17.75']]),
+        cellRow(5, 40, [[52, 'Some prose about the region that is not a wine.']]),
+        cellRow(6, 10, [[254, 'C HAMPAGNE']]),
+        cellRow(6, 20, [[37, 'Krug, Grande Cuvée, Reims'], [524, '140.00'], [558, '½']]),
+        cellRow(7, 10, [[52, 'R IOJA , R ED']]),
+        cellRow(7, 20, [[52, 'Rioja Reserva, La Rioja Alta'], [543, '25.00']]),
+    ];
+
+    $service = new PatternParseService;
+    $result = $service->parse($rows, $rules);
+
+    expect($result['matched'])->toBe(3);
+
+    [$porto, $champagne, $rioja] = $result['rows'];
+    expect($porto['colour'])->toBe('Sparkling')
+        ->and($porto['country'])->toBe('Portugal')   // captured + title-cased
+        ->and($porto)->not->toHaveKey('region');     // cleared by the type header
+
+    expect($champagne['colour'])->toBe('Sparkling')
+        ->and($champagne['country'])->toBe('France')
+        ->and($champagne['region'])->toBe('Champagne')
+        ->and($champagne['format_ml'])->toBe('½');   // half-bottle marker zone
+
+    expect($rioja['region'])->toBe('Rioja')
+        ->and($rioja['colour'])->toBe('Red')
+        ->and($rioja['country'])->toBe('France');    // stale country: Champagne rule set it, Rioja rule did not clear
+});
+
+it('threads multi-section context across page batches via state', function () {
+    $rules = [
+        'zones' => [
+            ['field' => 'wine_name', 'x_min' => '30', 'x_max' => '400'],
+            ['field' => 'unit_price', 'x_min' => '500', 'x_max' => '580'],
+        ],
+        'require' => ['wine_name', 'unit_price'],
+        'sections' => [['regex' => '^(?<colour>RED|WHITE) WINES$']],
+    ];
+
+    $service = new PatternParseService;
+    $batchOne = $service->parse([cellRow(50, 10, [[52, 'RED WINES']])], $rules);
+    $batchTwo = $service->parse([cellRow(51, 10, [[52, 'Barolo, Brovia'], [543, '30.00']])], $rules, $batchOne['state']);
+
+    expect($batchTwo['rows'][0]['colour'])->toBe('Red');
+});

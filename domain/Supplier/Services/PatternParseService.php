@@ -23,6 +23,16 @@ use Domain\Catalogue\Enums\WineColour;
  *   section_regex:  PCRE body with a named group `value`; a matching row is a
  *                   section header, not a wine
  *   section_field:  where the current section value lands (e.g. region)
+ *   sections:       [{regex, set?, clears?}] — multi-level header rules for
+ *                   documents whose headers nest (type page → country → region).
+ *                   A row matching `regex` is a header, not a wine: `set`
+ *                   assigns literal field values ({colour: "Sparkling"}),
+ *                   named groups in the regex capture dynamic ones
+ *                   ((?<country>…)), and `clears` drops now-stale narrower
+ *                   context. Every later wine row inherits the accumulated
+ *                   values into its empty fields. Header text is matched both
+ *                   raw and with drop-cap letter-spacing folded ("S PAIN" →
+ *                   "SPAIN"); all-caps captures are title-cased.
  *   colour_map:     {code => WineColour value} for style shorthands (r, w, sp…)
  *   format_unit:    appended to a bare numeric format_ml (e.g. "cl" → "75cl")
  */
@@ -31,8 +41,8 @@ class PatternParseService
     /**
      * @param  array<int, array{page: int, y: float, cells: array<int, array{text: string, x0: float, x1: float}>}>  $rows
      * @param  array<string, mixed>  $rules
-     * @param  array{section?: string, carry?: array<string, string>}  $state  carry/section context threaded across page batches
-     * @return array{rows: array<int, array<string, string>>, matched: int, residue: int, state: array{section: string, carry: array<string, string>}}
+     * @param  array{section?: string, section_values?: array<string, string>, carry?: array<string, string>}  $state  carry/section context threaded across page batches
+     * @return array{rows: array<int, array<string, string>>, matched: int, residue: int, state: array{section: string, section_values: array<string, string>, carry: array<string, string>}}
      */
     public function parse(array $rows, array $rules, array $state = []): array
     {
@@ -44,6 +54,7 @@ class PatternParseService
         // Context survives batch boundaries — a producer/section printed on
         // page 50 still applies to page 51's rows.
         $section = (string) ($state['section'] ?? '');
+        $sectionValues = (array) ($state['section_values'] ?? []);
         $carryValues = (array) ($state['carry'] ?? []);
 
         foreach ($rows as $row) {
@@ -70,7 +81,13 @@ class PatternParseService
                 continue;
             }
 
-            // Section headers update context and are never wines.
+            // Section headers update context and are never wines. Multi-level
+            // rules run first: each accumulates its own fields so a type
+            // header and a country header both shape the same wine row.
+            if ($this->matchSections($text, $rules['sections'], $sectionValues)) {
+                continue;
+            }
+
             if ($rules['section_regex'] !== '' && preg_match(self::wrap($rules['section_regex']), $text, $m)) {
                 $section = trim($m['value'] ?? $text);
 
@@ -90,6 +107,12 @@ class PatternParseService
 
             if ($rules['section_field'] !== '' && $section !== '' && trim($fields[$rules['section_field']] ?? '') === '') {
                 $fields[$rules['section_field']] = $section;
+            }
+
+            foreach ($sectionValues as $field => $value) {
+                if (trim($fields[$field] ?? '') === '') {
+                    $fields[$field] = $value;
+                }
             }
 
             // Carry-down: remember fresh values, fill gaps from above. A row
@@ -124,8 +147,83 @@ class PatternParseService
             'rows' => $wines,
             'matched' => count($wines),
             'residue' => $residue,
-            'state' => ['section' => $section, 'carry' => $carryValues],
+            'state' => ['section' => $section, 'section_values' => $sectionValues, 'carry' => $carryValues],
         ];
+    }
+
+    /**
+     * Try each multi-level section rule against the row text (raw, then with
+     * drop-cap letter-spacing folded). On a match the row is a header: static
+     * `set` values and named-group captures update the running context,
+     * `clears` drops fields the new section invalidates.
+     *
+     * @param  array<int, array{regex: string, set: array<string, string>, clears: array<int, string>}>  $sectionRules
+     * @param  array<string, string>  $sectionValues
+     */
+    private function matchSections(string $text, array $sectionRules, array &$sectionValues): bool
+    {
+        if ($sectionRules === []) {
+            return false;
+        }
+
+        $candidates = [$text];
+        $folded = self::foldDropCaps($text);
+        if ($folded !== $text) {
+            $candidates[] = $folded;
+        }
+
+        foreach ($sectionRules as $rule) {
+            foreach ($candidates as $candidate) {
+                if (! preg_match(self::wrap($rule['regex']), $candidate, $m)) {
+                    continue;
+                }
+
+                foreach ($rule['clears'] as $field) {
+                    unset($sectionValues[$field]);
+                }
+                foreach ($rule['set'] as $field => $value) {
+                    $sectionValues[$field] = $value;
+                }
+                foreach (ClaudeClient::FIELDS as $field) {
+                    if (isset($m[$field]) && trim($m[$field]) !== '') {
+                        $sectionValues[$field] = self::tidyHeaderValue(trim($m[$field]));
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Collapse drop-cap letter spacing ("S PARKLING W INES" → "SPARKLING
+     * WINES") so section regexes can be written against readable text.
+     */
+    private static function foldDropCaps(string $text): string
+    {
+        return preg_replace('/(?<=^|\s)(\p{Lu}) (?=\p{Lu})/u', '$1', $text) ?? $text;
+    }
+
+    /**
+     * ALL-CAPS header captures read badly as data ("RIOJA") — title-case them,
+     * keeping joining words lowercase ("United States of America").
+     */
+    private static function tidyHeaderValue(string $value): string
+    {
+        if (mb_strtoupper($value) !== $value) {
+            return $value;
+        }
+
+        $words = explode(' ', mb_convert_case(mb_strtolower($value), MB_CASE_TITLE, 'UTF-8'));
+        foreach ($words as $i => $word) {
+            if ($i > 0 && in_array(mb_strtolower($word), ['of', 'and', 'de', 'du', 'des', 'la', 'le', 'les', 'the'], true)) {
+                $words[$i] = mb_strtolower($word);
+            }
+        }
+
+        return implode(' ', $words);
     }
 
     /**
@@ -153,7 +251,7 @@ class PatternParseService
      * Validate/normalise LLM-written rules so nothing unsafe or broken executes.
      *
      * @param  array<string, mixed>  $rules
-     * @return array{zones: array<int, array{field: string, x_min: float, x_max: float}>, row_regex: string, require: array<int, string>, carry: array<int, string>, section_regex: string, section_field: string, colour_map: array<string, string>, format_unit: string}
+     * @return array{zones: array<int, array{field: string, x_min: float, x_max: float}>, row_regex: string, require: array<int, string>, carry: array<int, string>, section_regex: string, section_field: string, sections: array<int, array{regex: string, set: array<string, string>, clears: array<int, string>}>, colour_map: array<string, string>, format_unit: string}
      */
     public function sanitise(array $rules): array
     {
@@ -180,6 +278,27 @@ class PatternParseService
             }
         }
 
+        $sections = [];
+        foreach ((array) ($rules['sections'] ?? []) as $rule) {
+            $regex = $this->validRegex((string) ($rule['regex'] ?? ''));
+            if ($regex === '') {
+                continue;
+            }
+
+            $set = [];
+            foreach ((array) ($rule['set'] ?? []) as $field => $value) {
+                if (in_array($field, $fields, true) && is_scalar($value) && trim((string) $value) !== '') {
+                    $set[$field] = trim((string) $value);
+                }
+            }
+
+            $sections[] = [
+                'regex' => $regex,
+                'set' => $set,
+                'clears' => array_values(array_intersect((array) ($rule['clears'] ?? []), $fields)),
+            ];
+        }
+
         return [
             'zones' => $zones,
             'row_regex' => $this->validRegex((string) ($rules['row_regex'] ?? '')),
@@ -187,6 +306,7 @@ class PatternParseService
             'carry' => array_values(array_intersect((array) ($rules['carry'] ?? []), $fields)),
             'section_regex' => $this->validRegex((string) ($rules['section_regex'] ?? '')),
             'section_field' => in_array($rules['section_field'] ?? '', $fields, true) ? (string) $rules['section_field'] : '',
+            'sections' => array_slice($sections, 0, 60),
             'colour_map' => $colourMap,
             'format_unit' => in_array($rules['format_unit'] ?? '', ['cl', 'ml', 'l'], true) ? (string) $rules['format_unit'] : '',
         ];

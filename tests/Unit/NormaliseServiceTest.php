@@ -50,6 +50,7 @@ it('parses bottle formats', function () {
         ->and($this->svc->parseFormatMl('75cl'))->toBe(750)
         ->and($this->svc->parseFormatMl('1.5L'))->toBe(1500)
         ->and($this->svc->parseFormatMl('Half bottle'))->toBe(375)
+        ->and($this->svc->parseFormatMl('½'))->toBe(375)
         ->and($this->svc->parseFormatMl(''))->toBe(750);
 });
 
