@@ -261,3 +261,35 @@ it('discards rows in skip sections and outside the page window', function () {
     $batchTwo = $service->parse([cellRow(51, 10, [[52, 'Gin Thing'], [543, '20.00']])], $rules, $batchOne['state']);
     expect($batchTwo['matched'])->toBe(0);
 });
+
+it('accepts LLM-shaped section rules: {field,value} set pairs, yes/no skip, string pages', function () {
+    // Exactly what the study step's structured output produces (no map
+    // objects, all strings) — must parse without any conversion step.
+    $rules = [
+        'zones' => [
+            ['field' => 'wine_name', 'x_min' => '30', 'x_max' => '400'],
+            ['field' => 'unit_price', 'x_min' => '500', 'x_max' => '580'],
+        ],
+        'require' => ['wine_name', 'unit_price'],
+        'pages' => ['min' => '2', 'max' => ''],
+        'sections' => [
+            ['regex' => '^CHAMPAGNE$', 'set' => [['field' => 'colour', 'value' => 'Sparkling'], ['field' => 'country', 'value' => 'France']], 'clears' => [], 'skip' => 'no'],
+            ['regex' => '^SPIRITS$', 'set' => [], 'clears' => ['colour'], 'skip' => 'yes'],
+        ],
+    ];
+
+    $rows = [
+        cellRow(1, 10, [[52, 'TOC Entry'], [543, '9.00']]),            // page < min
+        cellRow(2, 10, [[52, 'CHAMPAGNE']]),
+        cellRow(2, 20, [[52, 'Krug, Grande Cuvée'], [543, '140.00']]),
+        cellRow(2, 30, [[52, 'SPIRITS']]),
+        cellRow(2, 40, [[52, 'Whisky Thing'], [543, '40.00']]),        // skipped
+    ];
+
+    $result = (new PatternParseService)->parse($rows, $rules);
+
+    expect($result['matched'])->toBe(1)
+        ->and($result['rows'][0]['wine_name'])->toBe('Krug, Grande Cuvée')
+        ->and($result['rows'][0]['colour'])->toBe('Sparkling')
+        ->and($result['rows'][0]['country'])->toBe('France');
+});

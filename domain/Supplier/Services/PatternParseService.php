@@ -310,6 +310,12 @@ class PatternParseService
 
             $set = [];
             foreach ((array) ($rule['set'] ?? []) as $field => $value) {
+                // Accept both {field: value} and the LLM's [{field, value}]
+                // pair shape (structured outputs cannot express maps).
+                if (is_array($value)) {
+                    $field = (string) ($value['field'] ?? '');
+                    $value = $value['value'] ?? '';
+                }
                 if (in_array($field, $fields, true) && is_scalar($value) && trim((string) $value) !== '') {
                     $set[$field] = trim((string) $value);
                 }
@@ -319,7 +325,8 @@ class PatternParseService
                 'regex' => $regex,
                 'set' => $set,
                 'clears' => array_values(array_intersect((array) ($rule['clears'] ?? []), $fields)),
-                'skip' => (bool) ($rule['skip'] ?? false),
+                // Accept real booleans and the LLM's "yes"/"no" strings.
+                'skip' => filter_var($rule['skip'] ?? false, FILTER_VALIDATE_BOOLEAN),
             ];
         }
 

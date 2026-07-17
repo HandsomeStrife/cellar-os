@@ -190,9 +190,29 @@ class ClaudeClient
               for a stock list).
             - carry: fields whose value carries down from previous rows when blank
               (country/region/producer printed once per group).
-            - section_regex: optional PCRE body with a named group (?<value>...) that
-              identifies section-header rows (e.g. ^[A-Z' ]+:$); section_field is
-              where the current section value lands.
+            - sections: multi-level header rules, tried per row in order; a matching
+              row is a HEADER, not a wine. Use these when headers nest (a wine-type
+              page header, then country headers, then region headers — each level
+              gets its own rule and all levels shape the wines beneath). Per rule:
+                regex:  PCRE body (NO delimiters) matched against the row text —
+                        raw AND with drop-cap letter spacing folded ("S PAIN" is
+                        tried as "SPAIN"), so write regexes against readable text.
+                set:    literal field values this header implies, as {field, value}
+                        pairs (e.g. a CHAMPAGNE header sets colour "Sparkling",
+                        country "France", region "Champagne").
+                        Named groups (?<field>...) in the regex capture dynamic
+                        values instead (e.g. ^(?<country>SPAIN|PORTUGAL)$).
+                clears: fields that go stale when this header starts (a new country
+                        clears region; a non-wine section clears colour).
+                skip:   "yes" ONLY for NON-WINE sections (spirits, beer, sake,
+                        mixers, olive oil): rows after it are DISCARDED until an
+                        ordinary section rule matches again.
+            - section_regex/section_field: legacy single-level fallback — prefer
+              `sections`; leave these "" when sections are used.
+            - pages: 1-based inclusive page window {min, max} — set only when the
+              sample SHOWS pages that are not part of the wine list (a table of
+              contents, an index, order forms); "" when unknown. Row prefixes
+              (p12:) give you the page numbers. Never guess a max you cannot see.
             - colour_map: style shorthands → one of: Red, White, Rosé, Orange,
               Sparkling, Dessert, Fortified (e.g. r→Red, w→White, sp→Sparkling).
             - format_unit: unit for bare numeric bottle sizes ("75" meaning 75cl → "cl").
@@ -234,6 +254,40 @@ class ClaudeClient
                 'carry' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::FIELDS]],
                 'section_regex' => ['type' => 'string'],
                 'section_field' => ['type' => 'string'],
+                'sections' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'properties' => [
+                            'regex' => ['type' => 'string'],
+                            'set' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'additionalProperties' => false,
+                                    'properties' => [
+                                        'field' => ['type' => 'string', 'enum' => self::FIELDS],
+                                        'value' => ['type' => 'string'],
+                                    ],
+                                    'required' => ['field', 'value'],
+                                ],
+                            ],
+                            'clears' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => self::FIELDS]],
+                            'skip' => ['type' => 'string', 'enum' => ['yes', 'no']],
+                        ],
+                        'required' => ['regex', 'set', 'clears', 'skip'],
+                    ],
+                ],
+                'pages' => [
+                    'type' => 'object',
+                    'additionalProperties' => false,
+                    'properties' => [
+                        'min' => ['type' => 'string'],
+                        'max' => ['type' => 'string'],
+                    ],
+                    'required' => ['min', 'max'],
+                ],
                 'colour_map' => [
                     'type' => 'array',
                     'items' => [
@@ -250,7 +304,7 @@ class ClaudeClient
                 'confidence' => ['type' => 'number'],
                 'notes' => ['type' => 'string'],
             ],
-            'required' => ['feasible', 'zones', 'row_regex', 'require', 'carry', 'section_regex', 'section_field', 'colour_map', 'format_unit', 'confidence', 'notes'],
+            'required' => ['feasible', 'zones', 'row_regex', 'require', 'carry', 'section_regex', 'section_field', 'sections', 'pages', 'colour_map', 'format_unit', 'confidence', 'notes'],
         ];
 
         $out = $this->call('derive_rules', $system, "Sample rows:\n\n".$renderedRows, $schema, $model, 4000);
@@ -264,6 +318,11 @@ class ClaudeClient
                 'carry' => $out['carry'] ?? [],
                 'section_regex' => (string) ($out['section_regex'] ?? ''),
                 'section_field' => (string) ($out['section_field'] ?? ''),
+                // Pair-shaped `set` and yes/no `skip` are normalised by
+                // PatternParseService::sanitise, so the recipe stores the
+                // model's output verbatim.
+                'sections' => $out['sections'] ?? [],
+                'pages' => $out['pages'] ?? [],
                 'colour_map' => $out['colour_map'] ?? [],
                 'format_unit' => (string) ($out['format_unit'] ?? ''),
             ],
