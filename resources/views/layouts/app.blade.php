@@ -102,7 +102,7 @@
                                     <a
                                         href="{{ route($item['route']) }}"
                                         wire:navigate
-                                        title="{{ $item['label'] }}"
+                                        x-bind:title="collapsed ? @js($item['label']) : false"
                                         x-bind:class="collapsed && 'lg:justify-center lg:px-0'"
                                         @class([
                                             'group relative flex items-center gap-3 rounded-md px-3 py-2 text-sm transition',
@@ -125,7 +125,7 @@
                                         <span x-bind:class="collapsed && 'lg:hidden'">{{ $item['label'] }}</span>
                                     </a>
                                 @else
-                                    <span class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/35" title="{{ $item['label'] }} (soon)" x-bind:class="collapsed && 'lg:justify-center lg:px-0'" aria-disabled="true">
+                                    <span class="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-sidebar-foreground/35" x-bind:title="collapsed ? @js($item['label'].' (soon)') : false" x-bind:class="collapsed && 'lg:justify-center lg:px-0'" aria-disabled="true">
                                         <x-dynamic-component :component="'icon.'.$item['icon']" class="size-5 shrink-0" />
                                         <span x-bind:class="collapsed && 'lg:hidden'">{{ $item['label'] }}</span>
                                         <span class="ml-auto font-mono text-[0.6rem] uppercase tracking-wider" x-bind:class="collapsed && 'lg:hidden'">soon</span>

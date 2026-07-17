@@ -52,8 +52,8 @@ $currentClasses = 'inline-flex h-9 min-w-9 items-center justify-center rounded-m
             {{-- Larger screens: result range + page buttons --}}
             <div class="hidden sm:block">
                 <p class="text-sm text-muted-foreground">
-                    Showing <span class="font-mono text-foreground">{{ number_format($paginator->firstItem()) }}</span>
-                    to <span class="font-mono text-foreground">{{ number_format($paginator->lastItem()) }}</span>
+                    Showing <span class="font-mono text-foreground">{{ number_format($paginator->firstItem() ?? 0) }}</span>
+                    to <span class="font-mono text-foreground">{{ number_format($paginator->lastItem() ?? 0) }}</span>
                     of <span class="font-mono text-foreground">{{ number_format($paginator->total()) }}</span>
                     results
                 </p>

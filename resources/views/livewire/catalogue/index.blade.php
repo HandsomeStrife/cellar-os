@@ -159,11 +159,11 @@
                 icon="wine"
                 :title="$hasConnections ? 'No wines found' : 'No suppliers connected yet'"
                 :message="$hasConnections
-                    ? 'Adjust your filters, or connect to more suppliers.'
-                    : 'Your catalogue shows wines from the suppliers you work with. Connect to a supplier to get started.'"
+                    ? 'Adjust your filters, or add more suppliers.'
+                    : 'Your catalogue shows wines from the suppliers you work with. Add a supplier to get started.'"
             >
                 @if(! $hasConnections)
-                    <x-button :href="route('suppliers')" wire:navigate variant="outline" size="sm"><x-icon.plus class="size-4" /> Find suppliers</x-button>
+                    <x-button :href="route('suppliers')" wire:navigate variant="outline" size="sm"><x-icon.plus class="size-4" /> Add a supplier</x-button>
                 @endif
             </x-empty-state>
         </x-card>
@@ -223,7 +223,7 @@
                  however many columns are on (the sticky cells need opaque
                  colour-mix backgrounds to mask rows scrolling beneath them). --}}
             @php($stickyHead = 'sticky right-0 z-10 bg-[color-mix(in_srgb,hsl(var(--secondary))_40%,hsl(var(--card)))]')
-            @php($stickyCell = 'sticky right-0 bg-card group-hover:bg-[color-mix(in_srgb,hsl(var(--accent))_40%,hsl(var(--card)))]')
+            @php($stickyCell = 'sticky right-0 bg-card group-hover/row:bg-[color-mix(in_srgb,hsl(var(--accent))_40%,hsl(var(--card)))]')
             <div class="hidden overflow-x-auto rounded-lg border border-border bg-card shadow-sm sm:block">
             <table class="w-full text-sm">
                 <thead class="border-b border-border bg-secondary/40">
@@ -254,7 +254,7 @@
                 <tbody class="divide-y divide-border">
                     @foreach($products as $product)
                         @php($fill = $enriched[$product->id] ?? [])
-                        <tr wire:key="product-{{ $product->id }}" class="group hover:bg-accent/40">
+                        <tr wire:key="product-{{ $product->id }}" class="group/row hover:bg-accent/40">
                             <td class="px-3 py-2.5">
                                 <button type="button" wire:click="showWine({{ $product->id }})" class="text-left font-medium text-foreground transition hover:text-primary">
                                     {{ $product->wine_name }}
@@ -491,7 +491,7 @@
                     </div>
                     <div class="flex items-start justify-between gap-4 py-2.5">
                         <dt class="shrink-0 text-muted-foreground">Sold by</dt>
-                        <dd class="text-right">{{ $detail->soldByCase() ? 'Case of '.$detail->case_size : 'Bottle' }} ({{ $detail->case_size }}/case)</dd>
+                        <dd class="text-right">{{ $detail->soldByCase() ? 'Case of '.$detail->case_size : 'Bottle ('.$detail->case_size.'/case)' }}</dd>
                     </div>
                     @if($detail->last_seen_at)
                         <div class="flex items-start justify-between gap-4 py-2.5">
@@ -504,7 +504,8 @@
         @endif
 
         <x-slot:footer>
-            <x-button variant="outline" wire:click="$set('showDetail', false)">Close</x-button>
+            {{-- Alpine-side close so the slide-out starts instantly, like the X / backdrop. --}}
+            <x-button type="button" variant="outline" x-on:click="open = false">Close</x-button>
             @if($detail)
                 <x-button wire:click="addToBasket({{ $detail->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $detail->id }})">
                     <x-icon.plus class="size-4" />
