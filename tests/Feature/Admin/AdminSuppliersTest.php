@@ -6,6 +6,7 @@ use App\Livewire\Admin\Suppliers;
 use App\Livewire\Admin\SupplierShow;
 use Domain\Admin\Models\Admin;
 use Domain\Company\Models\Company;
+use Domain\Supplier\Enums\SupplierDocumentStatus;
 use Domain\Supplier\Enums\SupplierTier;
 use Domain\Supplier\Jobs\AnalyseSupplierDocumentJob;
 use Domain\Supplier\Models\Supplier;
@@ -13,8 +14,10 @@ use Domain\Supplier\Models\SupplierDocument;
 use Domain\Supplier\Models\SupplierUser;
 use Domain\Supplier\Notifications\SupplierPasswordSetupNotification;
 use Domain\User\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 it('lets an admin create a supplier', function () {
@@ -47,6 +50,59 @@ it('adds a supplier user and emails an invite', function () {
         ->and($user->password)->toBeNull();
 
     Notification::assertSentTo($user, SupplierPasswordSetupNotification::class);
+});
+
+it('lets an admin upload a document for a supplier', function () {
+    Storage::fake('local');
+    $this->actingAs(Admin::factory()->create(), 'admin');
+    $supplier = Supplier::factory()->create();
+
+    Livewire::test(SupplierShow::class, ['uuid' => $supplier->uuid])
+        ->set('docTitle', 'Spring 2026 trade list')
+        ->set('docUpload', UploadedFile::fake()->create('trade-list.pdf', 512, 'application/pdf'))
+        ->call('uploadDocument')
+        ->assertHasNoErrors();
+
+    $document = SupplierDocument::where('supplier_id', $supplier->id)->first();
+    expect($document)->not->toBeNull()
+        ->and($document->title)->toBe('Spring 2026 trade list')
+        ->and($document->file_name)->toBe('trade-list.pdf')
+        ->and($document->status)->toBe(SupplierDocumentStatus::AwaitingAnalysis)
+        ->and($document->uploaded_by_supplier_user_id)->toBeNull()
+        ->and($document->uploaded_by_company_id)->toBeNull()
+        ->and($document->source_url)->toBeNull();
+
+    Storage::disk('local')->assertExists($document->storage_path);
+});
+
+it('records source tracking when an admin upload carries a published URL', function () {
+    Storage::fake('local');
+    $this->actingAs(Admin::factory()->create(), 'admin');
+    $supplier = Supplier::factory()->create();
+    $file = UploadedFile::fake()->createWithContent('list.csv', "wine,price\nMerlot,9.99\n");
+
+    Livewire::test(SupplierShow::class, ['uuid' => $supplier->uuid])
+        ->set('docSourceUrl', 'https://example.test/trade/list.csv')
+        ->set('docUpload', $file)
+        ->call('uploadDocument')
+        ->assertHasNoErrors();
+
+    $document = SupplierDocument::where('supplier_id', $supplier->id)->first();
+    expect($document->source_url)->toBe('https://example.test/trade/list.csv')
+        ->and($document->content_sha256)->toBe(hash('sha256', "wine,price\nMerlot,9.99\n"));
+});
+
+it('rejects an admin document upload with a disallowed extension', function () {
+    Storage::fake('local');
+    $this->actingAs(Admin::factory()->create(), 'admin');
+    $supplier = Supplier::factory()->create();
+
+    Livewire::test(SupplierShow::class, ['uuid' => $supplier->uuid])
+        ->set('docUpload', UploadedFile::fake()->create('malware.exe', 10))
+        ->call('uploadDocument')
+        ->assertHasErrors(['docUpload']);
+
+    expect(SupplierDocument::where('supplier_id', $supplier->id)->count())->toBe(0);
 });
 
 it('queues analysis for a document', function () {

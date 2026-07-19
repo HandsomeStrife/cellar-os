@@ -171,8 +171,31 @@
             </div>
         @endif
 
+        {{-- Admin upload: register a portfolio / price sheet directly, no portal
+             account needed. A published URL enrols it in the weekly refresh. --}}
+        <form wire:submit="uploadDocument" class="mb-4 rounded-lg border border-border bg-secondary/30 p-4">
+            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Upload a document</p>
+            <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                <x-input.text name="docTitle" label="Title (optional)" wire:model="docTitle" placeholder="e.g. Spring 2026 trade list" />
+                <x-input.text name="docSourceUrl" label="Published URL (optional)" wire:model="docSourceUrl" placeholder="https://…" hint="If the supplier publishes this list at a fixed URL, the weekly refresh will pick up new editions." />
+            </div>
+            <div class="mt-4 flex flex-wrap items-end gap-4">
+                <div class="min-w-64 flex-1">
+                    <x-input.label for="docUpload">File</x-input.label>
+                    <input type="file" id="docUpload" wire:model="docUpload"
+                        class="mt-1 block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90" />
+                    <p class="mt-1 text-xs text-muted-foreground">CSV, Excel or PDF, up to 20MB.</p>
+                    <x-input.error :messages="$errors->get('docUpload')" />
+                </div>
+                <x-button type="submit" wire:loading.attr="disabled" wire:target="docUpload, uploadDocument">
+                    <span wire:loading.remove wire:target="docUpload, uploadDocument"><x-icon.upload class="size-4" /> Upload</span>
+                    <span wire:loading wire:target="docUpload, uploadDocument">Uploading…</span>
+                </x-button>
+            </div>
+        </form>
+
         @if($documents->isEmpty())
-            <x-empty-state icon="file-text" title="No documents" message="This supplier hasn't uploaded any documents yet." />
+            <x-empty-state icon="file-text" title="No documents" message="Upload this supplier's price list above to get started." />
         @else
             <div class="overflow-x-auto rounded-lg border border-border">
                 <table class="w-full text-sm">

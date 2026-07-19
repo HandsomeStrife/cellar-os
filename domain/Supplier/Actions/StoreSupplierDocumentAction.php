@@ -26,6 +26,8 @@ class StoreSupplierDocumentAction extends AbstractAction
         string $storagePath,
         ?int $uploadedByCompanyId = null,
         ?int $uploadedByUserId = null,
+        ?string $sourceUrl = null,
+        ?string $contentSha256 = null,
     ): SupplierDocumentData {
         $document = SupplierDocument::create([
             'supplier_id' => $supplierId,
@@ -37,6 +39,10 @@ class StoreSupplierDocumentAction extends AbstractAction
             'file_type' => $fileType,
             'file_size' => $fileSize,
             'storage_path' => $storagePath,
+            // A source URL (with the stored copy's hash) enrols the document in
+            // the weekly published-list refresh, which SHA-gates re-downloads.
+            'source_url' => $sourceUrl,
+            'content_sha256' => $contentSha256,
             'status' => SupplierDocumentStatus::AwaitingAnalysis,
         ]);
 

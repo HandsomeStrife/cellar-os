@@ -14,6 +14,7 @@ use Domain\Supplier\Actions\DeleteSupplierUserAction;
 use Domain\Supplier\Actions\MakeSupplierPublicAction;
 use Domain\Supplier\Actions\MarkSupplierOnboardedAction;
 use Domain\Supplier\Actions\RecordCatalogueCommitAction;
+use Domain\Supplier\Actions\StoreSupplierDocumentAction;
 use Domain\Supplier\Actions\UpdateSupplierAction;
 use Domain\Supplier\Data\SupplierData;
 use Domain\Supplier\Enums\ParseMode;
@@ -33,11 +34,14 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 #[Layout('layouts.admin')]
 #[Title('Supplier')]
 class SupplierShow extends Component
 {
+    use WithFileUploads;
+
     public string $uuid = '';
 
     public ?int $supplierId = null;
@@ -229,6 +233,46 @@ class SupplierShow extends Component
         $this->ensureAdmin();
         (new MarkSupplierOnboardedAction)->execute($this->supplierId);
         $this->dispatch('toast', message: 'Supplier marked as onboarded.');
+    }
+
+    // Document upload (mirrors the portal/buyer flow; admin uploads are global
+    // scope — no uploader ids — so their parse profiles benefit every tenant).
+    #[Validate('nullable|string|max:255')]
+    public string $docTitle = '';
+
+    #[Validate('nullable|url|max:2048')]
+    public string $docSourceUrl = '';
+
+    #[Validate('required|file|mimes:csv,txt,xls,xlsx,pdf|max:20480')]
+    public $docUpload;
+
+    public function uploadDocument(): void
+    {
+        $this->ensureAdmin();
+        $this->validate([
+            'docTitle' => 'nullable|string|max:255',
+            'docSourceUrl' => 'nullable|url|max:2048',
+            'docUpload' => 'required|file|mimes:csv,txt,xls,xlsx,pdf|max:20480',
+        ]);
+
+        $path = $this->docUpload->store('supplier-documents', 'local');
+
+        (new StoreSupplierDocumentAction)->execute(
+            supplierId: $this->supplierId,
+            uploadedBySupplierUserId: null,
+            title: $this->docTitle ?: null,
+            fileName: $this->docUpload->getClientOriginalName(),
+            fileType: $this->docUpload->getMimeType(),
+            fileSize: $this->docUpload->getSize(),
+            storagePath: $path,
+            sourceUrl: $this->docSourceUrl ?: null,
+            // Hash the stored copy so the weekly refresh only re-ingests this
+            // source when the published file actually changes.
+            contentSha256: $this->docSourceUrl !== '' ? hash('sha256', $this->docUpload->get()) : null,
+        );
+
+        $this->reset(['docTitle', 'docSourceUrl', 'docUpload']);
+        $this->dispatch('toast', message: 'Document uploaded. Awaiting analysis.');
     }
 
     public function analyse(int $documentId): void
