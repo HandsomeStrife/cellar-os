@@ -255,20 +255,27 @@ class SupplierShow extends Component
             'docUpload' => 'required|file|mimes:csv,txt,xls,xlsx,pdf|max:20480',
         ]);
 
+        // Read everything BEFORE store(): Livewire 4 MOVES the temp file when
+        // the target is the same disk, so metadata reads after store() throw.
+        $file_name = $this->docUpload->getClientOriginalName();
+        $file_type = $this->docUpload->getMimeType();
+        $file_size = $this->docUpload->getSize();
+        // Hash the uploaded copy so the weekly refresh only re-ingests this
+        // source when the published file actually changes.
+        $sha = $this->docSourceUrl !== '' ? hash('sha256', $this->docUpload->get()) : null;
+
         $path = $this->docUpload->store('supplier-documents', 'local');
 
         (new StoreSupplierDocumentAction)->execute(
             supplierId: $this->supplierId,
             uploadedBySupplierUserId: null,
             title: $this->docTitle ?: null,
-            fileName: $this->docUpload->getClientOriginalName(),
-            fileType: $this->docUpload->getMimeType(),
-            fileSize: $this->docUpload->getSize(),
+            fileName: $file_name,
+            fileType: $file_type,
+            fileSize: $file_size,
             storagePath: $path,
             sourceUrl: $this->docSourceUrl ?: null,
-            // Hash the stored copy so the weekly refresh only re-ingests this
-            // source when the published file actually changes.
-            contentSha256: $this->docSourceUrl !== '' ? hash('sha256', $this->docUpload->get()) : null,
+            contentSha256: $sha,
         );
 
         $this->reset(['docTitle', 'docSourceUrl', 'docUpload']);

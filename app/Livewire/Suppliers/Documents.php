@@ -55,15 +55,21 @@ class Documents extends Component
         $companyId = $this->requireCompany();
         $this->validate();
 
+        // Read metadata BEFORE store(): Livewire 4 MOVES the temp file when
+        // the target is the same disk, so metadata reads after store() throw.
+        $file_name = $this->upload->getClientOriginalName();
+        $file_type = $this->upload->getMimeType();
+        $file_size = $this->upload->getSize();
+
         $path = $this->upload->store('supplier-documents', 'local');
 
         (new StoreSupplierDocumentAction)->execute(
             supplierId: $this->supplierId,
             uploadedBySupplierUserId: null,
             title: $this->docTitle ?: null,
-            fileName: $this->upload->getClientOriginalName(),
-            fileType: $this->upload->getMimeType(),
-            fileSize: $this->upload->getSize(),
+            fileName: $file_name,
+            fileType: $file_type,
+            fileSize: $file_size,
             storagePath: $path,
             uploadedByCompanyId: $companyId,
             uploadedByUserId: $user?->id,

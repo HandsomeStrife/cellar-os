@@ -33,15 +33,21 @@ class Documents extends Component
         $supplierUser = (new SupplierUserRepository)->getLoggedInSupplierUser();
         abort_if($supplierUser === null, 403);
 
+        // Read metadata BEFORE store(): Livewire 4 MOVES the temp file when
+        // the target is the same disk, so metadata reads after store() throw.
+        $file_name = $this->upload->getClientOriginalName();
+        $file_type = $this->upload->getMimeType();
+        $file_size = $this->upload->getSize();
+
         $path = $this->upload->store('supplier-documents', 'local');
 
         (new StoreSupplierDocumentAction)->execute(
             supplierId: $supplierUser->supplier_id,
             uploadedBySupplierUserId: $supplierUser->id,
             title: $this->title ?: null,
-            fileName: $this->upload->getClientOriginalName(),
-            fileType: $this->upload->getMimeType(),
-            fileSize: $this->upload->getSize(),
+            fileName: $file_name,
+            fileType: $file_type,
+            fileSize: $file_size,
             storagePath: $path,
         );
 
