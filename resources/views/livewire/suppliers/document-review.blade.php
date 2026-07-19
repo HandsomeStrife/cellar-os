@@ -57,7 +57,30 @@
                     <x-badge color="gray">{{ $counts['rejected'] ?? 0 }} rejected</x-badge>
                 </div>
                 @if($canCommit)
-                    <x-button wire:click="approveAll" wire:confirm="Add all proposed wines to your catalogue?" class="w-full" size="sm">Approve all proposed</x-button>
+                    @php($bulkActive = in_array($bulkProgress['state'] ?? null, ['queued', 'running'], true))
+                    @if($bulkActive)
+                        {{-- Poll while the queued approval runs; the counts above refresh with it. --}}
+                        <div wire:poll.2s class="flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                            <x-icon.loader-circle class="size-4 shrink-0 animate-spin text-primary" />
+                            <span>
+                                Approving…
+                                @if(($bulkProgress['total'] ?? null) !== null)
+                                    <span class="font-mono">{{ $bulkProgress['approved'] ?? 0 }}/{{ $bulkProgress['total'] }}</span>
+                                @endif
+                            </span>
+                        </div>
+                    @elseif(($bulkProgress['state'] ?? null) === 'done')
+                        <div class="flex items-center justify-between gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs">
+                            <span class="flex items-center gap-1.5 text-foreground"><x-icon.circle-check class="size-4 shrink-0 text-primary" /> {{ $bulkProgress['approved'] ?? 0 }} wine(s) added to your catalogue.</span>
+                            <button type="button" wire:click="dismissBulkProgress" class="text-muted-foreground transition hover:text-foreground" aria-label="Dismiss"><x-icon.x class="size-4" /></button>
+                        </div>
+                    @elseif(($bulkProgress['state'] ?? null) === 'failed')
+                        <div class="flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs">
+                            <span class="text-destructive">Bulk approval failed: {{ $bulkProgress['message'] ?? 'unknown error' }}</span>
+                            <button type="button" wire:click="dismissBulkProgress" class="text-muted-foreground transition hover:text-foreground" aria-label="Dismiss"><x-icon.x class="size-4" /></button>
+                        </div>
+                    @endif
+                    <x-button wire:click="approveAll" wire:confirm="Add all proposed wines to your catalogue?" class="w-full" size="sm" :disabled="$bulkActive">Approve all proposed</x-button>
                 @else
                     <p class="text-xs text-muted-foreground">This supplier's shared catalogue is managed centrally, so parsed wines here are review-only.</p>
                 @endif

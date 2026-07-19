@@ -15,7 +15,11 @@ use Domain\Supplier\Models\ParsedWine;
  */
 class ApproveAllForDocumentAction extends AbstractAction
 {
-    public function execute(int $documentId, bool $skipFlagged = false): int
+    /**
+     * @param  callable(int): void|null  $onProgress  Called with the running
+     *                                                approved count after each chunk.
+     */
+    public function execute(int $documentId, bool $skipFlagged = false, ?callable $onProgress = null): int
     {
         $approve = new ApproveParsedWineAction;
         $count = 0;
@@ -24,7 +28,7 @@ class ApproveAllForDocumentAction extends AbstractAction
             ->where('status', ParsedWineStatus::Proposed->value)
             ->when($skipFlagged, fn ($q) => $q->whereNull('flag'))
             ->orderBy('id')
-            ->chunkById(200, function ($rows) use ($approve, &$count) {
+            ->chunkById(200, function ($rows) use ($approve, &$count, $onProgress) {
                 foreach ($rows as $row) {
                     // Policy: never bulk-commit a price-less wine. We don't carry
                     // catalogue data without a price — unpriced lists are sourced
@@ -36,6 +40,10 @@ class ApproveAllForDocumentAction extends AbstractAction
 
                     $approve->execute($row->id);
                     $count++;
+                }
+
+                if ($onProgress !== null) {
+                    $onProgress($count);
                 }
             });
 

@@ -6,7 +6,6 @@ namespace App\Livewire\Suppliers;
 
 use App\Livewire\Concerns\WithTenant;
 use Domain\Catalogue\Enums\WineColour;
-use Domain\Supplier\Actions\ApproveAllForDocumentAction;
 use Domain\Supplier\Actions\ApproveParsedWineAction;
 use Domain\Supplier\Actions\RefineParseProfileAction;
 use Domain\Supplier\Actions\RejectParsedWineAction;
@@ -14,10 +13,12 @@ use Domain\Supplier\Actions\UpdateParsedWineAction;
 use Domain\Supplier\Data\ParsedWineData;
 use Domain\Supplier\Enums\ParseMode;
 use Domain\Supplier\Jobs\AnalyseSupplierDocumentJob;
+use Domain\Supplier\Jobs\ApproveAllForDocumentJob;
 use Domain\Supplier\Repositories\ParsedWineRepository;
 use Domain\Supplier\Repositories\SupplierDocumentRepository;
 use Domain\Supplier\Repositories\SupplierParseProfileRepository;
 use Domain\Supplier\Repositories\SupplierRepository;
+use Domain\Supplier\Support\BulkApprovalProgress;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
@@ -108,8 +109,24 @@ class DocumentReview extends Component
     {
         $this->guardDocument();
         $this->guardCanCommit();
-        $count = (new ApproveAllForDocumentAction)->execute($this->documentId);
-        $this->dispatch('toast', message: "{$count} wine(s) added to your catalogue.");
+
+        // A 6k-row approval is far too heavy for one request — queue it and
+        // let the progress panel poll. Refuse a duplicate while one is live.
+        if (BulkApprovalProgress::isActive($this->documentId)) {
+            $this->dispatch('toast', message: 'A bulk approval is already running for this document.');
+
+            return;
+        }
+
+        BulkApprovalProgress::queued($this->documentId);
+        ApproveAllForDocumentJob::dispatch($this->documentId);
+        $this->dispatch('toast', message: 'Approval started — wines are being added in the background.');
+    }
+
+    public function dismissBulkProgress(): void
+    {
+        $this->guardDocument();
+        BulkApprovalProgress::clear($this->documentId);
     }
 
     public function saveRecipe(): void
@@ -259,6 +276,7 @@ class DocumentReview extends Component
             ),
             'canCommit' => $supplier !== null && $supplier->created_by_company_id === $this->currentUser()?->company_id,
             'colours' => WineColour::cases(),
+            'bulkProgress' => BulkApprovalProgress::get($this->documentId),
         ]);
     }
 }

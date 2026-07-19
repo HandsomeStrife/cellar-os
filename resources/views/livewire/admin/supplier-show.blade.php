@@ -197,7 +197,9 @@
         @if($documents->isEmpty())
             <x-empty-state icon="file-text" title="No documents" message="Upload this supplier's price list above to get started." />
         @else
-            <div class="overflow-x-auto rounded-lg border border-border">
+            @php($anyBulkActive = collect($bulkProgress)->contains(fn ($p) => in_array($p['state'] ?? null, ['queued', 'running'], true)))
+            {{-- Poll only while a queued approval is running for one of these documents. --}}
+            <div @if($anyBulkActive) wire:poll.3s @endif class="overflow-x-auto rounded-lg border border-border">
                 <table class="w-full text-sm">
                     <thead class="border-b border-border bg-secondary/40">
                         <tr>
@@ -220,6 +222,31 @@
                                     @if(($pc['proposed'] ?? 0) + ($pc['approved'] ?? 0) > 0)
                                         <p class="mt-1 text-xs text-muted-foreground">{{ $pc['proposed'] ?? 0 }} proposed · {{ $pc['approved'] ?? 0 }} approved</p>
                                     @endif
+                                    @php($bp = $bulkProgress[$document->id] ?? null)
+                                    @if(in_array($bp['state'] ?? null, ['queued', 'running'], true))
+                                        <p class="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                                            <x-icon.loader-circle class="size-3.5 shrink-0 animate-spin text-primary" />
+                                            Approving…
+                                            @if(($bp['total'] ?? null) !== null)
+                                                <span class="font-mono">{{ $bp['approved'] ?? 0 }}/{{ $bp['total'] }}</span>
+                                            @endif
+                                        </p>
+                                    @elseif(($bp['state'] ?? null) === 'done')
+                                        <p class="mt-1 flex items-center gap-1.5 text-xs text-foreground">
+                                            <x-icon.circle-check class="size-3.5 shrink-0 text-primary" />
+                                            {{ $bp['approved'] ?? 0 }} wine(s) committed.
+                                            <button type="button" wire:click="dismissBulkProgress({{ $document->id }})" class="text-muted-foreground transition hover:text-foreground" aria-label="Dismiss">
+                                                <x-icon.x class="size-3.5" />
+                                            </button>
+                                        </p>
+                                    @elseif(($bp['state'] ?? null) === 'failed')
+                                        <p class="mt-1 flex items-center gap-1.5 text-xs text-destructive">
+                                            Bulk approval failed: {{ $bp['message'] ?? 'unknown error' }}
+                                            <button type="button" wire:click="dismissBulkProgress({{ $document->id }})" class="text-muted-foreground transition hover:text-foreground" aria-label="Dismiss">
+                                                <x-icon.x class="size-3.5" />
+                                            </button>
+                                        </p>
+                                    @endif
                                     @if($document->analysed_at)
                                         <p class="mt-0.5 text-xs text-muted-foreground">Last analysed {{ $document->analysed_at->format('j M Y, H:i') }}</p>
                                     @endif
@@ -233,7 +260,7 @@
                                     <div class="flex items-center justify-end gap-1">
                                         <x-button wire:click="analyse({{ $document->id }})" variant="outline" size="sm">Analyse</x-button>
                                         @if(($pc['proposed'] ?? 0) > 0)
-                                            <x-button wire:click="approveDocument({{ $document->id }})" wire:confirm="Add all proposed wines to the catalogue?" size="sm">Approve all</x-button>
+                                            <x-button wire:click="approveDocument({{ $document->id }})" wire:confirm="Add all proposed wines to the catalogue?" size="sm" :disabled="in_array($bp['state'] ?? null, ['queued', 'running'], true)">Approve all</x-button>
                                         @endif
                                         <x-button :href="route('admin.supplier-documents.download', $document->id)" variant="ghost" size="sm" aria-label="Download">
                                             <x-icon.download class="size-4" />
