@@ -52,6 +52,7 @@ it('un-archives a wine that reappears in a later edition', function () {
     $product = Product::factory()->create([
         'supplier_id' => $supplier->id,
         'wine_name' => 'Chablis',
+        'producer' => 'Test Producer', // matches wineData()'s producer — part of the identity key
         'vintage' => 2020,
         'format_ml' => 750,
         'archived_at' => now()->subWeek(),
@@ -104,4 +105,41 @@ it('hides archived wines from browse, search, map and counts but not direct look
         // Direct lookups keep working so inventory/order references render.
         ->and($repo->findByUuid($archived->uuid))->not->toBeNull()
         ->and($repo->findMany([$archived->id]))->toHaveCount(1);
+});
+
+it('does not blank an existing grape/attribute when a re-import omits it', function () {
+    $supplier = Supplier::factory()->create();
+
+    // First import knows the grape and region.
+    (new UpsertProductAction)->execute(wineData($supplier->id, 'Zold', [
+        'grape' => ['Sylvaner'],
+        'region' => 'Rheinhessen',
+        'colour' => 'Orange',
+    ]));
+
+    // A later edition lists the same wine with a sparser row (no grape/region).
+    (new UpsertProductAction)->execute(wineData($supplier->id, 'Zold', [
+        'grape' => null,
+        'region' => null,
+        'colour' => null,
+        'unit_price' => '13.50', // price genuinely changed — must take the new value
+    ]));
+
+    $product = Product::where('supplier_id', $supplier->id)->where('wine_name', 'Zold')->firstOrFail();
+
+    expect($product->grape)->toBe(['Sylvaner'])
+        ->and($product->region)->toBe('Rheinhessen')
+        ->and($product->colour->value)->toBe('Orange')
+        ->and((string) $product->unit_price)->toBe('13.50'); // price DID update
+});
+
+it('overwrites an attribute when the re-import provides a new value', function () {
+    $supplier = Supplier::factory()->create();
+
+    (new UpsertProductAction)->execute(wineData($supplier->id, 'Zold', ['grape' => ['Sylvaner']]));
+    (new UpsertProductAction)->execute(wineData($supplier->id, 'Zold', ['grape' => ['Riesling']]));
+
+    $product = Product::where('supplier_id', $supplier->id)->where('wine_name', 'Zold')->firstOrFail();
+
+    expect($product->grape)->toBe(['Riesling']);
 });

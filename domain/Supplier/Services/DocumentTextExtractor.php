@@ -58,6 +58,81 @@ class DocumentTextExtractor
     }
 
     /**
+     * OCR pages [$from, $to] by rendering each to a PNG (poppler pdftoppm) and
+     * reading it with tesseract. This is the escape hatch for PDFs whose text
+     * layer is scrambled/reordered but whose VISUAL layout is clean — rendering
+     * to pixels and OCR-ing recovers the intended reading order (poppler's
+     * pdftotext follows the corrupt content-stream order instead). Slow, so it
+     * is reserved for that specific case (e.g. the producer-grid half of the
+     * Les Caves list, whose grape column survives nowhere else).
+     *
+     * @return array<int, string> page number (1-indexed) => OCR text
+     */
+    public function ocrPages(string $absolutePath, int $from, int $to, int $dpi = 300): array
+    {
+        $from = max(1, $from);
+        $to = max($from, $to);
+
+        $dir = sys_get_temp_dir().'/cellaros-ocr-'.bin2hex(random_bytes(6));
+        if (! mkdir($dir) && ! is_dir($dir)) {
+            throw new RuntimeException('Could not create a temp directory for OCR rendering.');
+        }
+
+        try {
+            $render = new Process([
+                'pdftoppm', '-png', '-r', (string) $dpi,
+                '-f', (string) $from, '-l', (string) $to,
+                $absolutePath, $dir.'/pg',
+            ]);
+            $render->setTimeout(600);
+            $render->run();
+
+            if (! $render->isSuccessful()) {
+                throw new RuntimeException('pdftoppm failed while rendering pages for OCR: '.trim($render->getErrorOutput()));
+            }
+
+            $texts = [];
+            foreach (glob($dir.'/pg-*.png') ?: [] as $png) {
+                // pdftoppm names files pg-<zero-padded-page>.png.
+                if (! preg_match('/pg-0*(\d+)\.png$/', $png, $m)) {
+                    continue;
+                }
+
+                $ocr = new Process([
+                    'tesseract', $png, 'stdout',
+                    '--psm', '4', '-c', 'preserve_interword_spaces=1',
+                ]);
+                $ocr->setTimeout(300);
+                $ocr->run();
+
+                if ($ocr->isSuccessful()) {
+                    $texts[(int) $m[1]] = $ocr->getOutput();
+                }
+            }
+
+            ksort($texts);
+
+            return $texts;
+        } finally {
+            foreach (glob($dir.'/*') ?: [] as $file) {
+                @unlink($file);
+            }
+            @rmdir($dir);
+        }
+    }
+
+    /**
+     * Is tesseract available? OCR enrichment is skipped (not fatal) without it.
+     */
+    public function hasOcr(): bool
+    {
+        $process = new Process(['tesseract', '--version']);
+        $process->run();
+
+        return $process->isSuccessful();
+    }
+
+    /**
      * Coordinate-aware extraction for pattern parsing (pdftotext -bbox-layout).
      *
      * Poppler's <line> elements are the document's logical text runs — in a

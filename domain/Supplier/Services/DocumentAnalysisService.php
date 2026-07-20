@@ -45,6 +45,7 @@ class DocumentAnalysisService
         private NormaliseService $normalise = new NormaliseService,
         private SupplierParseProfileRepository $profiles = new SupplierParseProfileRepository,
         private PatternParseService $pattern = new PatternParseService,
+        private ClassifiedPriceListParser $classified = new ClassifiedPriceListParser,
     ) {}
 
     /**
@@ -150,6 +151,10 @@ class DocumentAnalysisService
 
         $strategy = $recipe['strategy'] ?? (isset($recipe['rules']) ? 'pattern' : 'llm');
 
+        if ($strategy === 'classified') {
+            return $this->analyseClassified($document, $path, $pages, $recipe, $confidence, $recipeChanged, $model);
+        }
+
         if ($strategy === 'pattern') {
             $result = $this->patternParse($document, $path, $pages, $recipe, $confidence);
 
@@ -206,6 +211,64 @@ class DocumentAnalysisService
     }
 
     /**
+     * Parse a "CLASSIFIED PRICE CHECK" document: the clean, price-sorted index
+     * gives complete coverage + exact prices for $0; the producer-grid half is
+     * OCR'd only to recover the grape column (which the index omits) and merged
+     * on. Deterministic — reruns on the weekly refresh cost nothing but the OCR.
+     *
+     * @param  array<string, mixed>  $recipe
+     * @return array{mode: string, stored: int, preview: bool, notes: string}
+     */
+    private function analyseClassified(SupplierDocumentData $document, string $path, int $pages, array $recipe, float $confidence, bool $recipeChanged, ?string $model): array
+    {
+        $layout = $this->extractor->pageText($path, 1, $pages);
+        $backbone = $this->classified->parseIndex($layout);
+
+        if ($backbone === []) {
+            throw new RuntimeException('The classified price-check index could not be parsed (no priced rows found).');
+        }
+
+        // The producer grid is everything before the index; OCR it for grape.
+        $enriched = 0;
+        $ocrNote = '';
+        $offset = mb_strpos($layout, '- CLASSIFIED');
+        $indexStartPage = $offset === false ? 1 : substr_count(mb_substr($layout, 0, $offset), "\f") + 1;
+
+        if ($indexStartPage > 1 && $this->extractor->hasOcr()) {
+            $ocr = $this->extractor->ocrPages($path, 1, $indexStartPage - 1);
+            $grid = $this->classified->extractGridGrapes($ocr);
+            $merged = $this->classified->mergeGrapes($backbone, $grid);
+            $backbone = $merged['rows'];
+            $enriched = $merged['enriched'];
+            $ocrNote = " Grape enriched on {$enriched} wine(s) from the producer grid.";
+        } elseif ($indexStartPage > 1) {
+            $ocrNote = ' Grape enrichment skipped (OCR unavailable).';
+        }
+
+        $proposed = [];
+        foreach ($backbone as $row) {
+            $product = $this->normalise->toProductData($row['fields'], $this->identityMapping(), $document->supplier_id);
+            $checked = $this->vet($product, $confidence);
+
+            if ($checked !== null) {
+                $checked['source_ref'] = $row['page'] !== null ? 'p'.$row['page'] : null;
+                $proposed[] = $checked;
+            }
+        }
+
+        $this->persist($document, ParseMode::Document, $recipe, $confidence, $proposed, $model, $recipeChanged);
+
+        return $this->summary(
+            ParseMode::Document,
+            $proposed,
+            false,
+            "Parsed the classified price-check index across {$pages} page(s) deterministically (no extraction tokens).".$ocrNote,
+            $model,
+            'classified',
+        );
+    }
+
+    /**
      * Study an unseen document once: try to derive machine rules (pattern
      * strategy — re-parses become free); fall back to an LLM-extraction
      * profile when the layout defeats deterministic parsing.
@@ -214,6 +277,17 @@ class DocumentAnalysisService
      */
     private function study(string $path, int $pages, ?string $model): array
     {
+        // A "CLASSIFIED PRICE CHECK" index (Les Caves format) parses for free
+        // and completely from its clean text layer — prefer it over both the
+        // pattern and LLM paths, which would otherwise chew the document's
+        // scrambled producer-grid half and drop wines.
+        if ($this->classified->looksClassified($this->extractor->pageText($path, 1, $pages))) {
+            return [
+                ['strategy' => 'classified', 'notes' => 'Classified price-check index: deterministic parse of the clean index, grape enriched from the producer grid via OCR.'],
+                0.9,
+            ];
+        }
+
         // Sample coordinate rows from the document's BODY (monster lists
         // front-load contents/index pages that look nothing like the listing).
         $mid = max(1, intdiv($pages, 2));

@@ -122,9 +122,12 @@ it('processes a changed edition: refreshes kept wines, adds new ones, archives d
         'status' => SupplierDocumentStatus::Analysed->value,
     ]);
 
+    // producer is null: the refresh CSV below has no producer column, so the
+    // re-import identity (name+null-producer+vintage+format) must match $kept.
     $kept = Product::factory()->create([
         'supplier_id' => $supplier->id,
         'wine_name' => 'Chablis Premier Cru',
+        'producer' => null,
         'vintage' => 2022,
         'format_ml' => 750,
         'unit_price' => '15.00',
@@ -133,6 +136,7 @@ it('processes a changed edition: refreshes kept wines, adds new ones, archives d
     $dropped = Product::factory()->create([
         'supplier_id' => $supplier->id,
         'wine_name' => 'Discontinued Barolo',
+        'producer' => null,
         'vintage' => 2018,
         'format_ml' => 750,
         'source_document_id' => $oldDoc->id,
