@@ -35,9 +35,22 @@ function classifiedFixture(): string
         '                                     SPARKLING WINES',
         '      NV      Pet Nat Red, Ancre Hill Estates - Monmouthshire, Wales             SPARKLING WINES - CLASSIFIED',
         '                                                                                 £16.50    LIST',
+        '                                     ROSÉ WINES',
+        '      2023    Bandol Rosé, Château de Pibarnon - Provence, France                ROSÉ WINES - CLASSIFIED',
+        '                                                                                 £30.05 LIST',
         '                                     MAGNUMS',
         '      2021    Some Big Bottle, A Producer - Rhone, France                        MAGNUMS - CLASSIFIED',
         '                                                                                 £48.00LIST    150.00cl    13.00%',
+        // A sizeless magnum of the SAME wine as a 750ml bottle above — must NOT
+        // collapse onto it (that was the price-overwrite bug).
+        '      2023    Chardonnay, Ancre Hill - Monmouthshire, Wales                      MAGNUMS - CLASSIFIED',
+        '                                                                                 £40.20',
+        '                                     HALF BOTTLES',
+        '      2022    Little Red, Some Grower - Loire, France                            HALF BOTTLES - CLASSIFIED LIST',
+        '                                                                                 £6.50',
+        '                                     BAG-IN-BOX',
+        '      2024    Le Lesc Blanc, Côtes de Gascogne - South-West France - 10 Litre BIB    BAG-IN-BOX - CLASSIFIED',
+        '                                                                                 £79.35',
     ]);
 }
 
@@ -54,21 +67,26 @@ it('detects classification by a run of per-row tags without the heading', functi
 it('parses the index and ignores the producer-grid lines before it', function () {
     $rows = $this->parser->parseIndex(classifiedFixture());
 
-    // 3 whites (one is non-alcoholic → dropped), 1 red, 1 sparkling, 1 magnum = 5.
-    expect($rows)->toHaveCount(5);
+    // whites: Le Lesc, Chardonnay (Substance/s dropped as non-alcoholic);
+    // red: Pinot Noir; sparkling: Pet Nat Red; rosé: Bandol Rosé;
+    // magnums: Some Big Bottle + Chardonnay magnum; half: Little Red; BIB: Le Lesc Blanc = 9.
+    expect($rows)->toHaveCount(9);
 
     $names = array_map(fn ($r) => $r['fields']['wine_name'], $rows);
-    expect($names)->toContain('Le Lesc', 'Chardonnay', 'Pinot Noir', 'Pet Nat Red')
+    expect($names)->toContain('Le Lesc', 'Chardonnay', 'Pinot Noir', 'Pet Nat Red', 'Bandol Rosé')
         ->not->toContain('Substance/s'); // non-alcoholic excluded
-    // The identical grid line before the heading must not double-count.
-    expect(array_filter($names, fn ($n) => $n === 'Chardonnay'))->toHaveCount(1);
+    // The grid Chardonnay line before the heading must not double-count, but the
+    // index's own bottle + magnum Chardonnay are two distinct rows.
+    expect(array_filter($names, fn ($n) => $n === 'Chardonnay'))->toHaveCount(2);
 });
 
 it('derives colour from the style tag and reads exact prices', function () {
-    $rows = collect($this->parser->parseIndex(classifiedFixture()))
-        ->keyBy(fn ($r) => $r['fields']['wine_name']);
+    $rows = collect($this->parser->parseIndex(classifiedFixture()));
+    $find = fn (string $name, ?string $price = null) => $rows->first(
+        fn ($r) => $r['fields']['wine_name'] === $name && ($price === null || ($r['fields']['unit_price'] ?? null) === $price)
+    )['fields'];
 
-    expect($rows['Chardonnay']['fields'])
+    expect($find('Chardonnay', '20.10'))
         ->colour->toBe('White')
         ->unit_price->toBe('20.10')
         ->producer->toBe('Ancre Hill')
@@ -76,10 +94,39 @@ it('derives colour from the style tag and reads exact prices', function () {
         ->country->toBe('Wales')
         ->vintage->toBe('2023');
 
-    expect($rows['Pinot Noir']['fields']['colour'])->toBe('Red');
-    expect($rows['Pet Nat Red']['fields']['colour'])->toBe('Sparkling');
+    expect($find('Pinot Noir')['colour'])->toBe('Red');
+    expect($find('Pet Nat Red')['colour'])->toBe('Sparkling');
     // Format buckets carry no colour — left for backfill.
-    expect($rows['Some Big Bottle']['fields'])->not->toHaveKey('colour');
+    expect($find('Some Big Bottle'))->not->toHaveKey('colour');
+});
+
+it('sizes format-section rows so they do not collide with the 750ml bottle', function () {
+    $byName = collect($this->parser->parseIndex(classifiedFixture()))
+        ->groupBy(fn ($r) => $r['fields']['wine_name']);
+
+    // The sizeless magnum keeps the magnum price AND a magnum size (150cl →
+    // 1500ml via NormaliseService) so it never overwrites the £20.10 bottle.
+    $chards = $byName['Chardonnay'];
+    expect($chards)->toHaveCount(2);
+    $bottle = $chards->firstWhere(fn ($r) => ($r['fields']['unit_price'] ?? null) === '20.10');
+    $magnum = $chards->firstWhere(fn ($r) => ($r['fields']['unit_price'] ?? null) === '40.20');
+    expect($bottle)->not->toBeNull()
+        ->and($magnum['fields']['format_ml'])->toBe('150cl');
+
+    // Sizeless half-bottle → 37.5cl.
+    expect($byName['Little Red'][0]['fields']['format_ml'])->toBe('37.5cl');
+
+    // Rosé section → Rosé colour.
+    expect($byName['Bandol Rosé'][0]['fields']['colour'])->toBe('Rosé');
+});
+
+it('reads a bag-in-box size from the name and keeps it out of the country', function () {
+    $row = collect($this->parser->parseIndex(classifiedFixture()))
+        ->firstWhere(fn ($r) => $r['fields']['wine_name'] === 'Le Lesc Blanc');
+
+    expect($row['fields']['format_ml'])->toBe('1000cl') // 10 Litre
+        ->and($row['fields']['country'])->toBe('South-West France')
+        ->and($row['fields']['country'])->not->toContain('BIB');
 });
 
 it('parses a price line that has no size/abv (sparkling shape)', function () {

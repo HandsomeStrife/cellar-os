@@ -28,19 +28,32 @@ class ClassifiedPriceListParser
         'RED WINES' => 'Red',
         'WHITE WINES' => 'White',
         'SPARKLING WINES' => 'Sparkling',
+        'ROSÉ WINES' => 'Rosé',
+        'ROSE WINES' => 'Rosé',
         'ORANGE/SKIN CONTACT' => 'Orange',
         'ORANGE/SKIN CONTACT WINES' => 'Orange',
         'SWEET WINES' => 'White',
         'SHERRY' => 'Fortified',
+        'SHERRY-STYLE' => 'Fortified',
         'VERMOUTH' => 'Fortified',
         'OTHER FORTIFIED WINES' => 'Fortified',
     ];
 
-    /** Style tags that carry no colour (format buckets) — colour left to backfill. */
-    private const FORMAT_TAGS = ['MAGNUMS', 'HALF BOTTLES', 'KEG/KEYKEGS', 'BOX', 'STYLE', 'WINES'];
+    /**
+     * Bottle size (in cl, for NormaliseService) implied by a format-only
+     * section whose price line omits the size. Without this the row defaults to
+     * 750ml and collides with the standard bottle, overwriting its price — the
+     * magnum/half-bottle price would land on the 750ml wine.
+     */
+    private const FORMAT_CL_BY_TAG = [
+        'MAGNUMS' => '150cl',       // 1500ml
+        'HALF BOTTLES' => '37.5cl', // 375ml
+    ];
 
-    /** The union of every recognised style tag, for the row/section regex. */
-    private const TAG_ALTERNATION = 'RED WINES|WHITE WINES|SPARKLING WINES|ORANGE/SKIN CONTACT WINES|ORANGE/SKIN CONTACT|SWEET WINES|OTHER FORTIFIED WINES|SHERRY|VERMOUTH|MAGNUMS|HALF BOTTLES|KEG/KEYKEGS|CIDERS/PERRIES|SAKE|BITTER|BOX|STYLE|WINES';
+    /** The union of every recognised style tag, for the row/section regex.
+     * Order matters: longer/more-specific tags precede their prefixes
+     * (SHERRY-STYLE before SHERRY, the *-WINES variants before bare WINES). */
+    private const TAG_ALTERNATION = 'RED WINES|WHITE WINES|SPARKLING WINES|ROSÉ WINES|ROSE WINES|ORANGE/SKIN CONTACT WINES|ORANGE/SKIN CONTACT|SWEET WINES|OTHER FORTIFIED WINES|SHERRY-STYLE|SHERRY|VERMOUTH|MAGNUMS|HALF BOTTLES|BAG-IN-BOX|KEG/KEYKEGS|POLYKEGS|CIDERS/PERRIES|SAKE|BITTER|BOX|STYLE|WINES';
 
     /**
      * Does this document contain a classified price-check section? Cheap
@@ -72,8 +85,9 @@ class ClassifiedPriceListParser
         // `#` delimiter: the tag alternation contains slashes (ORANGE/SKIN,
         // KEG/KEYKEGS) that would otherwise close a `/`-delimited pattern.
         $tag = self::TAG_ALTERNATION;
-        $nameRe = '#^\s*(?:[A-Z]{1,3}\s+)?((?:19|20)\d{2}|NV)\s+(.+?)(?:\s{3,}('.$tag.')(?:\s*-\s*CLASSIFIED)?\s*)?$#u';
-        $sectionRe = '#^\s*('.$tag.')\s*-?\s*CLASSIFIED?\s*$#u';
+        // Some tags read "… - CLASSIFIED LIST" rather than "… - CLASSIFIED".
+        $nameRe = '#^\s*(?:[A-Z]{1,3}\s+)?((?:19|20)\d{2}|NV)\s+(.+?)(?:\s{3,}('.$tag.')(?:\s*-\s*CLASSIFIED(?:\s+LIST)?)?\s*)?$#u';
+        $sectionRe = '#^\s*('.$tag.')\s*-?\s*CLASSIFIED?(?:\s+LIST)?\s*$#u';
 
         $page = 1;
         $pageOfLine = [];
@@ -136,6 +150,26 @@ class ClassifiedPriceListParser
             return null;
         }
 
+        $tagKey = $tag !== null ? mb_strtoupper(trim($tag)) : null;
+
+        // Bottle size: an explicit "cl" on the price line wins; else a
+        // "N Litre" hint in the name (bag-in-box / keg); else the size implied
+        // by a format-only section (magnum / half). Getting this right is what
+        // stops a magnum/half row from collapsing onto the 750ml bottle and
+        // overwriting its price.
+        $formatMl = null;
+        if (isset($priceMatch[2]) && $priceMatch[2] !== '') {
+            $formatMl = $priceMatch[2].'cl';
+        } elseif (preg_match('/(\d+(?:\.\d+)?)\s*Litre/iu', $descriptor, $lm)) {
+            $formatMl = (((float) $lm[1]) * 100).'cl';
+        } elseif ($tagKey !== null && isset(self::FORMAT_CL_BY_TAG[$tagKey])) {
+            $formatMl = self::FORMAT_CL_BY_TAG[$tagKey];
+        }
+
+        // Strip a trailing "- N Litre BIB/KEG …" size hint so it never lands in
+        // the country column.
+        $descriptor = preg_replace('/\s*-\s*\d+(?:\.\d+)?\s*Litre\b.*$/iu', '', $descriptor) ?? $descriptor;
+
         [$name, $producer, $region, $country] = $this->splitDescriptor($descriptor);
 
         if ($name === '') {
@@ -157,11 +191,10 @@ class ClassifiedPriceListParser
         if ($country !== null) {
             $fields['country'] = $country;
         }
-        if (isset($priceMatch[2]) && $priceMatch[2] !== '') {
-            $fields['format_ml'] = $priceMatch[2].'cl';
+        if ($formatMl !== null) {
+            $fields['format_ml'] = $formatMl;
         }
 
-        $tagKey = $tag !== null ? mb_strtoupper(trim($tag)) : null;
         if ($tagKey !== null && isset(self::COLOUR_BY_TAG[$tagKey])) {
             $fields['colour'] = self::COLOUR_BY_TAG[$tagKey];
         }
