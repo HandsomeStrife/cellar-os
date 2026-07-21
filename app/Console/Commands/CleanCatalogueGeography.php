@@ -30,10 +30,11 @@ class CleanCatalogueGeography extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            '%s: %d non-wine header(s) archived · region demoted %d, cleared %d · country filled %d, region recovered %d, canonicalised %d',
+            '%s: %d non-wine header(s) archived · region demoted %d, cleared %d · country filled %d, region recovered %d, canonicalised %d · sub-region dedup %d',
             $apply ? 'Cleaned' : 'Would clean',
             $stats['archived'], $stats['region_demoted'], $stats['region_cleared'],
             $stats['country_filled'], $stats['region_recovered'], $stats['country_canonicalised'],
+            $stats['sub_region_dedup'],
         ));
 
         if ($apply) {

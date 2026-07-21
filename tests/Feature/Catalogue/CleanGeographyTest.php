@@ -108,7 +108,20 @@ it('is idempotent', function () {
     expect($second)->toBe([
         'archived' => 0, 'region_demoted' => 0, 'region_cleared' => 0,
         'country_filled' => 0, 'region_recovered' => 0, 'country_canonicalised' => 0,
+        'sub_region_dedup' => 0,
     ]);
+});
+
+it('clears a sub_region that merely duplicates the region', function () {
+    // Mirrors the prod artifact: golden overwrote region but could not blank
+    // the now-redundant sub_region carrying the same value.
+    $p = makeProduct(['country' => 'Italy', 'region' => 'Toscana', 'sub_region' => 'Toscana']);
+
+    $stats = (new CleanCatalogueGeographyAction)->execute();
+
+    expect($stats['sub_region_dedup'])->toBe(1)
+        ->and($p->fresh()->region)->toBe('Toscana')
+        ->and($p->fresh()->sub_region)->toBeNull();
 });
 
 it('reports counts without writing when apply is false', function () {

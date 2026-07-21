@@ -37,13 +37,14 @@ class CleanCatalogueGeographyAction extends AbstractAction
     public function __construct(private NormaliseService $normalise = new NormaliseService) {}
 
     /**
-     * @return array{archived: int, region_demoted: int, region_cleared: int, country_filled: int, region_recovered: int, country_canonicalised: int}
+     * @return array{archived: int, region_demoted: int, region_cleared: int, country_filled: int, region_recovered: int, country_canonicalised: int, sub_region_dedup: int}
      */
     public function execute(bool $apply = true): array
     {
         $archived = $this->archiveNonWineHeaders($apply);
         $region = $this->repairRegionEqualsCountry($apply);
         $country = $this->canonicaliseCountries($apply);
+        $subDedup = $this->clearDuplicateSubRegion($apply);
 
         return [
             'archived' => $archived,
@@ -52,7 +53,30 @@ class CleanCatalogueGeographyAction extends AbstractAction
             'country_filled' => $region['country_filled'],
             'region_recovered' => $country['recovered'],
             'country_canonicalised' => $country['canonicalised'],
+            'sub_region_dedup' => $subDedup,
         ];
+    }
+
+    /**
+     * Pass 4 — clear a sub_region that merely duplicates its region (it adds
+     * nothing and clutters the sub-region filter). This happens when a region
+     * was promoted out of sub_region on one environment but a golden import on
+     * another couldn't blank the now-redundant sub_region (null incoming values
+     * are never applied over an existing value).
+     */
+    private function clearDuplicateSubRegion(bool $apply): int
+    {
+        $query = Product::whereNull('archived_at')
+            ->whereNotNull('sub_region')->where('sub_region', '<>', '')
+            ->whereColumn('region', 'sub_region');
+
+        $count = $query->count();
+
+        if ($count > 0 && $apply) {
+            (clone $query)->update(['sub_region' => null]);
+        }
+
+        return $count;
     }
 
     /**
