@@ -20,6 +20,49 @@ it('maps colours across languages and styles', function () {
         ->and($this->svc->normaliseColour('mystery'))->toBeNull();
 });
 
+it('canonicalises and cleans country strings', function () {
+    expect($this->svc->normaliseCountry('United States'))->toBe('USA')
+        ->and($this->svc->normaliseCountry('United States of America'))->toBe('USA')
+        ->and($this->svc->normaliseCountry('usa'))->toBe('USA')
+        ->and($this->svc->normaliseCountry('SWITZERLAND'))->toBe('Switzerland')
+        ->and($this->svc->normaliseCountry('CZECHIA'))->toBe('Czechia')
+        ->and($this->svc->normaliseCountry('Macedonia'))->toBe('North Macedonia')
+        ->and($this->svc->normaliseCountry('England (Sparkling)'))->toBe('England')
+        // England and Wales stay distinct — never rolled up to United Kingdom.
+        ->and($this->svc->normaliseCountry('England'))->toBe('England')
+        ->and($this->svc->normaliseCountry('Wales'))->toBe('Wales')
+        // Trade annotations and scrambled-layer bleed are stripped to the country.
+        ->and($this->svc->normaliseCountry('Italy - NFD'))->toBe('Italy')
+        ->and($this->svc->normaliseCountry('Italy- NFD'))->toBe('Italy')
+        ->and($this->svc->normaliseCountry('Argentina- NFD'))->toBe('Argentina')
+        ->and($this->svc->normaliseCountry('France- on alloc'))->toBe('France')
+        ->and($this->svc->normaliseCountry('Italy - on allocation NFD'))->toBe('Italy')
+        ->and($this->svc->normaliseCountry('Spain                    SHERRY - CLASSIFIED LIST£7.55  37.50cl'))->toBe('Spain')
+        ->and($this->svc->normaliseCountry('CLASSIFIED'))->toBeNull()
+        ->and($this->svc->normaliseCountry(''))->toBeNull()
+        ->and($this->svc->normaliseCountry(null))->toBeNull();
+});
+
+it('recovers a macro-region parked in the country column', function () {
+    $mapping = ['wine_name' => 'name', 'country' => 'origin'];
+
+    $swFrance = $this->svc->toProductData(['name' => 'Some Cahors', 'origin' => 'South-West France'], $mapping);
+    expect($swFrance->country)->toBe('France')
+        ->and($swFrance->region)->toBe('South-West France');
+
+    $neSpain = $this->svc->toProductData(['name' => 'Some Priorat', 'origin' => 'North-East Spain'], $mapping);
+    expect($neSpain->country)->toBe('Spain')
+        ->and($neSpain->region)->toBe('North-East Spain');
+
+    // A supplier-provided region is never overwritten by the recovery.
+    $withRegion = $this->svc->toProductData(
+        ['name' => 'W', 'origin' => 'South-West France', 'reg' => 'Gaillac'],
+        $mapping + ['region' => 'reg']
+    );
+    expect($withRegion->country)->toBe('France')
+        ->and($withRegion->region)->toBe('Gaillac');
+});
+
 it('splits grapes on common separators', function () {
     expect($this->svc->parseGrapes('Cabernet Sauvignon, Merlot / Cabernet Franc'))
         ->toBe(['Cabernet Sauvignon', 'Merlot', 'Cabernet Franc'])

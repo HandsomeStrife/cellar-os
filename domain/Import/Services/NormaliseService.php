@@ -39,8 +39,20 @@ class NormaliseService
         }
 
         $unitPrice = $this->parsePrice($value('unit_price'));
-        $country = $this->nullableString($value('country'));
+        $rawCountry = $value('country');
+        $country = $this->normaliseCountry($rawCountry);
         $region = $this->standardiseRegion($value('region'));
+
+        // Some lists (e.g. Les Caves) put a MACRO-REGION in the country cell and
+        // leave region blank ("South-West France", "North-East Spain"). Recover
+        // it: promote the label to region and set country to its parent, so the
+        // region filter gains a real region and the country filter stays a country.
+        if ($region === null || $region === '') {
+            $leak = self::COUNTRY_IS_REGION[mb_strtolower(trim((string) $rawCountry))] ?? null;
+            if ($leak !== null) {
+                [$country, $region] = $leak;
+            }
+        }
         // Producer columns often carry a trailing vintage ("Quinta dos Roques
         // 2023", "Rustenberg 2022/23") — the year belongs to the vintage field,
         // never the producer name.
@@ -145,6 +157,28 @@ class NormaliseService
         'united kingdom' => [54.0, -2.0],
     ];
 
+    /** Country synonyms (lowercased) → one canonical country name. */
+    private const COUNTRY_ALIASES = [
+        'usa' => 'USA', 'u.s.a.' => 'USA', 'u.s.' => 'USA', 'us' => 'USA',
+        'united states' => 'USA', 'united states of america' => 'USA', 'america' => 'USA',
+        'uk' => 'United Kingdom', 'great britain' => 'United Kingdom',
+        'macedonia' => 'North Macedonia',
+        'england (sparkling)' => 'England',
+        'meskheti georgia' => 'Georgia',
+    ];
+
+    /**
+     * Macro-regions some lists put in the COUNTRY column (with no region of
+     * their own). Lowercased key → [parent country, region label to recover].
+     */
+    private const COUNTRY_IS_REGION = [
+        'south-west france' => ['France', 'South-West France'],
+        'south west france' => ['France', 'South-West France'],
+        'loire france' => ['France', 'Loire'],
+        'burgundy' => ['France', 'Bourgogne'],
+        'north-east spain' => ['Spain', 'North-East Spain'],
+    ];
+
     public function standardiseRegion(?string $value): ?string
     {
         $value = $this->nullableString($value);
@@ -154,6 +188,60 @@ class NormaliseService
         }
 
         return self::REGION_ALIASES[strtolower($value)] ?? ucwords($value);
+    }
+
+    /**
+     * Canonicalise a country string. Strips the scrambled/annotation tails some
+     * lists glue on — a run of 2+ spaces or a '£' marks where a scrambled text
+     * layer bled the rest of the row into the cell; "- NFD" / "- on allocation"
+     * / "SHERRY - CLASSIFIED LIST…" are trade annotations, not country names —
+     * title-cases SHOUT- or lower-cased values, and folds known synonyms
+     * (USA family, Macedonia → North Macedonia) onto one canonical name.
+     */
+    public function normaliseCountry(?string $value): ?string
+    {
+        $value = $this->nullableString($value);
+
+        if ($value === null) {
+            return null;
+        }
+
+        // Keep only the leading token(s) before a scrambled-layer bleed.
+        $value = trim(preg_split('/\s{2,}|£/u', $value)[0] ?? $value);
+        // Drop trailing trade annotations.
+        $value = preg_replace(
+            '/\s*[-–]?\s*(?:NFD|on\s+alloc(?:ation)?(?:\s+NFD)?|CLASSIFIED\b.*|SHERRY\b.*)$/iu',
+            '',
+            $value
+        ) ?? $value;
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        $canonical = $this->canonicalCountry($value);
+        if ($canonical !== null) {
+            return $canonical;
+        }
+
+        // Tidy SHOUT-CASE / all-lower to Title Case; leave real mixed-case names.
+        if ($value === mb_strtoupper($value) || $value === mb_strtolower($value)) {
+            $value = ucwords(mb_strtolower($value), " \t\r\n\f\v-&");
+
+            return $this->canonicalCountry($value) ?? $value;
+        }
+
+        return $value;
+    }
+
+    /** A known synonym or macro-region → its canonical country, else null. */
+    private function canonicalCountry(string $value): ?string
+    {
+        $key = mb_strtolower($value);
+
+        return self::COUNTRY_ALIASES[$key]
+            ?? (self::COUNTRY_IS_REGION[$key][0] ?? null);
     }
 
     private function standardiseGrape(string $grape): string
