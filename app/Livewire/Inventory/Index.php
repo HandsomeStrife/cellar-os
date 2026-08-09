@@ -297,12 +297,18 @@ class Index extends Component
                 ? $inventoryRepo->archived($venueId)
                 : $inventoryRepo->forVenue($venueId);
 
-            $rows = $items
-                ->map(function ($item) use ($productRepo) {
-                    $product = $item->product_id ? $productRepo->find($item->product_id) : null;
+            // One query for every wine on the page rather than one per row —
+            // this list now shows the full catalogue attributes, so the old
+            // per-row lookup had become the expensive part of the page.
+            $products = $productRepo->findMany(
+                $items->pluck('product_id')->filter()->unique()->values()->all()
+            );
 
-                    return ['item' => $item, 'product' => $product];
-                })
+            $rows = $items
+                ->map(fn ($item) => [
+                    'item' => $item,
+                    'product' => $item->product_id ? ($products[$item->product_id] ?? null) : null,
+                ])
                 ->filter(function ($row) {
                     if ($this->search === '') {
                         return true;
