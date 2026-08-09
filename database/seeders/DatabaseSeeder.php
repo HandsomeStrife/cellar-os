@@ -7,16 +7,18 @@ namespace Database\Seeders;
 use Database\Seeders\Concerns\BuildsDemoData;
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
+use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Models\Product;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Supplier\Models\Supplier;
 use Domain\User\Enums\Role;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 /**
- * The CLEAN default seed — safe for production. Creates the admin and the four
+ * The CLEAN default seed — safe for production. Creates the admin and the TWO
  * demo companies/users/venues, and (when real supplier catalogues are present,
  * e.g. after `wine:import-golden`) wires the demo journeys to REAL suppliers.
  *
@@ -26,6 +28,26 @@ use Illuminate\Support\Facades\Hash;
  *
  * Production order matters: migrate:fresh → wine:import-golden → db:seed
  * (so the real catalogues exist for the journeys to attach to).
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT EACH ACCOUNT DEMONSTRATES
+ *
+ * demo@cellaros.test (Pro, one venue)
+ *   catalogue browsing over real trade catalogues · cross-supplier price
+ *   comparison (the connected suppliers are chosen so two of them list the same
+ *   wine) · wine type + sub-type · POA pricing, where the real data has one ·
+ *   orders at every point of the lifecycle, including one to repeat ·
+ *   inventory with two low-stock lines so the dashboard alerts have teeth ·
+ *   price-list upload and parse review per supplier
+ *
+ * group@cellaros.test (Group, two venues) + group.member@cellaros.test
+ *   everything above across multiple venues · per-venue supplier allocation ·
+ *   a team member scoped to one venue only
+ *
+ * Everything is chosen from the real catalogue rather than invented, so a
+ * feature the data can't illustrate simply doesn't appear rather than being
+ * faked.
+ * ---------------------------------------------------------------------------
  */
 class DatabaseSeeder extends Seeder
 {
@@ -54,6 +76,92 @@ class DatabaseSeeder extends Seeder
         $this->seedRealJourneys();
     }
 
+    /**
+     * Choose which real suppliers the demo accounts buy from.
+     *
+     * Biggest catalogue first, but with one deliberate constraint: at least two
+     * of them must list the SAME wine, or the catalogue's cross-supplier price
+     * comparison has nothing to show. The overlap is found in the real data
+     * rather than manufactured — if none exists we fall back to the largest
+     * catalogues and the comparison simply doesn't appear.
+     *
+     * @param  Collection<int, Supplier>  $candidates  largest catalogue first
+     * @return Collection<int, Supplier>
+     */
+    private function pickSuppliers(Collection $candidates): Collection
+    {
+        $ids = $candidates->pluck('id');
+
+        // A wine (same name + producer + vintage + format) two of our candidate
+        // suppliers both list — exactly what alternativesFor() matches on.
+        $overlap = DB::table('products')
+            ->whereNull('archived_at')
+            ->whereIn('supplier_id', $ids)
+            ->whereNotNull('producer')
+            ->whereNotNull('unit_price')
+            ->select('wine_name', 'producer', 'vintage', 'format_ml')
+            ->selectRaw('count(distinct supplier_id) as suppliers')
+            ->selectRaw('min(supplier_id) as a, max(supplier_id) as b')
+            ->groupBy('wine_name', 'producer', 'vintage', 'format_ml')
+            ->havingRaw('count(distinct supplier_id) > 1')
+            ->orderBy('wine_name')
+            ->first();
+
+        if ($overlap === null) {
+            return $candidates->take(3)->values();
+        }
+
+        $pair = $candidates->whereIn('id', [$overlap->a, $overlap->b])->values();
+        $rest = $candidates->whereNotIn('id', [$overlap->a, $overlap->b])->values();
+
+        return $pair->concat($rest)->take(3)->values();
+    }
+
+    /**
+     * Stock a couple of wines chosen for what they DEMONSTRATE rather than for
+     * their place in the list: a sparkling with a sub-type (so Type/Style shows
+     * something), and a POA wine if the connected catalogues carry one.
+     *
+     * Nothing is invented — if the real data has no example, the demo simply
+     * doesn't show that feature.
+     *
+     * @param  Collection<int, Supplier>  $suppliers
+     */
+    private function showcase($venue, $owner, Collection $suppliers): void
+    {
+        $ids = $suppliers->pluck('id')->unique()->all();
+
+        $sparkling = Product::whereIn('supplier_id', $ids)
+            ->whereNull('archived_at')
+            ->whereNotNull('sub_type')
+            ->whereNotNull('unit_price')
+            ->orderBy('id')
+            ->first();
+
+        if ($sparkling !== null) {
+            $this->inventory($venue, $sparkling, 18, 9);
+        }
+
+        $poa = Product::whereIn('supplier_id', $ids)
+            ->whereNull('archived_at')
+            ->where('price_state', '!=', PriceState::Priced->value)
+            ->orderBy('id')
+            ->first();
+
+        if ($poa !== null) {
+            // A POA wine on a sent order: the PO shows POA and says the total
+            // excludes it, which is the whole point of the state.
+            $this->order(
+                $owner,
+                $venue,
+                $suppliers->firstWhere('id', $poa->supplier_id) ?? $suppliers->first(),
+                OrderStatus::Sent,
+                'Asking about the allocation wines.',
+                [[$poa, 6]],
+            );
+        }
+    }
+
     private function seedAdmin(): void
     {
         Admin::updateOrCreate(
@@ -79,19 +187,20 @@ class DatabaseSeeder extends Seeder
             ->orderByDesc('wines')
             ->pluck('wines', 'supplier_id');
 
-        $suppliers = Supplier::whereNull('created_by_company_id')
+        $candidates = Supplier::whereNull('created_by_company_id')
             ->whereIn('id', $counts->keys())
             // Never wire the "real" journeys to the fictional dev-demo suppliers
             // (DemoSupplierSeeder builds its own journeys for those).
             ->whereNotIn('name', DemoSupplierSeeder::FICTIONAL_SUPPLIERS)
             ->get()
             ->sortBy([fn ($a, $b) => $counts[$b->id] <=> $counts[$a->id], fn ($a, $b) => strcmp($a->name, $b->name)])
-            ->take(3)
             ->values();
 
-        if ($suppliers->count() < 2) {
+        if ($candidates->count() < 2) {
             return; // no real catalogue yet — demo accounts start empty
         }
+
+        $suppliers = $this->pickSuppliers($candidates);
 
         [$first, $second] = [$suppliers[0], $suppliers[1]];
         $third = $suppliers[2] ?? $second;
@@ -129,6 +238,11 @@ class DatabaseSeeder extends Seeder
             $this->order($proOwner, $proVenue, $second, OrderStatus::Sent, 'Fine wine allocation request.', [[$b[1], 6], [$b[3], 6]]);
             $this->order($proOwner, $proVenue, $second, OrderStatus::Received, 'Received: fine wine allocation.', [[$b[5], 6]]);
         }
+        // Put the distinctive wine types in front of a demo audience: a
+        // sub-typed sparkling and, where the catalogue has one, a POA wine.
+        // Selected from the REAL data — never fabricated.
+        $this->showcase($proVenue, $proOwner, collect([$first, $second, $third]));
+
         if ($c->count() >= 3) {
             $this->order($proOwner, $proVenue, $third, OrderStatus::Received, 'Received: mixed case for the tasting menu.', [[$c[0], 6], [$c[1], 6], [$c[2], 6]]);
         }
