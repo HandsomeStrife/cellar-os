@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Livewire\Suppliers;
 
 use App\Livewire\Concerns\WithTenant;
+use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
 use Domain\Supplier\Actions\ApproveParsedWineAction;
 use Domain\Supplier\Actions\RefineParseProfileAction;
 use Domain\Supplier\Actions\RejectParsedWineAction;
+use Domain\Supplier\Actions\SaveTypeMappingAction;
 use Domain\Supplier\Actions\UpdateParsedWineAction;
 use Domain\Supplier\Data\ParsedWineData;
 use Domain\Supplier\Enums\ParseMode;
@@ -50,6 +52,13 @@ class DocumentReview extends Component
 
     public string $model = '';
 
+    /**
+     * Type-mapping editor: this supplier's label => our type / sub-type.
+     *
+     * @var array<string, array{type: string, sub_type: string}>
+     */
+    public array $typeMap = [];
+
     // Inline edit state.
     public ?int $editingId = null;
 
@@ -75,6 +84,16 @@ class DocumentReview extends Component
         $this->supplierName = $supplier->name;
         $this->documentId = $documentId;
         $this->model = (string) config('services.anthropic.model', 'claude-opus-4-8');
+
+        // Seed the type-mapping editor from what we already know about this
+        // supplier's vocabulary (mapped and pending alike).
+        foreach ($supplier->type_mapping ?? [] as $key => $entry) {
+            $this->typeMap[(string) $key] = [
+                'type' => (string) ($entry['type'] ?? ''),
+                'sub_type' => (string) ($entry['sub_type'] ?? ''),
+                'label' => (string) ($entry['label'] ?? $key),
+            ];
+        }
     }
 
     public function runFull(): void
@@ -252,6 +271,21 @@ class DocumentReview extends Component
         return $row;
     }
 
+    /**
+     * Save the reviewer's type translations for this supplier. They apply from
+     * the supplier's next edition onward — this document's rows were already
+     * normalised — so the screen says so rather than implying a re-parse.
+     */
+    public function saveTypeMapping(): void
+    {
+        $supplier = (new SupplierRepository)->find($this->supplierId);
+        abort_unless($supplier !== null && $supplier->created_by_company_id === $this->currentUser()?->company_id, 403);
+
+        (new SaveTypeMappingAction)->execute($this->supplierId, $this->typeMap);
+
+        $this->dispatch('toast', message: 'Type mapping saved — it will be used the next time we read this supplier\'s list.');
+    }
+
     public function render()
     {
         $document = (new SupplierDocumentRepository)->find($this->documentId);
@@ -268,6 +302,21 @@ class DocumentReview extends Component
             ),
             'canCommit' => $supplier !== null && $supplier->created_by_company_id === $this->currentUser()?->company_id,
             'colours' => WineType::cases(),
+            'subTypesByType' => collect(WineType::cases())
+                ->mapWithKeys(fn (WineType $type) => [$type->value => WineSubType::forType($type)])
+                ->all(),
+            // Everything we know about this supplier's type words: what we've
+            // mapped, and what we met and couldn't place (a null type).
+            'typeLabels' => collect($supplier?->type_mapping ?? [])
+                ->map(fn (array $entry, string $key) => [
+                    'key' => $key,
+                    'label' => $entry['label'] ?? $key,
+                    'type' => $entry['type'] ?? '',
+                    'sub_type' => $entry['sub_type'] ?? '',
+                    'pending' => ($entry['type'] ?? null) === null,
+                ])
+                ->sortBy([fn ($a, $b) => ($b['pending'] <=> $a['pending']), fn ($a, $b) => strcmp($a['label'], $b['label'])])
+                ->values(),
             'bulkProgress' => BulkApprovalProgress::get($this->documentId),
         ]);
     }

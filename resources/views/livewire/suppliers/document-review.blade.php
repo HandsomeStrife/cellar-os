@@ -91,6 +91,41 @@
                 </div>
             </div>
         </x-card>
+
+        {{-- How this supplier names wine types --}}
+        @if($canCommit && $typeLabels->isNotEmpty())
+            <x-card title="Wine types">
+                <p class="text-xs text-muted-foreground">
+                    What {{ $supplierName }} calls a type, and how we file it. Anything left unset is a word we met in their list and couldn't place.
+                </p>
+                <div class="mt-3 space-y-3">
+                    @foreach($typeLabels as $entry)
+                        <div wire:key="tm-{{ $entry['key'] }}" class="rounded-md border {{ $entry['pending'] ? 'border-amber-500/40 bg-amber-500/5' : 'border-border' }} p-2.5">
+                            <p class="font-mono text-xs text-foreground">{{ $entry['label'] }}</p>
+                            <div class="mt-1.5 grid grid-cols-2 gap-2">
+                                <select wire:model.live="typeMap.{{ $entry['key'] }}.type" aria-label="Our type for {{ $entry['label'] }}" class="select-field w-full rounded-md border border-input bg-card px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
+                                    <option value="">Not mapped</option>
+                                    @foreach($colours as $colourOption)
+                                        <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
+                                    @endforeach
+                                </select>
+                                @php($chosen = $typeMap[$entry['key']]['type'] ?? '')
+                                @if(($subTypesByType[$chosen] ?? []) !== [])
+                                    <select wire:model.live="typeMap.{{ $entry['key'] }}.sub_type" aria-label="Style for {{ $entry['label'] }}" class="select-field w-full rounded-md border border-input bg-card px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
+                                        <option value="">Any style</option>
+                                        @foreach($subTypesByType[$chosen] as $subTypeOption)
+                                            <option value="{{ $subTypeOption->value }}">{{ $subTypeOption->getShortLabel() }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <x-button wire:click="saveTypeMapping" variant="outline" class="mt-3 w-full" size="sm">Save type mapping</x-button>
+                <p class="mt-2 text-xs text-muted-foreground">Applies the next time we read this supplier's list.</p>
+            </x-card>
+        @endif
     </div>
 
     {{-- Proposed wines --}}

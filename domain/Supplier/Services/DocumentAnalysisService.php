@@ -8,6 +8,7 @@ use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Catalogue\Support\NonWineVocabulary;
 use Domain\Import\Services\NormaliseService;
+use Domain\Supplier\Actions\RecordUnmappedTypeLabelsAction;
 use Domain\Supplier\Actions\SaveColumnMappingAction;
 use Domain\Supplier\Actions\SaveParseProfileAction;
 use Domain\Supplier\Actions\StoreParsedWinesAction;
@@ -16,6 +17,7 @@ use Domain\Supplier\Enums\ParsedWineFlag;
 use Domain\Supplier\Enums\ParseMode;
 use Domain\Supplier\Exceptions\ResponseTruncatedException;
 use Domain\Supplier\Repositories\SupplierParseProfileRepository;
+use Domain\Supplier\Repositories\SupplierRepository;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -62,11 +64,26 @@ class DocumentAnalysisService
         // Attribute this analysis's API spend to the supplier/document.
         $this->claude->setContext($document->supplier_id, $document->id);
 
+        // Apply this supplier's learned type vocabulary for the whole run
+        // ("Skin Contact" → Orange and any house shorthand a reviewer taught us).
+        $this->normalise = $this->normalise->withTypeMapping(
+            (new SupplierRepository)->find($document->supplier_id)?->type_mapping ?? []
+        );
+
         $mode = ParseMode::forFileType($document->file_type, $document->file_name);
 
-        return $mode === ParseMode::Tabular
+        $result = $mode === ParseMode::Tabular
             ? $this->analyseTabular($document, $path, $model)
             : $this->analyseDocument($document, $path, $full, $model);
+
+        // Any type word we couldn't place is offered to the reviewer to map,
+        // and the mapping is then reused on this supplier's next edition.
+        (new RecordUnmappedTypeLabelsAction)->execute(
+            $document->supplier_id,
+            $this->normalise->unresolvedTypeLabels(),
+        );
+
+        return $result;
     }
 
     /**

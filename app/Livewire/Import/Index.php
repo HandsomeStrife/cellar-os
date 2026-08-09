@@ -170,7 +170,10 @@ class Index extends Component
         abort_unless($upload->uploaded_by === $userId, 403);
         abort_unless($upload->status === 'pending', 422);
 
-        $normalise = new NormaliseService;
+        // The supplier's learned type vocabulary applies to their own list.
+        $normalise = (new NormaliseService)->withTypeMapping(
+            (new SupplierRepository)->find($this->supplierId)?->type_mapping ?? []
+        );
         $upsertProduct = new UpsertProductAction;
         $mapping = $this->cleanMapping();
 
@@ -274,7 +277,9 @@ class Index extends Component
 
         if ($entitled && $this->step === 3 && $this->rawUploadId !== null) {
             $upload = (new RawUploadRepository)->find($this->rawUploadId);
-            $normalise = new NormaliseService;
+            $normalise = (new NormaliseService)->withTypeMapping(
+                (new SupplierRepository)->find($this->supplierId)?->type_mapping ?? []
+            );
             $mapping = $this->cleanMapping();
 
             foreach (array_slice($upload->rows ?? [], 0, 8) as $row) {

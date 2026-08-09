@@ -7,6 +7,7 @@ namespace Domain\Import\Services;
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Enums\SellingUnit;
+use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Support\WineTypeFromName;
 
@@ -103,7 +104,8 @@ class NormaliseService
         // a list may say "Sparkling Rosé" in one and "Crémant … Rosé" in the
         // other, and either is enough.
         $subType = $colour !== null
-            ? WineTypeFromName::inferSubType($colour, trim($wineName.' '.(string) $value('colour')), $producer)
+            ? ($this->mappedSubType($value('colour'), $colour)
+                ?? WineTypeFromName::inferSubType($colour, trim($wineName.' '.(string) $value('colour')), $producer))
             : null;
 
         // A price cell with no number in it may still be saying something: a
@@ -303,24 +305,105 @@ class NormaliseService
         ];
     }
 
+    /**
+     * The buyer's own translations of this supplier's type words, keyed by the
+     * supplier's lowercased label. Set per supplier before normalising; empty
+     * for one-off/ad-hoc use.
+     *
+     * @var array<string, array{type: string, sub_type?: string|null}>
+     */
+    private array $typeMapping = [];
+
+    /**
+     * Type words seen during this run that neither the shared vocabulary nor
+     * the supplier's mapping could resolve — exactly the labels a human needs
+     * to map. Accumulated across a whole document run.
+     *
+     * @var array<string, string> lowercased label => label as printed
+     */
+    private array $unresolvedTypeLabels = [];
+
+    /**
+     * @return array<int, string>
+     */
+    public function unresolvedTypeLabels(): array
+    {
+        return array_values($this->unresolvedTypeLabels);
+    }
+
+    /**
+     * @param  array<string, mixed>  $mapping  supplier label => our type
+     */
+    public function withTypeMapping(array $mapping): self
+    {
+        $clone = clone $this;
+        $clone->typeMapping = array_change_key_case(
+            array_filter($mapping, 'is_array'),
+            CASE_LOWER,
+        );
+
+        return $clone;
+    }
+
     public function normaliseColour(?string $value): ?WineType
     {
-        if ($value === null || $value === '') {
+        if ($value === null || trim($value) === '') {
             return null;
         }
 
-        $value = strtolower(trim($value));
+        $original = trim($value);
+        $value = strtolower($original);
+
+        // The supplier's own vocabulary, taught once by a human, wins over the
+        // shared rules — it exists precisely because the shared rules missed.
+        $mapped = $this->typeMapping[$value] ?? null;
+        if ($mapped !== null) {
+            $type = WineType::tryFrom((string) ($mapped['type'] ?? ''));
+
+            if ($type !== null) {
+                return $type;
+            }
+        }
 
         return match (true) {
-            str_contains($value, 'sparkl'), str_contains($value, 'champagne'), str_contains($value, 'spumante'), str_contains($value, 'cava'), str_contains($value, 'cremant'), str_contains($value, 'prosecco') => WineType::Sparkling,
+            str_contains($value, 'sparkl'), str_contains($value, 'champagne'), str_contains($value, 'spumante'), str_contains($value, 'cava'), str_contains($value, 'cremant'), str_contains($value, 'prosecco'), str_contains($value, 'petillant'), str_contains($value, 'pétillant'), str_contains($value, 'pet nat'), str_contains($value, 'pet-nat'), str_contains($value, 'frizzante') => WineType::Sparkling,
             str_contains($value, 'rosé'), str_contains($value, 'rose'), str_contains($value, 'rosado'), str_contains($value, 'rosato') => WineType::Rose,
-            str_contains($value, 'orange') => WineType::Orange,
+            // "Skin contact" is what the trade actually prints for orange wine;
+            // amber and ramato are the same style under other names.
+            str_contains($value, 'orange'), str_contains($value, 'skin contact'), str_contains($value, 'skin-contact'), str_contains($value, 'skin macerat'), str_contains($value, 'amber'), str_contains($value, 'ramato') => WineType::Orange,
             str_contains($value, 'dessert'), str_contains($value, 'sweet'), str_contains($value, 'sauternes') => WineType::Dessert,
             str_contains($value, 'fortif'), str_contains($value, 'port'), str_contains($value, 'sherry'), str_contains($value, 'madeira'), str_contains($value, 'marsala') => WineType::Fortified,
             str_contains($value, 'red'), str_contains($value, 'rouge'), str_contains($value, 'rosso'), str_contains($value, 'tinto'), str_contains($value, 'rot') => WineType::Red,
             str_contains($value, 'white'), str_contains($value, 'blanc'), str_contains($value, 'bianco'), str_contains($value, 'blanco'), str_contains($value, 'weiss'), str_contains($value, 'weiß') => WineType::White,
-            default => null,
+            default => $this->rememberUnresolved($value, $original),
         };
+    }
+
+    /**
+     * Record a type word we couldn't place, so the review screen can offer it
+     * for mapping instead of the reviewer having to notice it themselves.
+     */
+    private function rememberUnresolved(string $key, string $label): null
+    {
+        // A cell that's really a number, a dash or a stray fragment isn't a
+        // type word and would only be noise in the mapping editor.
+        if (mb_strlen($key) >= 3 && preg_match('/[a-z]/u', $key) === 1) {
+            $this->unresolvedTypeLabels[$key] ??= $label;
+        }
+
+        return null;
+    }
+
+    /**
+     * A sub-type pinned by the supplier's own mapping, when it agrees with the
+     * resolved type (a stale mapping must not file a red under Sparkling).
+     */
+    private function mappedSubType(?string $rawType, WineType $type): ?WineSubType
+    {
+        $mapped = $this->typeMapping[strtolower(trim((string) $rawType))] ?? null;
+        $subType = WineSubType::tryFrom((string) ($mapped['sub_type'] ?? ''));
+
+        return $subType?->parent() === $type ? $subType : null;
     }
 
     /**

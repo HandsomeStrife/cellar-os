@@ -30,6 +30,7 @@ class SupplierData extends AbstractData
         public ?CarbonImmutable $onboarded_at = null,
         public ?SupplierTier $tier = null,
         public ?array $column_mapping = null,
+        public ?array $type_mapping = null,
         public ?CarbonImmutable $created_at = null,
     ) {}
 
@@ -53,6 +54,7 @@ class SupplierData extends AbstractData
             onboarded_at: $model->onboarded_at?->toImmutable(),
             tier: SupplierTier::derive($model->created_by_company_id, $model->onboarded_at),
             column_mapping: $model->column_mapping,
+            type_mapping: $model->type_mapping,
             created_at: $model->created_at?->toImmutable(),
         );
     }

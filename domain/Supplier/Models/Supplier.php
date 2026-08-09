@@ -32,12 +32,14 @@ class Supplier extends Model
         'status',
         'onboarded_at',
         'column_mapping',
+        'type_mapping',
     ];
 
     protected function casts(): array
     {
         return [
             'column_mapping' => 'array',
+            'type_mapping' => 'array',
             'status' => SupplierStatus::class,
             'onboarded_at' => 'datetime',
         ];
