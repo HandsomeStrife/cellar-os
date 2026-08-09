@@ -163,6 +163,42 @@
             </div>
         @endif
 
+        {{-- How this supplier names wine types. Buyers can only edit this for
+             their own private suppliers, so for Listed suppliers — most of the
+             catalogue — this is the only place it can be set. --}}
+        @if($typeLabels->isNotEmpty())
+            <div class="mb-4 rounded-lg border border-border bg-secondary/30 p-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Wine types</p>
+                <p class="mt-1 text-xs text-muted-foreground">What {{ $supplier?->name }} calls a type, and how we file it. Anything unset is a word we met in their list and couldn't place.</p>
+                <div class="mt-3 grid gap-3 sm:grid-cols-2">
+                    @foreach($typeLabels as $entry)
+                        <div wire:key="atm-{{ $entry['key'] }}" class="rounded-md border {{ $entry['pending'] ? 'border-amber-500/40 bg-amber-500/5' : 'border-border bg-card' }} p-2.5">
+                            <p class="font-mono text-xs text-foreground">{{ $entry['label'] }}</p>
+                            <div class="mt-1.5 grid grid-cols-2 gap-2">
+                                <select wire:model.live="typeMap.{{ $entry['key'] }}.type" aria-label="Our type for {{ $entry['label'] }}" class="select-field w-full rounded-md border border-input bg-card px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
+                                    <option value="">Not mapped</option>
+                                    @foreach($types as $typeOption)
+                                        <option value="{{ $typeOption->value }}">{{ $typeOption->getLabel() }}</option>
+                                    @endforeach
+                                </select>
+                                @php($chosen = $typeMap[$entry['key']]['type'] ?? '')
+                                @if(($subTypesByType[$chosen] ?? []) !== [])
+                                    <select wire:model.live="typeMap.{{ $entry['key'] }}.sub_type" aria-label="Style for {{ $entry['label'] }}" class="select-field w-full rounded-md border border-input bg-card px-2 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40">
+                                        <option value="">Any style</option>
+                                        @foreach($subTypesByType[$chosen] as $subTypeOption)
+                                            <option value="{{ $subTypeOption->value }}">{{ $subTypeOption->getShortLabel() }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+                <x-button wire:click="saveTypeMapping" variant="outline" size="sm" class="mt-3">Save type mapping</x-button>
+                <p class="mt-2 text-xs text-muted-foreground">Applies the next time we read this supplier's list.</p>
+            </div>
+        @endif
+
         {{-- Admin upload: register a portfolio / price sheet directly, no portal
              account needed. A published URL enrols it in the weekly refresh. --}}
         <form wire:submit="uploadDocument" class="mb-4 rounded-lg border border-border bg-secondary/30 p-4">

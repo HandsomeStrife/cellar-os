@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Livewire\Admin;
 
 use Domain\Admin\Repositories\AdminRepository;
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Supplier\Actions\AddSupplierNoteAction;
 use Domain\Supplier\Actions\CreateSupplierUserAction;
 use Domain\Supplier\Actions\DeleteSupplierDocumentAction;
@@ -12,6 +14,7 @@ use Domain\Supplier\Actions\DeleteSupplierNoteAction;
 use Domain\Supplier\Actions\DeleteSupplierUserAction;
 use Domain\Supplier\Actions\MakeSupplierPublicAction;
 use Domain\Supplier\Actions\MarkSupplierOnboardedAction;
+use Domain\Supplier\Actions\SaveTypeMappingAction;
 use Domain\Supplier\Actions\StoreSupplierDocumentAction;
 use Domain\Supplier\Actions\UpdateSupplierAction;
 use Domain\Supplier\Data\SupplierData;
@@ -86,6 +89,13 @@ class SupplierShow extends Component
     #[Validate('required|email|max:255')]
     public string $newUserEmail = '';
 
+    /**
+     * Type-mapping editor: this supplier's label => our type / sub-type.
+     *
+     * @var array<string, array{type: string, sub_type: string, label?: string}>
+     */
+    public array $typeMap = [];
+
     public function mount(string $uuid): void
     {
         $supplier = (new SupplierRepository)->findByUuid($uuid);
@@ -94,6 +104,28 @@ class SupplierShow extends Component
         $this->uuid = $supplier->uuid;
         $this->supplierId = $supplier->id;
         $this->fillForm($supplier);
+
+        foreach ($supplier->type_mapping ?? [] as $key => $entry) {
+            $this->typeMap[(string) $key] = [
+                'type' => (string) ($entry['type'] ?? ''),
+                'sub_type' => (string) ($entry['sub_type'] ?? ''),
+                'label' => (string) ($entry['label'] ?? $key),
+            ];
+        }
+    }
+
+    /**
+     * Save how this supplier's wine-type words map onto ours.
+     *
+     * Buyers can only do this for their OWN private suppliers, so for the
+     * Listed suppliers that make up most of the catalogue this admin screen is
+     * the only place it can happen.
+     */
+    public function saveTypeMapping(): void
+    {
+        (new SaveTypeMappingAction)->execute($this->supplierId, $this->typeMap);
+
+        $this->dispatch('toast', message: 'Type mapping saved — it will be used the next time we read this supplier\'s list.');
     }
 
     private function fillForm(SupplierData $supplier): void
@@ -362,6 +394,20 @@ class SupplierShow extends Component
             'parseProfiles' => $profiles,
             'aiSpend' => (new LlmCallRepository)->totalsForSupplier($this->supplierId),
             'statuses' => SupplierStatus::options(),
+            'types' => WineType::cases(),
+            'subTypesByType' => collect(WineType::cases())
+                ->mapWithKeys(fn (WineType $type) => [$type->value => WineSubType::forType($type)])
+                ->all(),
+            // Everything we know about this supplier's type words: mapped, and
+            // met-but-unplaceable (a null type).
+            'typeLabels' => collect((new SupplierRepository)->find($this->supplierId)?->type_mapping ?? [])
+                ->map(fn (array $entry, string $key) => [
+                    'key' => $key,
+                    'label' => $entry['label'] ?? $key,
+                    'pending' => ($entry['type'] ?? null) === null,
+                ])
+                ->sortBy([fn ($a, $b) => ($b['pending'] <=> $a['pending']), fn ($a, $b) => strcmp($a['label'], $b['label'])])
+                ->values(),
         ]);
     }
 }

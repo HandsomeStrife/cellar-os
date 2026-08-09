@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Admin\SupplierShow;
+use Domain\Admin\Models\Admin;
 use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
 use Domain\Import\Services\NormaliseService;
 use Domain\Supplier\Actions\RecordUnmappedTypeLabelsAction;
 use Domain\Supplier\Actions\SaveTypeMappingAction;
 use Domain\Supplier\Models\Supplier;
+use Livewire\Livewire;
 
 it('files skin-contact wine as Orange without anyone teaching it', function () {
     $normalise = new NormaliseService;
@@ -133,4 +136,22 @@ it('does not carry one supplier\'s unplaceable words into the next', function ()
     $second->normaliseColour('Klarett');
 
     expect($second->unresolvedTypeLabels())->toBe(['Klarett']);
+});
+
+it('lets an admin map a listed supplier\'s type words', function () {
+    // Buyers can only edit this for their own PRIVATE suppliers, so for the
+    // Listed suppliers that make up most of the catalogue the admin screen is
+    // the only place a mapping can be set.
+    $supplier = Supplier::factory()->create(['created_by_company_id' => null]);
+    (new RecordUnmappedTypeLabelsAction)->execute($supplier->id, ['Vin de Voile']);
+
+    $this->actingAs(Admin::factory()->create(), 'admin');
+
+    Livewire::test(SupplierShow::class, ['uuid' => $supplier->uuid])
+        ->assertSee('Vin de Voile')
+        ->set('typeMap.vin de voile.type', WineType::Orange->value)
+        ->call('saveTypeMapping')
+        ->assertDispatched('toast');
+
+    expect($supplier->fresh()->type_mapping['vin de voile']['type'])->toBe(WineType::Orange->value);
 });
