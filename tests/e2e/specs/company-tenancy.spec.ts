@@ -60,17 +60,15 @@ test.describe('Company tenancy', () => {
     expect(response?.status()).toBe(403);
   });
 
-  test('My suppliers shows connected suppliers and Discover lists the rest', async ({ page }) => {
+  test('My suppliers shows only this company\'s own merchants', async ({ page }) => {
     await login(page, 'group@cellaros.test');
     await page.goto('/suppliers');
 
-    // The group is connected to these.
-    await expect(page.getByText('Italian Fine Wines')).toBeVisible();
-    await expect(page.getByText('New World Selections')).toBeVisible();
-    // Not connected to Bordeaux, so it isn't in My suppliers. (The Discover
-    // tab that would list it is currently hidden behind an @if(false) guard in
-    // suppliers/index.blade.php — restore the guard to cover it here too.)
-    await expect(page.getByText('Bordeaux Imports')).toHaveCount(0);
+    // The group has its own merchants…
+    await expect(page.getByText('Halliwell Fine Wine')).toBeVisible();
+    await expect(page.getByText('Saltmarsh Wine Co')).toBeVisible();
+    // …and cannot see the Pro company's, which are private to that tenant.
+    await expect(page.getByText('Northbank Wine Traders')).toHaveCount(0);
   });
 
   test('the catalogue is scoped to connected suppliers', async ({ page }) => {

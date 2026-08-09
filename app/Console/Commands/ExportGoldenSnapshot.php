@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Database\Seeders\DemoSupplierSeeder;
+use Database\Seeders\DemoSeeder;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Supplier\Models\Supplier;
@@ -33,10 +33,12 @@ class ExportGoldenSnapshot extends Command
     {
         $dir = trim((string) $this->option('dir'), '/');
 
+        // Only PUBLIC suppliers ride golden. The demo's merchants are private
+        // to the demo companies, so `created_by_company_id` already excludes
+        // them — but they're named explicitly too, so a demo merchant that ever
+        // gets promoted by hand still can't reach the canonical snapshot.
         $suppliers = Supplier::whereNull('created_by_company_id')
-            // Fictional dev-demo suppliers (DemoSupplierSeeder) are public in
-            // dev but must NEVER enter the canonical snapshot.
-            ->whereNotIn('name', DemoSupplierSeeder::FICTIONAL_SUPPLIERS)
+            ->whereNotIn('name', DemoSeeder::SUPPLIERS)
             ->orderBy('name')
             ->get();
         $supplierNames = $suppliers->pluck('name', 'id');

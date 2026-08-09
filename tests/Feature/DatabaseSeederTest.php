@@ -2,39 +2,33 @@
 
 declare(strict_types=1);
 
-use Database\Seeders\DemoSupplierSeeder;
+use Database\Seeders\DemoSeeder;
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
+use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Models\Product;
 use Domain\Company\Models\Company;
 use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Models\Order;
-use Domain\Supplier\Models\ParsedWine;
 use Domain\Supplier\Models\Supplier;
 use Domain\Supplier\Models\SupplierUser;
 use Domain\User\Models\User;
 use Domain\Venue\Models\Venue;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
-// ------------------------------------------------- clean default seeder ----
-
-it('seeds the clean default WITHOUT any dummy supplier data', function () {
+it('seeds the clean default WITHOUT any supplier or catalogue data', function () {
     $this->seed();
 
-    // Admin + one demo company per plan tier.
     expect(Admin::where('email', 'admin@cellaros.test')->exists())->toBeTrue();
 
-    $tiers = [
-        'demo@cellaros.test' => Plan::Pro,
-        'group@cellaros.test' => Plan::Group,
-    ];
-    foreach ($tiers as $email => $plan) {
+    foreach (['demo@cellaros.test' => Plan::Pro, 'group@cellaros.test' => Plan::Group] as $email => $plan) {
         $user = User::where('email', $email)->first();
         expect(Company::find($user?->company_id)?->plan)->toBe($plan)
             ->and(Hash::check('password', $user->password))->toBeTrue();
     }
 
-    // PRODUCTION-SAFE: no fictional suppliers, wines, orders, or portal users.
+    // PRODUCTION-SAFE: accounts only. Demo content is DemoSeeder's job.
     expect(Supplier::count())->toBe(0)
         ->and(Product::count())->toBe(0)
         ->and(Order::count())->toBe(0)
@@ -43,53 +37,78 @@ it('seeds the clean default WITHOUT any dummy supplier data', function () {
         ->and(Venue::count())->toBe(3);
 });
 
-it('wires demo journeys to REAL suppliers when a catalogue exists', function () {
-    // Simulate a golden-imported state: two public suppliers with priced wines.
-    $farr = Supplier::factory()->create(['name' => 'Real Fine Wines']);
-    $flint = Supplier::factory()->create(['name' => 'Real Merchants']);
-    Product::factory()->count(4)->create(['supplier_id' => $farr->id, 'unit_price' => '25.00']);
-    Product::factory()->count(3)->create(['supplier_id' => $flint->id, 'unit_price' => '40.00']);
+it('builds a demo whose merchants are fictional and private to the demo companies', function () {
+    $this->seed(DemoSeeder::class);
 
-    $this->seed();
+    $demoCompanyIds = Company::whereIn('name', DemoSeeder::COMPANIES)->pluck('id');
 
-    $demo = User::where('email', 'demo@cellaros.test')->first();
+    $suppliers = Supplier::whereIn('name', DemoSeeder::SUPPLIERS)->get();
+    expect($suppliers)->toHaveCount(count(DemoSeeder::SUPPLIERS));
 
-    // The Pro demo company is connected to real suppliers with orders + stock.
-    expect(DB::table('company_supplier')->where('company_id', $demo->company_id)->count())->toBeGreaterThanOrEqual(2)
-        ->and(Order::where('company_id', $demo->company_id)->count())->toBeGreaterThanOrEqual(1)
-        ->and(InventoryItem::count())->toBeGreaterThanOrEqual(1);
-
-    // Order totals always match their lines.
-    Order::with('items')->get()->each(function ($order) {
-        $expected = $order->items->sum(fn ($i) => $i->quantity_units * (float) $i->unit_price_at_order);
-        expect((float) $order->total)->toBe($expected);
+    // Every demo merchant is PRIVATE to a demo company, so no other tenant can
+    // see it and it can never appear in Discover.
+    $suppliers->each(function (Supplier $supplier) use ($demoCompanyIds) {
+        expect($demoCompanyIds->contains($supplier->created_by_company_id))->toBeTrue();
     });
-
-    // Idempotent.
-    $this->seed();
-    expect(Company::count())->toBe(2)->and(User::count())->toBe(3);
 });
 
-// ----------------------------------------------- opt-in demo content ----
+it('arranges the demo so every headline feature has something to show', function () {
+    $this->seed(DemoSeeder::class);
 
-it('seeds the full fictional demo via DemoSupplierSeeder (dev/E2E only)', function () {
-    $this->seed(DemoSupplierSeeder::class);
+    $pro = User::where('email', 'demo@cellaros.test')->first();
+    $supplierIds = DB::table('company_supplier')->where('company_id', $pro->company_id)->pluck('supplier_id');
 
-    expect(Supplier::count())->toBe(4)            // 3 fictional shared + Borough private
-        ->and(Product::count())->toBe(11)
-        ->and(Product::whereNotNull('latitude')->count())->toBe(10)
-        ->and(Venue::count())->toBe(3)
-        ->and(InventoryItem::count())->toBe(8)
-        ->and(Order::count())->toBe(5)
-        ->and(SupplierUser::count())->toBe(4)
-        ->and(ParsedWine::count())->toBe(3);
+    $wines = Product::whereIn('supplier_id', $supplierIds);
 
-    // Group company shape: two venues, owner + venue-scoped member.
-    $group = User::where('email', 'group@cellaros.test')->first();
-    expect(Venue::where('company_id', $group->company_id)->count())->toBe(2)
-        ->and(User::where('company_id', $group->company_id)->count())->toBe(2);
+    expect((clone $wines)->count())->toBeGreaterThan(20)
+        // A price the merchant withholds.
+        ->and((clone $wines)->where('price_state', PriceState::Poa->value)->count())->toBeGreaterThanOrEqual(1)
+        // Sparkling/fortified styles, so Type and Style separate.
+        ->and((clone $wines)->whereNotNull('sub_type')->count())->toBeGreaterThanOrEqual(3)
+        // Wines quoted by the case as well as the bottle.
+        ->and((clone $wines)->where('sold_by', 'case')->count())->toBeGreaterThanOrEqual(1)
+        // Orders across the lifecycle, including one to repeat.
+        ->and(Order::where('company_id', $pro->company_id)->count())->toBeGreaterThanOrEqual(3)
+        // Stock low enough for the dashboard alerts to fire.
+        ->and(InventoryItem::where('quantity_units', '<=', 3)->count())->toBeGreaterThanOrEqual(1);
 
-    // Idempotent.
-    $this->seed(DemoSupplierSeeder::class);
-    expect(Supplier::count())->toBe(4)->and(Product::count())->toBe(11)->and(Order::count())->toBe(5);
+    // The same wine from two merchants, which is what price comparison needs.
+    $duplicated = Product::whereIn('supplier_id', $supplierIds)
+        ->selectRaw('wine_name, producer, vintage, format_ml, count(distinct supplier_id) as merchants')
+        ->groupBy('wine_name', 'producer', 'vintage', 'format_ml')
+        ->havingRaw('count(distinct supplier_id) > 1')
+        ->get();
+
+    expect($duplicated)->not->toBeEmpty();
+});
+
+it('resets the demo back to the same state', function () {
+    $this->seed(DemoSeeder::class);
+
+    $before = Product::whereIn('supplier_id', Supplier::whereIn('name', DemoSeeder::SUPPLIERS)->pluck('id'))->count();
+
+    // Add some mess a demo would leave behind, then reset.
+    Product::whereIn('supplier_id', Supplier::whereIn('name', DemoSeeder::SUPPLIERS)->pluck('id'))->limit(3)->delete();
+
+    $this->artisan('demo:reset --force')->assertSuccessful();
+
+    $after = Product::whereIn('supplier_id', Supplier::whereIn('name', DemoSeeder::SUPPLIERS)->pluck('id'))->count();
+
+    expect($after)->toBe($before)
+        ->and(User::where('email', 'demo@cellaros.test')->exists())->toBeTrue();
+});
+
+it('leaves other tenants alone when the demo is reset', function () {
+    $this->seed(DemoSeeder::class);
+
+    // A real company with its own private merchant and wine.
+    $other = Company::factory()->create(['name' => 'Real Customer Ltd']);
+    $theirSupplier = Supplier::factory()->create(['created_by_company_id' => $other->id]);
+    $theirWine = Product::factory()->create(['supplier_id' => $theirSupplier->id]);
+
+    $this->artisan('demo:reset --force')->assertSuccessful();
+
+    expect(Company::find($other->id))->not->toBeNull()
+        ->and(Supplier::find($theirSupplier->id))->not->toBeNull()
+        ->and(Product::find($theirWine->id))->not->toBeNull();
 });

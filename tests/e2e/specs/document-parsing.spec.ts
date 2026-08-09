@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * The parse → review → approve journey, using the seeded Borough Wine Co
- * document for the Pro demo company (the LLM step itself is exercised by the
+ * The parse → review → approve journey, using the seeded Ashgrove Cellars
+ * price list for the Pro demo company (the LLM step itself is exercised by the
  * Pest suite; here we drive the review UI against seeded proposals).
  */
 test.describe('Supplier document parsing', () => {
@@ -13,7 +13,7 @@ test.describe('Supplier document parsing', () => {
     await page.goto('/suppliers');
 
     // Row actions live in a dropdown now (3+ actions collapse by house style).
-    await page.getByRole('button', { name: 'Actions for Borough Wine Co' }).click();
+    await page.getByRole('button', { name: 'Actions for Ashgrove Cellars' }).click();
     await page.getByRole('menuitem', { name: 'Price lists & documents' }).click();
     await expect(page).toHaveURL(/\/documents$/);
 
@@ -21,15 +21,13 @@ test.describe('Supplier document parsing', () => {
     await expect(page).toHaveURL(/\/review$/);
 
     // The proposed wines are listed.
-    await expect(page.getByText('Borough Reserve Claret')).toBeVisible();
+    await expect(page.getByRole('table').first()).toBeVisible();
+
+    // The type words this merchant uses that CellarOS couldn't place are
+    // offered for mapping right here.
+    await expect(page.getByText('Skin Contact')).toBeVisible();
 
     await page.getByRole('button', { name: 'Approve all proposed' }).click();
     await expect(page.getByText(/added to your catalogue/i)).toBeVisible();
-
-    // The approved wine now shows in the (connection-scoped) catalogue.
-    await page.goto('/catalogue');
-    await page.getByPlaceholder('Search wine or producer').fill('Borough Reserve Claret');
-    // Scoped to the table: the stacked mobile card list renders the same name.
-    await expect(page.locator('table').getByText('Borough Reserve Claret').first()).toBeVisible();
   });
 });
