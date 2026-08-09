@@ -52,6 +52,28 @@
 
             <div class="ml-auto flex items-center gap-2">
                 {{-- Label states the action, not the current state — "Active" alone read as a status. --}}
+                {{-- Column picker: which optional wine columns this user sees. --}}
+                <div x-data="{ colsOpen: false }" x-on:keydown.escape="colsOpen = false" class="relative">
+                    <x-button type="button" variant="outline" size="sm" @click="colsOpen = ! colsOpen" x-bind:aria-expanded="colsOpen.toString()" aria-haspopup="menu">
+                        <x-icon.columns-3 class="size-4" />
+                        Columns
+                    </x-button>
+                    <div
+                        x-show="colsOpen"
+                        x-cloak
+                        x-transition
+                        x-on:click.outside="colsOpen = false"
+                        class="absolute left-0 z-20 mt-2 w-44 rounded-md border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
+                    >
+                        @foreach($columns as $columnKey => $columnLabel)
+                            <label class="flex cursor-pointer items-center gap-2.5 rounded px-2.5 py-1.5 text-sm transition hover:bg-accent">
+                                <input type="checkbox" value="{{ $columnKey }}" wire:model.live="visibleColumns" class="accent-primary" />
+                                {{ $columnLabel }}
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
                 <x-button wire:click="$toggle('showArchived')" variant="{{ $showArchived ? 'secondary' : 'outline' }}" size="sm">
                     <x-icon.archive class="size-4" />
                     {{ $showArchived ? 'Back to active stock' : 'Show archived' }}
@@ -82,11 +104,20 @@
                 <table class="w-full text-sm">
                     <thead class="border-b border-border bg-secondary/40">
                         <tr>
-                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Wine</th>
+                            @php($th = 'px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground')
+                            <th class="{{ $th }}">Wine</th>
+                            @if(in_array('producer', $visibleColumns, true))<th class="{{ $th }}">Producer</th>@endif
+                            @if(in_array('supplier', $visibleColumns, true))<th class="{{ $th }}">Supplier</th>@endif
+                            @if(in_array('country', $visibleColumns, true))<th class="{{ $th }}">Country</th>@endif
+                            @if(in_array('region', $visibleColumns, true))<th class="{{ $th }}">Region</th>@endif
+                            @if(in_array('grapes', $visibleColumns, true))<th class="{{ $th }}">Grapes</th>@endif
+                            @if(in_array('colour', $visibleColumns, true))<th class="{{ $th }}">Type</th>@endif
+                            @if(in_array('vintage', $visibleColumns, true))<th class="{{ $th }}">Vintage</th>@endif
+                            @if(in_array('format', $visibleColumns, true))<th class="{{ $th }}">Format</th>@endif
                             <th class="px-3 py-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">Quantity</th>
-                            <th class="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Last price</th>
-                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Received</th>
-                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Files</th>
+                            @if(in_array('price', $visibleColumns, true))<th class="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Last price</th>@endif
+                            @if(in_array('received', $visibleColumns, true))<th class="{{ $th }}">Received</th>@endif
+                            @if(in_array('files', $visibleColumns, true))<th class="{{ $th }}">Files</th>@endif
                             <th class="px-3 py-2"></th>
                         </tr>
                     </thead>
@@ -95,10 +126,11 @@
                             @php($item = $row['item'])
                             @php($product = $row['product'])
                             <tr wire:key="inv-{{ $item->id }}" class="hover:bg-accent/40">
+                                @php($fill = $product ? ($enriched[$product->id] ?? []) : [])
                                 <td class="px-3 py-2.5">
                                     @if($product)
                                         <div class="font-medium text-foreground">{{ $product->wine_name }}</div>
-                                        @if($product->producer)
+                                        @if($product->producer && ! in_array('producer', $visibleColumns, true))
                                             <div class="text-xs text-muted-foreground">{{ $product->producer }}</div>
                                         @endif
                                     @else
@@ -111,6 +143,55 @@
                                         <div class="text-xs text-muted-foreground">Stock line #{{ $item->id }}. The count is still yours; archive it if it's no longer needed.</div>
                                     @endif
                                 </td>
+                                @if(in_array('producer', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-muted-foreground">{{ $product?->producer ?: '–' }}</td>
+                                @endif
+                                @if(in_array('supplier', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-muted-foreground">{{ $supplierNames[$product?->supplier_id] ?? '–' }}</td>
+                                @endif
+                                @if(in_array('country', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-muted-foreground">
+                                        @if($product?->country){{ $product->country }}
+                                        @elseif(isset($fill['country']))<x-enriched-fact :source="$fill['country']['source']">{{ $fill['country']['value'] }}</x-enriched-fact>
+                                        @else – @endif
+                                    </td>
+                                @endif
+                                @if(in_array('region', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-muted-foreground">
+                                        @if($product?->region){{ $product->region }}
+                                        @elseif(isset($fill['region']))<x-enriched-fact :source="$fill['region']['source']">{{ $fill['region']['value'] }}</x-enriched-fact>
+                                        @else – @endif
+                                    </td>
+                                @endif
+                                @if(in_array('grapes', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-muted-foreground">
+                                        @if($product?->grape){{ implode(', ', $product->grape) }}
+                                        @elseif(isset($fill['grape']))<x-enriched-fact :source="$fill['grape']['source']">{{ implode(', ', $fill['grape']['value']) }}</x-enriched-fact>
+                                        @else – @endif
+                                    </td>
+                                @endif
+                                @if(in_array('colour', $visibleColumns, true))
+                                    @php($rowType = $product?->colour ?? ($fill['colour']['value'] ?? null))
+                                    <td class="px-3 py-2.5">
+                                        @if($rowType)
+                                            <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                                <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $rowType->getSwatch() }}"></span>
+                                                {{ $rowType->getLabel() }}
+                                            </span>
+                                            @if($product?->sub_type)
+                                                <div class="text-xs text-muted-foreground">{{ $product->sub_type->getShortLabel() }}</div>
+                                            @endif
+                                        @else
+                                            <span class="text-muted-foreground">–</span>
+                                        @endif
+                                    </td>
+                                @endif
+                                @if(in_array('vintage', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-muted-foreground">{{ $product?->vintage ?? ($product ? 'NV' : '–') }}</td>
+                                @endif
+                                @if(in_array('format', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{{ $product ? $product->format_ml.'ml · '.$product->case_size.'/case' : '–' }}</td>
+                                @endif
                                 <td class="px-3 py-2.5">
                                     <div class="flex items-center justify-center gap-1.5">
                                         <button type="button" wire:click="adjustQuantity({{ $item->id }}, {{ max(0, $item->quantity_units - 1) }})" class="flex size-6 items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent" @disabled($showArchived)>
@@ -122,12 +203,17 @@
                                         </button>
                                     </div>
                                 </td>
-                                <td class="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
-                                    {{ $item->last_purchase_price !== null ? Currency::format($item->last_purchase_price, $item->last_purchase_currency ?? 'GBP') : '–' }}
-                                </td>
-                                <td class="px-3 py-2.5 text-muted-foreground">
-                                    {{ $item->last_received_at?->format('j M Y') ?? '–' }}
-                                </td>
+                                @if(in_array('price', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                                        {{ $item->last_purchase_price !== null ? Currency::format($item->last_purchase_price, $item->last_purchase_currency ?? 'GBP') : '–' }}
+                                    </td>
+                                @endif
+                                @if(in_array('received', $visibleColumns, true))
+                                    <td class="px-3 py-2.5 text-muted-foreground">
+                                        {{ $item->last_received_at?->format('j M Y') ?? '–' }}
+                                    </td>
+                                @endif
+                                @if(in_array('files', $visibleColumns, true))
                                 <td class="px-3 py-2.5">
                                     @if($canAttachments)
                                         {{-- A claret paperclip shouting "0" on every row is noise; quiet until there's something attached. --}}
@@ -145,6 +231,7 @@
                                         </span>
                                     @endif
                                 </td>
+                                @endif
                                 <td class="px-3 py-2.5 text-right">
                                     @if($canArchive)
                                         @if($showArchived)

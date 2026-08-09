@@ -6,6 +6,7 @@ namespace App\Livewire\Inventory;
 
 use App\Livewire\Concerns\WithTenant;
 use Domain\Billing\Enums\Feature;
+use Domain\Catalogue\Repositories\CatalogueEnrichmentRepository;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Inventory\Actions\AddInventoryAttachmentAction;
 use Domain\Inventory\Actions\AddInventoryItemAction;
@@ -15,6 +16,7 @@ use Domain\Inventory\Actions\DeleteInventoryAttachmentAction;
 use Domain\Inventory\Actions\RestoreInventoryItemAction;
 use Domain\Inventory\Repositories\InventoryAttachmentRepository;
 use Domain\Inventory\Repositories\InventoryItemRepository;
+use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\Venue\Actions\CreateVenueAction;
 use Domain\Venue\Data\VenueData;
 use Domain\Venue\Repositories\VenueRepository;
@@ -32,6 +34,37 @@ class Index extends Component
 {
     use WithFileUploads;
     use WithTenant;
+
+    /**
+     * Optional wine columns, mirroring the catalogue so a stock line reads the
+     * same as the wine it came from. Wine, quantity and the row actions always
+     * render.
+     */
+    public const COLUMNS = [
+        'producer' => 'Producer',
+        'supplier' => 'Supplier',
+        'country' => 'Country',
+        'region' => 'Region',
+        'grapes' => 'Grapes',
+        'colour' => 'Type',
+        'vintage' => 'Vintage',
+        'format' => 'Format',
+        'price' => 'Last price',
+        'received' => 'Received',
+        'files' => 'Files',
+    ];
+
+    /**
+     * Everything on by default, as in the catalogue — the complaint this
+     * answers was that inventory showed too little, not too much.
+     *
+     * @var array<int, string>
+     */
+    #[Session(key: 'inventory-columns')]
+    public array $visibleColumns = [
+        'producer', 'supplier', 'country', 'region', 'grapes',
+        'colour', 'vintage', 'format', 'price', 'received', 'files',
+    ];
 
     #[Session]
     public ?int $venueId = null;
@@ -61,6 +94,14 @@ class Index extends Component
     public ?int $attachmentItemId = null;
 
     public $upload;
+
+    public function updated($property): void
+    {
+        // Only known column keys, in the canonical order (guards a tampered payload).
+        if ($property === 'visibleColumns' || str_starts_with((string) $property, 'visibleColumns.')) {
+            $this->visibleColumns = array_values(array_intersect(array_keys(self::COLUMNS), $this->visibleColumns));
+        }
+    }
 
     private function can(Feature $feature): bool
     {
@@ -267,9 +308,10 @@ class Index extends Component
                         return true;
                     }
 
-                    $name = $row['product']?->wine_name ?? '';
+                    // Producer is searchable too, matching the catalogue.
+                    $haystack = ($row['product']?->wine_name ?? '').' '.($row['product']?->producer ?? '');
 
-                    return stripos($name, $this->search) !== false;
+                    return stripos($haystack, $this->search) !== false;
                 })
                 ->values();
 
@@ -281,7 +323,19 @@ class Index extends Component
             }
         }
 
+        // Same gap-filling the catalogue does, so a stock line shows the same
+        // attributes (and the same provenance markers) as the wine it came from.
+        $products = $rows->pluck('product')->filter()->values()->all();
+        $enriched = (new CatalogueEnrichmentRepository)->forProducts($products);
+        $supplierNames = (new SupplierRepository)
+            ->connectedToCompany($this->currentUser()?->company_id ?? 0)
+            ->pluck('name', 'id')
+            ->all();
+
         return view('livewire.inventory.index', [
+            'columns' => self::COLUMNS,
+            'enriched' => $enriched,
+            'supplierNames' => $supplierNames,
             'canInventory' => $canInventory,
             'canManualAdd' => $this->can(Feature::ManualInventoryAdd),
             'canArchive' => $this->can(Feature::InventoryArchive),
