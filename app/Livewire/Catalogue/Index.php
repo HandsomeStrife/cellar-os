@@ -104,6 +104,13 @@ class Index extends Component
     #[Session(key: 'catalogue-columns')]
     public array $visibleColumns = ['producer', 'supplier', 'country', 'region', 'grapes', 'colour', 'vintage', 'format'];
 
+    // "Add to basket" panel: how many, and who else stocks this wine.
+    public ?int $addingId = null;
+
+    public bool $showAdd = false;
+
+    public int $addQty = 1;
+
     // Wine detail slideover.
     public bool $showDetail = false;
 
@@ -219,7 +226,56 @@ class Index extends Component
         $this->dispatch('toast', message: 'Price updated.');
     }
 
-    public function addToBasket(int $id): void
+    /**
+     * Open the add panel for a wine: choose how many, and see which other
+     * connected suppliers stock it.
+     */
+    public function openAdd(int $id): void
+    {
+        if ($this->orderableProduct($id) === null) {
+            return;
+        }
+
+        $this->addingId = $id;
+        $this->addQty = 1;
+        $this->showAdd = true;
+    }
+
+    public function closeAdd(): void
+    {
+        $this->addingId = null;
+        $this->addQty = 1;
+        $this->showAdd = false;
+    }
+
+    /**
+     * Point the open add panel at a different supplier's listing of the same
+     * wine, keeping the quantity the buyer already chose.
+     */
+    public function switchTo(int $id): void
+    {
+        if ($this->orderableProduct($id) === null) {
+            return;
+        }
+
+        $this->addingId = $id;
+    }
+
+    public function confirmAdd(): void
+    {
+        if ($this->addingId === null) {
+            return;
+        }
+
+        $this->addToBasket($this->addingId, max(1, $this->addQty));
+        $this->closeAdd();
+    }
+
+    /**
+     * @param  int|null  $units  how many SELLING units (bottles, or cases for a
+     *                           case-sold wine); one unit when not given.
+     */
+    public function addToBasket(int $id, ?int $units = null): void
     {
         // Never basket a wine from a supplier you're not connected to.
         $product = $this->orderableProduct($id);
@@ -231,9 +287,10 @@ class Index extends Component
         // Case-sold wines are basketed (and stepped) a case at a time; the
         // basket always stores the bottle count so checkout stays unit-based.
         $step = $product->soldByCase() ? max(1, $product->case_size) : 1;
+        $bottles = max(1, $units ?? 1) * $step;
 
-        $this->basket[$id] = ($this->basket[$id] ?? 0) + $step;
-        $this->dispatch('toast', message: $product->soldByCase() ? 'Case added to basket.' : 'Added to basket.');
+        $this->basket[$id] = ($this->basket[$id] ?? 0) + $bottles;
+        $this->dispatch('toast', message: $product->soldByCase() ? 'Cases added to basket.' : 'Added to basket.');
     }
 
     public function setBasketQty(int $id, int $qty): void
@@ -557,7 +614,23 @@ class Index extends Component
         // single supplier — the whole table is theirs.
         $showSupplierColumn = in_array('supplier', $this->visibleColumns, true) && $supplierFilter === 0;
 
+        // The wine in the add panel, plus the same wine from any OTHER
+        // connected supplier — cheapest first, with the saving spelled out.
+        $adding = null;
+        $alternatives = collect();
+        if ($this->showAdd && $this->addingId !== null) {
+            $adding = $repository->find($this->addingId);
+
+            if ($adding === null || ! in_array($adding->supplier_id, $connectedIds, true)) {
+                $adding = null;
+            } else {
+                $alternatives = $repository->alternativesFor($adding, $connectedIds);
+            }
+        }
+
         return view('livewire.catalogue.index', [
+            'adding' => $adding,
+            'alternatives' => $alternatives,
             // The supplier column is meaningless while filtered to one supplier,
             // so it drops out of the picker too rather than toggling nothing.
             'columns' => $supplierFilter !== 0

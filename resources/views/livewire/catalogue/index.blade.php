@@ -230,7 +230,7 @@
                                 <p class="text-xs text-muted-foreground">≈ {{ Currency::format($product->perBottleEquivalent(), $currency) }} /btl</p>
                             @endif
                         </div>
-                        <x-button wire:click="addToBasket({{ $product->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
+                        <x-button wire:click="openAdd({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
                             <x-icon.plus class="size-4" />
                         </x-button>
                     </div>
@@ -400,9 +400,9 @@
                             </td>
                             <td class="px-3 py-2.5 text-right {{ $stickyCell }}">
                                 <div class="flex items-center justify-end gap-1">
-                                    <x-button wire:click="addToBasket({{ $product->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
-                                        <x-icon.plus class="size-4" wire:loading.remove wire:target="addToBasket({{ $product->id }})" />
-                                        <x-icon.loader-circle class="size-4 animate-spin" wire:loading wire:target="addToBasket({{ $product->id }})" />
+                                    <x-button wire:click="openAdd({{ $product->id }})" variant="ghost" size="sm" title="Add to basket">
+                                        <x-icon.plus class="size-4" wire:loading.remove wire:target="openAdd({{ $product->id }})" />
+                                        <x-icon.loader-circle class="size-4 animate-spin" wire:loading wire:target="openAdd({{ $product->id }})" />
                                     </x-button>
                                     @if(in_array($product->supplier_id, $editableSupplierIds, true))
                                         <x-button wire:click="deleteProduct({{ $product->id }})" wire:confirm="Delete {{ $product->wine_name }} from the catalogue?" wire:loading.attr="disabled" wire:target="deleteProduct({{ $product->id }})" variant="ghost" size="sm" title="Delete wine" class="text-destructive hover:bg-destructive/10">
@@ -551,15 +551,113 @@
             {{-- Alpine-side close so the slide-out starts instantly, like the X / backdrop. --}}
             <x-button type="button" variant="outline" x-on:click="open = false">Close</x-button>
             @if($detail)
-                <x-button wire:click="addToBasket({{ $detail->id }})" wire:loading.attr="disabled" wire:target="addToBasket({{ $detail->id }})">
+                <x-button wire:click="openAdd({{ $detail->id }})" wire:loading.attr="disabled" wire:target="openAdd({{ $detail->id }})">
                     <x-icon.plus class="size-4" />
-                    {{ $detail->soldByCase() ? 'Add case to basket' : 'Add to basket' }}
+                    Add to basket
                 </x-button>
             @endif
         </x-slot:footer>
     </x-slideover>
 
     {{-- Basket modal --}}
+    {{-- Add to basket: how many, and who else has it --}}
+    <x-modal model="showAdd" title="Add to basket" max-width="xl">
+        @if($adding !== null)
+            <div class="space-y-5">
+                <div>
+                    <p class="font-serif text-lg font-semibold">{{ $adding->wine_name }}</p>
+                    <p class="text-sm text-muted-foreground">
+                        {{ collect([$adding->producer, $adding->vintage ?? 'NV', $supplierNames[$adding->supplier_id] ?? null])->filter()->implode(' · ') }}
+                    </p>
+                </div>
+
+                <div class="flex flex-wrap items-end justify-between gap-4 rounded-lg border border-border bg-secondary/40 px-4 py-3">
+                    <div>
+                        <span class="block font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                            How many {{ $adding->soldByCase() ? 'cases' : 'bottles' }}?
+                        </span>
+                        <div class="mt-2 flex items-center gap-2">
+                            <x-button type="button" variant="outline" size="sm" wire:click="$set('addQty', {{ max(1, $addQty - 1) }})" aria-label="One fewer">
+                                <x-icon.minus class="size-4" />
+                            </x-button>
+                            <input
+                                type="number"
+                                min="1"
+                                wire:model.live="addQty"
+                                aria-label="Quantity"
+                                class="w-20 rounded-md border border-input bg-card px-3 py-2 text-center text-sm tabular-nums text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
+                            />
+                            <x-button type="button" variant="outline" size="sm" wire:click="$set('addQty', {{ $addQty + 1 }})" aria-label="One more">
+                                <x-icon.plus class="size-4" />
+                            </x-button>
+                            @if($adding->soldByCase())
+                                <span class="text-sm text-muted-foreground">× {{ $adding->case_size }} btl</span>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="text-right">
+                        @if(! $adding->price_state->expectsPrice())
+                            <x-price-state :state="$adding->price_state" :note="$adding->price_note" />
+                            <p class="mt-1 max-w-xs text-xs text-muted-foreground">{{ $adding->price_note ?: $adding->price_state->getDescription() }}</p>
+                        @else
+                            <span class="block font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Line total</span>
+                            <p class="mt-1 font-serif text-2xl font-semibold tabular-nums">
+                                {{ Currency::format((float) ($adding->displayPrice() ?? 0) * max(1, $addQty), $currency) }}
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{ Currency::format($adding->displayPrice(), $currency) }} {{ $adding->soldByCase() ? '/case' : '/btl' }}
+                            </p>
+                        @endif
+                    </div>
+                </div>
+
+                @if($alternatives->isNotEmpty())
+                    <div>
+                        <p class="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">Also from your other suppliers</p>
+                        <ul class="mt-2 divide-y divide-border rounded-lg border border-border">
+                            @foreach($alternatives as $alternative)
+                                @php($saving = $adding->unit_price !== null && $alternative->unit_price !== null
+                                    ? (float) $adding->unit_price - (float) $alternative->unit_price
+                                    : null)
+                                <li wire:key="alt-{{ $alternative->id }}" class="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5 text-sm">
+                                    <div class="min-w-0">
+                                        <p class="truncate font-medium text-foreground">{{ $supplierNames[$alternative->supplier_id] ?? 'Another supplier' }}</p>
+                                        @if($saving !== null && $saving > 0)
+                                            <p class="text-xs font-medium text-primary">
+                                                {{ Currency::format($saving, $currency) }} a bottle cheaper
+                                            </p>
+                                        @elseif($saving !== null && $saving < 0)
+                                            <p class="text-xs text-muted-foreground">
+                                                {{ Currency::format(abs($saving), $currency) }} a bottle dearer
+                                            </p>
+                                        @endif
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <span class="whitespace-nowrap tabular-nums">
+                                            @if(! $alternative->price_state->expectsPrice())
+                                                <x-price-state :state="$alternative->price_state" :note="$alternative->price_note" />
+                                            @else
+                                                {{ Currency::format($alternative->displayPrice(), $currency) }}<span class="text-xs text-muted-foreground">{{ $alternative->soldByCase() ? '/case' : '/btl' }}</span>
+                                            @endif
+                                        </span>
+                                        <x-button type="button" variant="outline" size="sm" wire:click="switchTo({{ $alternative->id }})">Use this one</x-button>
+                                    </div>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
+                <div class="flex items-center justify-end gap-2">
+                    <x-button type="button" variant="outline" wire:click="closeAdd">Cancel</x-button>
+                    <x-button wire:click="confirmAdd">Add to basket</x-button>
+                </div>
+            </div>
+        @endif
+    </x-modal>
+
+    {{-- Order basket --}}
     <x-modal model="showBasket" title="Order basket" max-width="2xl">
         @if($basketLines->isEmpty())
             <div class="py-8 text-center text-sm text-muted-foreground">

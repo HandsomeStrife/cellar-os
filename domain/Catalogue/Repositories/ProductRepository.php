@@ -8,6 +8,7 @@ use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
+use Domain\Catalogue\Support\WineIdentity;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -222,6 +223,58 @@ class ProductRepository
             ->orderBy('sub_region')
             ->pluck('sub_region')
             ->all();
+    }
+
+    /**
+     * The SAME wine listed by the company's OTHER connected suppliers, cheapest
+     * first — so a buyer about to order can see whether someone else has it for
+     * less.
+     *
+     * "The same wine" is deliberately strict: identical producer + name (via the
+     * cross-supplier {@see WineIdentity} key), same vintage, same bottle format.
+     * A false match here would tell a buyer they're overpaying for a wine that
+     * isn't actually the one in front of them, so fuzzy name matching is out.
+     *
+     * Scoped to connected suppliers only — a company never sees pricing from a
+     * supplier it doesn't work with.
+     *
+     * @param  array<int, int>  $supplierIds  the company's connected suppliers
+     * @return Collection<int, ProductData>
+     */
+    public function alternativesFor(ProductData $product, array $supplierIds): Collection
+    {
+        $others = array_values(array_diff($supplierIds, [$product->supplier_id]));
+
+        if ($others === [] || trim($product->wine_name) === '') {
+            return collect();
+        }
+
+        $identity = WineIdentity::keyFor($product->producer, $product->wine_name);
+        $nameKey = WineIdentity::normalise($product->wine_name);
+
+        return Product::query()
+            ->whereNull('archived_at')
+            ->whereIn('supplier_id', $others)
+            ->where('wine_name', $product->wine_name)
+            ->where('vintage', $product->vintage)
+            ->where('format_ml', $product->format_ml)
+            ->get()
+            ->map(fn (Product $candidate) => $candidate->getData())
+            ->filter(function (ProductData $candidate) use ($identity, $nameKey) {
+                $candidateIdentity = WineIdentity::keyFor($candidate->producer, $candidate->wine_name);
+
+                // With producers on both sides the identity key is the test.
+                // Without one, fall back to the normalised name — the SQL has
+                // already pinned vintage and format.
+                return $identity !== null && $candidateIdentity !== null
+                    ? $identity === $candidateIdentity
+                    : WineIdentity::normalise($candidate->wine_name) === $nameKey;
+            })
+            // Priced wines first, cheapest first; POA has nothing to compare.
+            ->sortBy(fn (ProductData $candidate) => $candidate->unit_price === null
+                ? PHP_FLOAT_MAX
+                : (float) $candidate->unit_price)
+            ->values();
     }
 
     public function allForMap(): Collection
