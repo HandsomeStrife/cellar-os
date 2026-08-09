@@ -24,6 +24,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithPagination;
+use RuntimeException;
 
 #[Layout('layouts.app')]
 #[Title('Orders')]
@@ -129,11 +130,19 @@ class Index extends Component
         abort_unless($this->entitled(), 403);
         $this->guardOwnsOrder($id);
 
-        $result = (new RepeatOrderAction)->execute(
-            $id,
-            (int) $this->currentUser()?->company_id,
-            $this->currentUser()?->id,
-        );
+        try {
+            $result = (new RepeatOrderAction)->execute(
+                $id,
+                (int) $this->currentUser()?->company_id,
+                $this->currentUser()?->id,
+            );
+        } catch (RuntimeException $e) {
+            // Nothing to repeat, or the supplier is no longer connected —
+            // tell the buyer rather than throwing a 500 at them.
+            $this->dispatch('toast', message: $e->getMessage());
+
+            return;
+        }
 
         $changes = $result['changes'];
         $message = 'Draft '.$result['order']->displayNumber().' created.';

@@ -18,7 +18,7 @@
 
 <h2>Breakdowns &amp; activity</h2>
 <ul>
-    <li><strong>Inventory by colour</strong> and <strong>by country</strong>, proportional bars of where your stock sits.</li>
+    <li><strong>Inventory by type</strong> and <strong>by country</strong>, proportional bars of where your stock sits.</li>
     <li><strong>Top regions</strong>, your most-stocked regions by bottle count.</li>
     <li><strong>Recent orders</strong>, the latest five POs with supplier, line count, total and status.</li>
     <li><strong>Low-stock alerts</strong>, wines running low, so you know what to re-order.</li>

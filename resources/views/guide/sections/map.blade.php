@@ -6,7 +6,7 @@
 
 <h2>Using the map</h2>
 <ul>
-    <li>Each marker is a wine, coloured by its wine colour.</li>
+    <li>Each marker is a wine, coloured by its type.</li>
     <li><strong>Click a marker</strong> to see the wine, producer and country.</li>
     <li>The <strong>by-country</strong> panel breaks down how many geo-located wines you have per country.</li>
 </ul>

@@ -119,3 +119,18 @@ it('keeps a cleared mapping as pending rather than forgetting the word', functio
     expect($supplier->fresh()->type_mapping)->toHaveKey('klarett')
         ->and($supplier->fresh()->type_mapping['klarett']['type'])->toBeNull();
 });
+
+it('does not carry one supplier\'s unplaceable words into the next', function () {
+    // The weekly refresh reuses a single NormaliseService across every
+    // supplier's document; the per-run accumulator must not leak between them.
+    $service = new NormaliseService;
+
+    $first = $service->withTypeMapping([]);
+    $first->normaliseColour('Vin de Voile');
+    expect($first->unresolvedTypeLabels())->toBe(['Vin de Voile']);
+
+    $second = $first->withTypeMapping([]);
+    $second->normaliseColour('Klarett');
+
+    expect($second->unresolvedTypeLabels())->toBe(['Klarett']);
+});

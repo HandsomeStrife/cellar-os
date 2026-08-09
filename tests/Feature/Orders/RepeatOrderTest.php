@@ -10,13 +10,17 @@ use Domain\Catalogue\Models\Product;
 use Domain\Order\Actions\RepeatOrderAction;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Models\Order;
+use Domain\Supplier\Actions\ConnectCompanyToSupplierAction;
 use Domain\Supplier\Models\Supplier;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 beforeEach(function () {
     [$this->company, $this->user, $this->venue] = makeTenant(Plan::Pro);
     $this->actingAs($this->user);
     $this->supplier = Supplier::factory()->create();
+    // Ordering — including repeating — is restricted to connected suppliers.
+    (new ConnectCompanyToSupplierAction)->execute($this->company->id, $this->supplier->id);
 
     $this->orderFor = function (array $lines): Order {
         $order = Order::factory()->create([
@@ -125,6 +129,36 @@ it('flags a wine that has left the catalogue entirely', function () {
 
     expect($result['changes'][0]['change'])->toBe('no longer in your catalogue')
         ->and($result['order']->items)->toHaveCount(1);
+});
+
+it('refuses to repeat an order for a supplier you have disconnected from', function () {
+    $wine = Product::factory()->create(['supplier_id' => $this->supplier->id, 'unit_price' => '18.00']);
+    $order = ($this->orderFor)([[$wine, 6, '18.00']]);
+
+    DB::table('company_supplier')
+        ->where('company_id', $this->company->id)
+        ->where('supplier_id', $this->supplier->id)
+        ->delete();
+
+    expect(fn () => (new RepeatOrderAction)->execute($order->id, $this->company->id))
+        ->toThrow(RuntimeException::class, 'no longer connected');
+});
+
+it('tells the buyer instead of blowing up when a repeat is impossible', function () {
+    $wine = Product::factory()->create(['supplier_id' => $this->supplier->id, 'unit_price' => '18.00']);
+    $order = ($this->orderFor)([[$wine, 6, '18.00']]);
+
+    DB::table('company_supplier')
+        ->where('company_id', $this->company->id)
+        ->where('supplier_id', $this->supplier->id)
+        ->delete();
+
+    Livewire::test(Index::class)
+        ->call('repeat', $order->id)
+        ->assertDispatched('toast')
+        ->assertOk();
+
+    expect(Order::count())->toBe(1);
 });
 
 it('refuses to repeat another company\'s order', function () {

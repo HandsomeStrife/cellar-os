@@ -342,6 +342,12 @@ class NormaliseService
             CASE_LOWER,
         );
 
+        // A new mapping means a new run. Without this reset the accumulator
+        // carries over: the weekly refresh reuses ONE service across every
+        // supplier's document, so supplier B would be offered supplier A's
+        // unplaceable type words to map.
+        $clone->unresolvedTypeLabels = [];
+
         return $clone;
     }
 

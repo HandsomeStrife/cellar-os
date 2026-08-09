@@ -17,6 +17,10 @@
     <li><strong>Delete</strong> suppliers you no longer use.</li>
 </ul>
 
+<h2>Price lists &amp; wine types</h2>
+<p>Each supplier's actions menu offers <strong>Price lists &amp; documents</strong> — upload their portfolio or price sheet and CellarOS reads it for you — and <strong>Import a CSV / Excel list</strong>, where you map the columns yourself. Both are always done against a supplier, so there's no separate import area to hunt for.</p>
+<p>Suppliers don't agree on what to call a wine's type. CellarOS knows the common ones (<em>skin contact</em> is orange wine; <em>crémant</em> and <em>pét-nat</em> are sparkling). When one of your suppliers uses a word we can't place, it's listed on the review screen for that document and you tell us once what it means — we'll use your answer on every list they send from then on.</p>
+
 <h2>Why the email matters</h2>
 <p>A supplier's email address is used when you <a href="{{ url('/guide/orders') }}" wire:navigate>email a purchase order</a>. If it's blank, CellarOS will tell you rather than send into the void.</p>
 

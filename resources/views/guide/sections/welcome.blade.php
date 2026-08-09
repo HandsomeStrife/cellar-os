@@ -19,5 +19,5 @@
 </ol>
 
 <div class="callout">
-    Some features are part of paid plans (Starter, Pro, Group). Each section notes what's required, and the <a href="{{ url('/guide/plans') }}" wire:navigate>Plan &amp; feature matrix</a> lists everything.
+    CellarOS has two plans, Pro and Group. Each section notes what's required, and the <a href="{{ url('/guide/plans') }}" wire:navigate>Plan &amp; feature matrix</a> lists everything.
 </div>

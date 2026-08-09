@@ -10,6 +10,8 @@ use Domain\Order\Data\OrderItemData;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Order\Repositories\OrderRepository;
 use Domain\Shared\Actions\AbstractAction;
+use Domain\Supplier\Repositories\SupplierRepository;
+use RuntimeException;
 
 /**
  * Raises a fresh DRAFT order with the same wines and quantities as an existing
@@ -29,6 +31,7 @@ class RepeatOrderAction extends AbstractAction
     public function __construct(
         private ProductRepository $products = new ProductRepository,
         private OrderRepository $orders = new OrderRepository,
+        private SupplierRepository $suppliers = new SupplierRepository,
     ) {}
 
     /**
@@ -42,7 +45,16 @@ class RepeatOrderAction extends AbstractAction
         $source = $this->orders->findForCompany($orderId, $companyId);
 
         if ($source === null || $source->items === []) {
-            throw new \RuntimeException('That order has nothing to repeat.');
+            throw new RuntimeException('That order has nothing to repeat.');
+        }
+
+        // Ordering is restricted to connected suppliers everywhere else, and a
+        // repeat must not be the way round it: a company that has since
+        // disconnected would otherwise raise an order against a supplier the
+        // rest of the app won't even name.
+        if ($source->supplier_id === null
+            || ! $this->suppliers->isConnectedToCompany($source->supplier_id, $companyId)) {
+            throw new RuntimeException('You are no longer connected to that supplier, so this order can\'t be repeated.');
         }
 
         $items = [];

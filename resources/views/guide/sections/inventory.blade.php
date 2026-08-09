@@ -1,5 +1,5 @@
 <p>Inventory is the stock you actually hold, tracked per venue.</p>
-<p class="meta">Route: <code>/inventory</code> · Requires the <strong>Starter</strong> plan or above</p>
+<p class="meta">Route: <code>/inventory</code></p>
 
 <h2>Choosing a venue</h2>
 <p>Inventory is scoped to a venue. Pick the active venue from the selector at the top. Your first venue is created at signup; creating <strong>additional venues</strong> requires the Group plan.</p>
@@ -20,5 +20,9 @@
     <dd>Attach invoices, tasting notes or images to a line, then download or remove them. Files are stored privately and only the owning venue can access them. <strong>Pro</strong> feature.</dd>
 </dl>
 
+<h2>Columns</h2>
+<p>Each stock line carries the same wine details as the catalogue — producer, supplier, type and style, vintage, format, origin and grape — alongside the count, last price paid and when it was received. Use <strong>Columns</strong> to choose which of those you want to see; your choice is remembered.</p>
+<p>Where your supplier's list left a gap, the same filled-in details you see in the catalogue appear here, marked the same way.</p>
+
 <h2>Search</h2>
-<p>Filter the current venue's stock by wine name to find a line quickly.</p>
+<p>Filter the current venue's stock by wine name or producer to find a line quickly.</p>

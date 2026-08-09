@@ -6,12 +6,12 @@
 <p>CellarOS reads the headers and rows, and if it has imported from this supplier before, it pre-loads their saved column mapping.</p>
 
 <h2>Step 2, Map columns</h2>
-<p>Match each CellarOS field (wine name, producer, country, region, grape, colour, vintage, format, case size, unit price, stock) to a column from your file. The wizard auto-guesses from the header names; you only fix what it got wrong. <strong>Wine name is required.</strong></p>
+<p>Match each CellarOS field (wine name, producer, country, region, grape, type, vintage, format, case size, unit price, price note, stock) to a column from your file. The wizard auto-guesses from the header names; you only fix what it got wrong. <strong>Wine name is required.</strong></p>
 
 <h2>Step 3, Preview</h2>
 <p>See a sample of how your wines will be imported, after normalisation:</p>
 <ul>
-    <li><strong>Colours</strong> are recognised across languages (e.g. <em>rouge</em>, <em>bianco</em>, <em>champagne</em> → Sparkling).</li>
+    <li><strong>Types</strong> are recognised across languages and trade shorthand (e.g. <em>rouge</em>, <em>bianco</em>, <em>champagne</em> → Sparkling, <em>skin contact</em> → Orange). If your supplier uses a word we don't know, we'll offer it to you to map, and remember your answer for their next list.</li>
     <li><strong>Grapes &amp; regions</strong> are standardised (e.g. <em>Shiraz</em> → Syrah, <em>Burgundy</em> → Bourgogne).</li>
     <li><strong>Prices, vintages and bottle formats</strong> are parsed from messy text (currency symbols, <em>75cl</em>, <em>Magnum</em>, "NV", etc.).</li>
     <li>Each wine is <strong>geocoded</strong> from its region and country.</li>
