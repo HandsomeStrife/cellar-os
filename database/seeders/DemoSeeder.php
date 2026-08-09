@@ -184,8 +184,10 @@ class DemoSeeder extends Seeder
         // The SAME four wines from a second merchant, two of them cheaper —
         // this is what the catalogue's cross-supplier comparison shows.
         $shared = $wines->slice(0, 4);
+        // Three of the four undercut Northbank, one is dearer — a real
+        // comparison shows both, and the saving is the interesting case.
         $this->list($ashgrove, $shared, fn (int $i) => [
-            'unit_price' => $this->price((14.00 + $i * 4.25) + ($i % 2 === 0 ? -2.40 : 3.10)),
+            'unit_price' => $this->price((14.00 + $i * 4.25) + ($i === 3 ? 3.10 : -2.40)),
         ]);
 
         // A specialist with a shorter list, including the wines whose prices
@@ -211,7 +213,9 @@ class DemoSeeder extends Seeder
         if ($inStock->count() >= 8) {
             $this->order($owner, $venue, $northbank, OrderStatus::Draft, 'Autumn list: building the next order.', [[$inStock[2], 12], [$inStock[4], 6]]);
             $this->order($owner, $venue, $northbank, OrderStatus::Sent, 'Cellar restock for the autumn list.', [[$inStock[1], 12], [$inStock[6], 12]]);
-            $this->order($owner, $venue, $northbank, OrderStatus::Received, 'Last month’s by-the-glass order.', [[$inStock[0], 24], [$inStock[3], 12]]);
+            // Placed when prices were ~8% lower, so repeating it demonstrates
+            // the change report rather than silently matching.
+            $this->order($owner, $venue, $northbank, OrderStatus::Received, 'Last month’s by-the-glass order.', [[$inStock[0], 24], [$inStock[3], 12]], priceDrift: 0.92);
         }
 
         $this->reviewableDocument($ashgrove, $wines->slice(21, 5));
@@ -382,11 +386,18 @@ class DemoSeeder extends Seeder
     {
         $upsert = new UpsertProductAction;
 
+        // Enough of a sparkling range that a real question — "something fizzy
+        // and pink for a wedding, under £40" — comes back with a choice.
         $bubbles = [
             ['Blanc de Blancs Brut, Grand Cru', 'Maison Perrelet', WineType::Sparkling, WineSubType::SparklingWhite, '48.00', 'France', 'Champagne'],
             ['Crémant de Loire Rosé Brut', 'Domaine des Ormes', WineType::Sparkling, WineSubType::SparklingRose, '21.50', 'France', 'Loire'],
+            ['Rosé Brut Réserve', 'Maison Perrelet', WineType::Sparkling, WineSubType::SparklingRose, '38.00', 'France', 'Champagne'],
+            ['Franciacorta Rosé Saten', 'Cantina Bellavista Nuova', WineType::Sparkling, WineSubType::SparklingRose, '32.50', 'Italy', 'Lombardia'],
+            ['Prosecco Superiore Extra Dry', 'Colline di Asolo', WineType::Sparkling, WineSubType::SparklingWhite, '15.00', 'Italy', 'Veneto'],
             ['Lambrusco Grasparossa Secco', 'Cantina Vecchia Corte', WineType::Sparkling, WineSubType::SparklingRed, '16.00', 'Italy', 'Emilia-Romagna'],
+            ['Pétillant Naturel Blanc', 'Domaine des Ormes', WineType::Sparkling, WineSubType::PetNat, '19.00', 'France', 'Loire'],
             ['Tawny Port 10 Year Old', 'Quinta do Ribeiro', WineType::Fortified, WineSubType::Port, '32.00', 'Portugal', 'Douro'],
+            ['Oloroso Seco', 'Bodegas Marisma', WineType::Fortified, WineSubType::Sherry, '24.00', 'Spain', 'Jerez'],
         ];
 
         foreach ($bubbles as [$name, $producer, $type, $subType, $price, $country, $region]) {
@@ -502,6 +513,11 @@ class DemoSeeder extends Seeder
         $demoSupplierIds = Supplier::whereIn('name', self::SUPPLIERS)->pluck('id');
 
         $real = Product::query()
+            // Only PUBLIC suppliers' catalogues — the trade data this
+            // environment has actually parsed. Private suppliers belong to a
+            // tenant (including previous demo runs), and sampling those would
+            // dress the demo in other demos' leftovers.
+            ->whereIn('supplier_id', Supplier::whereNull('created_by_company_id')->select('id'))
             ->whereNotIn('supplier_id', $demoSupplierIds)
             ->whereNull('archived_at')
             ->whereNotNull('producer')
@@ -511,8 +527,19 @@ class DemoSeeder extends Seeder
             ->orderByRaw('(region IS NULL OR region = "")')
             ->orderByRaw('(grape IS NULL)')
             ->orderBy('id')
-            ->limit(30)
+            // Take a wide slice, then thin it below — a catalogue is usually
+            // lopsided towards whichever lists were parsed first, and a demo
+            // list that is entirely one country doesn't look like a merchant.
+            ->limit(600)
             ->get();
+
+        $real = $real
+            ->groupBy(fn (Product $p) => $p->country)
+            ->map(fn (Collection $forCountry) => $forCountry->take(3))
+            ->flatten()
+            ->sortBy('country')
+            ->values()
+            ->take(30);
 
         if ($real->count() >= 26) {
             return $real->map(fn (Product $p) => [

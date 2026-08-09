@@ -27,7 +27,7 @@ These differ from the generic `new-laravel-site` scaffold baseline; reasons reco
 - **a11y:** focus-visible rings, aria-labelled icon buttons, scoped/`sr-only` pricing table, `<main>` landmarks, ≥40px tap targets, reduced-motion. Keep these when adding UI.
 - **MySQL** (Cerberus shared instance), not the upstream's Postgres. Postgres `pgEnum` columns are modelled as plain `string` columns cast to PHP backed enums.
 - **bigint auto-increment primary keys + a public `uuid` column** (via `Domain\Shared\Traits\HasUuid`), instead of the upstream's UUID primary keys. This keeps Laravel Cashier's migrations working unmodified and matches the standard `HasUuid` pattern. Look entities up by `uuid` for public/URL use, by `id` internally.
-- **PRODUCTION EXISTS (Forge: cellar-os.on-forge.com) — schema changes must now be NEW migrations.** The earlier "clean rebuild" habit of editing migrations in place broke prod (its tables had already run the old versions; `migrate` couldn't reconcile → login 500 on 2026-06-11). Either add incremental migrations, or accept a full `migrate:fresh --seed` + golden restore on prod (`wine:import-golden` rebuilds 10k+ wines in ~90s; demo accounts reseed). Prod runbook: deploy → `migrate --force`; on schema divergence → `migrate:fresh` → `wine:import-golden` → `db:seed` (ORDER MATTERS: the clean seeder wires demo journeys to whatever real catalogues exist; fictional demo content is dev/E2E-only via `db:seed --class=DemoSupplierSeeder`).
+- **PRODUCTION EXISTS (Forge: cellar-os.on-forge.com) — schema changes must now be NEW migrations.** The earlier "clean rebuild" habit of editing migrations in place broke prod (its tables had already run the old versions; `migrate` couldn't reconcile → login 500 on 2026-06-11). Either add incremental migrations, or accept a full `migrate:fresh --seed` + golden restore on prod (`wine:import-golden` rebuilds 10k+ wines in ~90s; demo accounts reseed). Prod runbook: deploy → `migrate --force`; on schema divergence → `migrate:fresh` → `wine:import-golden` → `db:seed` → `demo:reset` (the clean seeder creates accounts only; `demo:reset` builds the demo's own private merchants, which is safe on prod because no other tenant can see them).
 - **Tests run on SQLite `:memory:`** (Laravel 13 default — fast, no external DB), not a dedicated `cellar_os_test` MySQL database.
 - **Auth is plain Livewire/session** aligned to the DDD layout (the stock starter kit puts `User` in `app/Models`, which violates the "models live in `/domain`" rule). Auth UI/flows are queued as tasks.
 - **The Company is the tenant**, not the user. `Domain\Company\Models\Company` is the Cashier `Billable` and holds the `plan`; **users are seats** (a `role` of `owner`/`manager`/`member` — see `Domain\User\Enums\Role`), and **venues belong to the company** (`company_id`). A user's venue access is **role-aware**: owners/managers see every company venue, members only the venues assigned to them via the **`user_venue`** pivot. App code resolves this through `App\Livewire\Concerns\WithTenant` (`currentCompany()`, `companyPlan()`, `accessibleVenues()`) + `Domain\Company\Repositories\CompanyRepository::getLoggedInCompany()`. Plan gating reads the **company** plan (`Plan::can(Feature)`); billing (Pricing/checkout/portal/webhook `UpdateCompanyPlanFromStripe`) is **owner-only** and acts on the Company billable. Registration creates company→owner→venue→pivot. Owners/managers manage the team at **`/team`** (invite users by email at-or-below their own role, assign venue visibility); admins manage companies/plans/teams at **`/admin/companies`**.
@@ -73,13 +73,37 @@ Plan gating: in-component (`Plan::can(Feature)`) + the `feature:<key>` route mid
 
 ### Demo data & E2E
 
-`php artisan migrate:fresh --seed` (or `db:seed`, idempotent) creates a shared catalogue (3 suppliers, 10 geo-located wines), a default admin, and **two** demo buyer accounts — one per plan — each showing a different journey (its own venues/inventory/orders). All passwords are `password`; the list is also surfaced at `/guide/demo-logins`.
-- Admin: `admin@cellaros.test` (at `/admin`)
-- Supplier portal (at `/supplier`): three suppliers at different journeys — `supplier@cellaros.test` (Bordeaux Imports: a 2-user team, docs awaiting + analysed), `italian-supplier@cellaros.test` (Italian Fine Wines: a doc analysing + one failed), `newworld-supplier@cellaros.test` (New World Selections: **invite pending**, no password yet)
-- `demo@cellaros.test` (Pro) — full single venue: stock + orders across the lifecycle (used by E2E auth setup)
-- `group@cellaros.test` (Group, **owner**) — a company with two venues (stock + orders) and a team; plus `group.member@cellaros.test` (**member**) scoped to just the Riverside venue
+**`php artisan demo:reset`** builds (and rebuilds) the whole demo. `DatabaseSeeder` is now
+accounts-only and production-safe: the admin plus two demo tenants, no suppliers or wines.
+All demo CONTENT lives in **`DemoSeeder`**.
 
-E2E: `npx playwright install chromium` once, then `npx playwright test` (auth setup logs in the demo user; `global-setup` seeds the dev DB — set `E2E_SKIP_SEED=1` to skip). Reports/auth state are gitignored.
+- **Fictional merchants, real wine data.** Northbank / Ashgrove / Corvina / Halliwell /
+  Saltmarsh carry wine names, producers, regions and grapes sampled from PUBLIC parsed
+  catalogues (spread across countries, ~3 per country, so it reads like a merchant's list);
+  a bare install falls back to a curated set. The demo never borrows a real supplier
+  relationship — that dependency made it impossible to stage a scenario.
+- **Merchants are PRIVATE to the demo companies** (`created_by_company_id`). Safe to seed
+  anywhere: invisible to other tenants, can't reach Discover or golden. It also makes MORE
+  demonstrable — price edit, wine delete and catalogue commit are private-supplier-only.
+- **Deliberately arranged** so every headline feature shows: the same 4 wines from 2
+  merchants at different prices (comparison), a POA wine with the merchant's wording,
+  sparkling in 4 styles + port/sherry, case- and bottle-quoted lines, 3 orders across the
+  lifecycle (the received one placed at ~8% lower prices so a repeat shows its change
+  report), 2 low-stock lines, a price list awaiting review with one flagged row, two
+  unmapped type words, and portal documents in each status.
+- `demo:reset` tears down ONLY the demo tenants + their merchants (tested: another
+  company's data survives). Passwords are all `password`; logins at `/guide/demo-logins`.
+- Admin: `admin@cellaros.test` (`/admin`) · Portal: `supplier@cellaros.test` (`/supplier`)
+- `demo@cellaros.test` (Pro) — one venue, three merchants, the full journey (E2E auth user)
+- `group@cellaros.test` (Group) + `group.member@cellaros.test` (member, Riverside only)
+
+**Demo walkthrough for a non-developer: `docs/demo/demo-guide.html`** (self-contained page,
+screenshots + cheatsheet) with `docs/demo/README.md` as the short version.
+
+E2E: `npx playwright install chromium` once, then `npx playwright test` (auth setup logs in
+the demo user; `global-setup` runs `demo:reset` — set `E2E_SKIP_SEED=1` to skip). Specs key
+on data the seeder GUARANTEES (merchant names, the hard-coded sparkling wines), never on
+sampled wines. Reports/auth state are gitignored.
 
 ## Development commands
 

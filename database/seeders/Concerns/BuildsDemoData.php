@@ -106,8 +106,22 @@ trait BuildsDemoData
     /**
      * @param  array<int, array{0: Product, 1: int}>  $lines  [product, quantity]
      */
-    private function order(User $user, Venue $venue, Supplier $supplier, OrderStatus $status, string $notes, array $lines): void
-    {
+    /**
+     * @param  array<int, array{0: Product, 1: int}>  $lines
+     * @param  float  $priceDrift  multiplier on the snapshot price, so a seeded
+     *                             order can look like it was placed when prices
+     *                             were different — which is what makes "repeat
+     *                             this order" show its change report.
+     */
+    private function order(
+        User $user,
+        Venue $venue,
+        Supplier $supplier,
+        OrderStatus $status,
+        string $notes,
+        array $lines,
+        float $priceDrift = 1.0,
+    ): void {
         $order = Order::firstOrCreate(
             ['venue_id' => $venue->id, 'created_by' => $user->id, 'notes' => $notes],
             [
@@ -115,6 +129,9 @@ trait BuildsDemoData
                 'supplier_id' => $supplier->id,
                 'status' => $status,
                 'total' => 0,
+                // Seeded orders get a real PO number, like every order raised
+                // through the app — a demo showing "#D9711FEF" looks broken.
+                'po_number' => $this->nextDemoPoNumber($venue->company_id),
             ],
         );
 
@@ -125,16 +142,34 @@ trait BuildsDemoData
         $total = 0.0;
 
         foreach ($lines as [$product, $qty]) {
+            $price = number_format((float) $product->unit_price * $priceDrift, 2, '.', '');
+
             $order->items()->create([
                 'product_id' => $product->id,
                 'wine_name' => $product->wine_name,
                 'quantity_units' => $qty,
-                'unit_price_at_order' => $product->unit_price,
+                'unit_price_at_order' => $price,
                 'currency_at_order' => 'GBP',
+                'sold_by_at_order' => $product->sold_by?->value ?? 'bottle',
             ]);
-            $total += $qty * (float) $product->unit_price;
+            $total += $qty * (float) $price;
         }
 
         $order->update(['total' => $total]);
+    }
+
+    /** Next PO number for the company, matching CreateOrderAction's format. */
+    private function nextDemoPoNumber(?int $companyId): string
+    {
+        $prefix = 'PO-'.now()->format('Y').'-';
+
+        $latest = Order::query()
+            ->when($companyId === null, fn ($q) => $q->whereNull('company_id'))
+            ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
+            ->where('po_number', 'like', $prefix.'%')
+            ->orderByDesc('po_number')
+            ->value('po_number');
+
+        return sprintf('%s%04d', $prefix, $latest !== null ? (int) substr($latest, strlen($prefix)) + 1 : 1);
     }
 }
