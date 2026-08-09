@@ -476,7 +476,10 @@ class DocumentAnalysisService
             $flag = ParsedWineFlag::SuspiciousPrice;
         } elseif ($price === null && $this->looksLikeHeading($product->wine_name)) {
             $flag = ParsedWineFlag::SuspectedHeading;
-        } elseif ($price === null) {
+        } elseif ($price === null && $product->price_state->expectsPrice()) {
+            // Only a price we FAILED to read is missing. A merchant's own
+            // "TBC"/"POA" is a stated price, and flagging it would have the
+            // bulk approve that skips flagged rows drop a real listing.
             $flag = ParsedWineFlag::MissingPrice;
         } elseif ($confidence > 0 && $confidence < 0.6) {
             $flag = ParsedWineFlag::LowConfidence;

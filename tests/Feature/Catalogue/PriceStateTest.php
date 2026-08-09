@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Livewire\Catalogue\Index;
+use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Repositories\ProductRepository;
@@ -10,12 +11,15 @@ use Domain\Import\Services\NormaliseService;
 use Domain\Order\Models\Order;
 use Domain\Supplier\Actions\ApproveAllForDocumentAction;
 use Domain\Supplier\Actions\ConnectCompanyToSupplierAction;
+use Domain\Supplier\Enums\ParsedWineFlag;
 use Domain\Supplier\Enums\ParsedWineStatus;
 use Domain\Supplier\Models\ParsedWine;
 use Domain\Supplier\Models\Supplier;
 use Domain\Supplier\Models\SupplierDocument;
+use Domain\Supplier\Services\DocumentAnalysisService;
 use Domain\User\Models\User;
 use Livewire\Livewire;
+use Tests\Support\FakeClaudeClient;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -160,4 +164,30 @@ it('puts a POA wine on a purchase order without a price and excludes it from the
     expect($poaLine->unit_price_at_order)->toBeNull()
         // Only the priced line contributes.
         ->and((float) $order->total)->toBe(20.0);
+});
+
+it('does not flag a stated POA as a missing price', function () {
+    // A flagged row is skipped by the bulk approve that skips flagged rows, so
+    // mislabelling a merchant's own "TBC" would quietly drop a real listing.
+    $service = new DocumentAnalysisService(
+        claude: new FakeClaudeClient,
+    );
+
+    $vet = new ReflectionMethod($service, 'vet');
+    $vet->setAccessible(true);
+
+    $poa = ProductData::from([
+        'id' => null, 'uuid' => null, 'supplier_id' => $this->supplier->id, 'raw_upload_id' => null,
+        'wine_name' => 'Pupillin Ploussard', 'producer' => 'Domaine Renaud Bruyère',
+        'country' => 'France', 'region' => 'Jura', 'sub_region' => null, 'grape' => null,
+        'colour' => null, 'vintage' => 2022, 'format_ml' => 750, 'case_size' => 6,
+        'unit_price' => null, 'price_per_litre' => null, 'stock' => 0,
+        'latitude' => null, 'longitude' => null,
+        'price_state' => PriceState::Tbc,
+    ]);
+
+    $unreadable = ProductData::from([...$poa->toArray(), 'wine_name' => 'Unreadable Row', 'price_state' => PriceState::Priced->value]);
+
+    expect($vet->invoke($service, $poa, 0.9)['flag'] ?? null)->toBeNull()
+        ->and($vet->invoke($service, $unreadable, 0.9)['flag'] ?? null)->toBe(ParsedWineFlag::MissingPrice->value);
 });
