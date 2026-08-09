@@ -44,6 +44,10 @@ class UpsertProductAction extends AbstractAction
             'case_size' => $data->case_size,
             'sold_by' => $data->sold_by,
             'unit_price' => $data->unit_price,
+            // Price data always takes the new edition's value — including a
+            // POA that has since become a real price, and vice versa.
+            'price_state' => $data->price_state,
+            'price_note' => $data->price_note,
             'pack_price' => $data->pack_price,
             'price_per_litre' => $data->price_per_litre,
             'stock' => $data->stock,

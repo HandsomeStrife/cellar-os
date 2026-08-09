@@ -5,7 +5,7 @@
         <x-upgrade-gate
             title="Purchase orders are a paid feature"
             message="Build orders, generate PDFs and email them straight to your suppliers."
-            plan="Starter"
+            plan="Pro"
         />
     @else
         @php($supplierMap = $suppliers->keyBy('id'))
@@ -127,13 +127,21 @@
                                             @endif
                                         </td>
                                         <td class="px-3 py-2 text-right tabular-nums">
-                                            @if($item->soldByCaseAtOrder())
+                                            @if($item->isPoa())
+                                                <span class="font-mono text-xs uppercase text-muted-foreground">POA</span>
+                                            @elseif($item->soldByCaseAtOrder())
                                                 {{ Currency::format($item->casePriceAtOrder(), $item->currency_at_order) }}<span class="text-xs text-muted-foreground">/case</span>
                                             @else
                                                 {{ Currency::format($item->unit_price_at_order, $item->currency_at_order) }}
                                             @endif
                                         </td>
-                                        <td class="px-3 py-2 text-right tabular-nums">{{ Currency::format($item->lineTotal(), $item->currency_at_order) }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums">
+                                            @if($item->isPoa())
+                                                <span class="font-mono text-xs uppercase text-muted-foreground">POA</span>
+                                            @else
+                                                {{ Currency::format($item->lineTotal(), $item->currency_at_order) }}
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>

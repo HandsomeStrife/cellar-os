@@ -75,19 +75,26 @@
                         @endif
                     </td>
                     <td class="right">
-                        @if($item->soldByCaseAtOrder())
+                        @if($item->isPoa())
+                            POA
+                        @elseif($item->soldByCaseAtOrder())
                             {{ $item->currency_at_order }} {{ number_format((float) $item->casePriceAtOrder(), 2) }} /case
                         @else
                             {{ $item->currency_at_order }} {{ number_format((float) $item->unit_price_at_order, 2) }}
                         @endif
                     </td>
-                    <td class="right">{{ $item->currency_at_order }} {{ number_format($item->lineTotal(), 2) }}</td>
+                    <td class="right">{{ $item->isPoa() ? 'POA' : $item->currency_at_order.' '.number_format($item->lineTotal(), 2) }}</td>
                 </tr>
             @endforeach
             <tr class="total-row">
                 <td colspan="3" class="right">Total</td>
                 <td class="right">{{ number_format((float) $order->total, 2) }}</td>
             </tr>
+            @if(collect($order->items)->contains(fn ($item) => $item->isPoa()))
+                <tr>
+                    <td colspan="4" class="right">Excludes POA lines — please confirm those prices with us.</td>
+                </tr>
+            @endif
         </tbody>
     </table>
 

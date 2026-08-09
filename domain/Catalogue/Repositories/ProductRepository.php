@@ -101,6 +101,12 @@ class ProductRepository
             $sort === 'supplier' => $query->orderByRaw(
                 '(select name from suppliers where suppliers.id = products.supplier_id) '.$direction
             ),
+            // POA/TBC wines have no figure to sort on, so they always land at
+            // the bottom of a price sort rather than at whichever end NULLs
+            // happen to fall for the database.
+            $sort === 'unit_price' => $query
+                ->orderByRaw('(unit_price IS NULL)')
+                ->orderBy('unit_price', $direction),
             default => $query->orderBy($sort, $direction),
         };
 

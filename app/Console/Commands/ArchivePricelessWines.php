@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Models\Product;
 use Domain\Supplier\Actions\AddSupplierNoteAction;
 use Domain\Supplier\Models\Supplier;
@@ -16,6 +17,10 @@ use Illuminate\Console\Command;
  * wines are kept for history and un-archive automatically if a priced edition
  * later reintroduces them; meanwhile we source a priced list from the supplier.
  *
+ * Wines the supplier has deliberately marked POA/TBC are NOT price-less — the
+ * supplier told us the price is on application, which is information the buyer
+ * needs. Those stay in the catalogue (see Domain\Catalogue\Enums\PriceState).
+ *
  * Idempotent. archived_at travels with golden, so prod mirrors the cleanup.
  */
 class ArchivePricelessWines extends Command
@@ -26,8 +31,12 @@ class ArchivePricelessWines extends Command
 
     public function handle(): int
     {
-        $base = Product::whereNull('archived_at')
+        $priceless = fn ($query) => $query
+            ->whereNull('archived_at')
+            ->where('price_state', PriceState::Priced->value)
             ->where(fn ($q) => $q->whereNull('unit_price')->orWhere('unit_price', '<=', 0));
+
+        $base = $priceless(Product::query());
 
         $bySupplier = (clone $base)
             ->selectRaw('supplier_id, count(*) c')
@@ -53,9 +62,7 @@ class ArchivePricelessWines extends Command
                 continue;
             }
 
-            Product::whereNull('archived_at')
-                ->where('supplier_id', $row->supplier_id)
-                ->where(fn ($q) => $q->whereNull('unit_price')->orWhere('unit_price', '<=', 0))
+            $priceless(Product::where('supplier_id', $row->supplier_id))
                 ->update(['archived_at' => now()]);
 
             if ($supplier !== null) {

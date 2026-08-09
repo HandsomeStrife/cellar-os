@@ -218,10 +218,14 @@
                             </p>
                         </button>
                         <div class="shrink-0 text-right">
+                            @if(! $product->price_state->expectsPrice())
+                                <x-price-state :state="$product->price_state" :note="$product->price_note" />
+                            @else
                             <p class="whitespace-nowrap text-sm font-medium text-foreground">
                                 {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
                                 @if($product->displayPrice() !== null)<span class="text-xs font-normal text-muted-foreground">{{ $product->soldByCase() ? '/case' : '/btl' }}</span>@endif
                             </p>
+                            @endif
                             @if($product->perBottleEquivalent() !== null)
                                 <p class="text-xs text-muted-foreground">≈ {{ Currency::format($product->perBottleEquivalent(), $currency) }} /btl</p>
                             @endif
@@ -370,6 +374,10 @@
                                         <button type="button" wire:click="savePrice" wire:loading.attr="disabled" wire:target="savePrice" class="text-primary hover:text-primary/80" title="Save"><x-icon.check class="size-4" /></button>
                                         <button type="button" wire:click="cancelEditPrice" class="text-muted-foreground hover:text-foreground" title="Cancel"><x-icon.x class="size-4" /></button>
                                     </div>
+                                @elseif(! $product->price_state->expectsPrice())
+                                    {{-- The supplier withheld this price on purpose; their own
+                                         wording is carried through in the tooltip. --}}
+                                    <x-price-state :state="$product->price_state" :note="$product->price_note" />
                                 @elseif(in_array($product->supplier_id, $editableSupplierIds, true))
                                     <button type="button" wire:click="startEditPrice({{ $product->id }}, '{{ $product->unit_price }}')" class="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium text-foreground" title="Edit price (per bottle)">
                                         {{ $product->displayPrice() !== null ? Currency::format($product->displayPrice(), $currency) : '–' }}
@@ -431,6 +439,10 @@
                 {{-- Price --}}
                 <div class="rounded-lg border border-border bg-secondary/40 px-4 py-3">
                     <p class="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground">{{ $detail->soldByCase() ? 'Price per case' : 'Price per bottle' }}</p>
+                    @if(! $detail->price_state->expectsPrice())
+                        <p class="mt-1 font-serif text-2xl font-semibold">{{ $detail->price_state->getLabel() }}</p>
+                        <p class="mt-1 text-sm text-muted-foreground">{{ $detail->price_note ?: $detail->price_state->getDescription() }}</p>
+                    @else
                     <p class="mt-1 font-serif text-2xl font-semibold">
                         {{ $detail->displayPrice() !== null ? Currency::format($detail->displayPrice(), $currency) : '–' }}
                     </p>
@@ -442,6 +454,7 @@
                             <span>{{ Currency::format($detail->price_per_litre, $currency) }} / litre</span>
                         @endif
                     </p>
+                    @endif
                 </div>
 
                 {{-- Attributes --}}

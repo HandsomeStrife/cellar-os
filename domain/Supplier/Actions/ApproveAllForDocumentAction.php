@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Domain\Supplier\Actions;
 
+use Domain\Catalogue\Enums\PriceState;
 use Domain\Shared\Actions\AbstractAction;
 use Domain\Supplier\Enums\ParsedWineStatus;
 use Domain\Supplier\Models\ParsedWine;
@@ -34,7 +35,11 @@ class ApproveAllForDocumentAction extends AbstractAction
                     // catalogue data without a price — unpriced lists are sourced
                     // from the supplier directly. A human can still add a price in
                     // the review screen and approve that row individually.
-                    if (! $this->hasPrice($row->payload['unit_price'] ?? null)) {
+                    //
+                    // A supplier's OWN "POA"/"ask your rep" is not a missing
+                    // price, it's a stated one: those rows commit as normal.
+                    if (! $this->hasPrice($row->payload['unit_price'] ?? null)
+                        && ! $this->statesNoPrice($row->payload['price_state'] ?? null)) {
                         continue;
                     }
 
@@ -53,5 +58,15 @@ class ApproveAllForDocumentAction extends AbstractAction
     private function hasPrice(mixed $price): bool
     {
         return $price !== null && $price !== '' && (float) $price > 0;
+    }
+
+    /**
+     * Whether the parsed row carries a deliberate POA/TBC from the supplier.
+     */
+    private function statesNoPrice(mixed $state): bool
+    {
+        $state = $state instanceof PriceState ? $state : PriceState::tryFrom((string) $state);
+
+        return $state !== null && ! $state->expectsPrice();
     }
 }

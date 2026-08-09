@@ -50,6 +50,7 @@ class Index extends Component
         'format_ml' => 'Format / size',
         'case_size' => 'Case size',
         'unit_price' => 'Unit price',
+        'price_note' => 'Price note (POA / "ask us")',
         'stock' => 'Stock',
     ];
 

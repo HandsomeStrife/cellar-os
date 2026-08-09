@@ -364,7 +364,11 @@ class Index extends Component
                 product_id: $line['product']->id,
                 wine_name: $line['product']->wine_name,
                 quantity_units: $line['qty'],
-                unit_price_at_order: number_format((float) ($line['product']->unit_price ?? 0), 2, '.', ''),
+                // A POA line goes onto the order with no price — the supplier
+                // quotes it back. Null is what the PO renders as "POA".
+                unit_price_at_order: $line['product']->price_state->expectsPrice()
+                    ? number_format((float) ($line['product']->unit_price ?? 0), 2, '.', '')
+                    : null,
                 currency_at_order: $currency,
                 sold_by_at_order: $line['product']->sold_by->value,
                 pack_size_at_order: $line['product']->soldByCase() ? $line['product']->case_size : null,

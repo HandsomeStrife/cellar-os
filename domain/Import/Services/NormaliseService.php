@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Domain\Import\Services;
 
 use Domain\Catalogue\Data\ProductData;
+use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Support\WineTypeFromName;
@@ -39,7 +40,8 @@ class NormaliseService
             return null;
         }
 
-        $unitPrice = $this->parsePrice($value('unit_price'));
+        $rawUnitPrice = $value('unit_price');
+        $unitPrice = $this->parsePrice($rawUnitPrice);
         $rawCountry = $value('country');
         $country = $this->normaliseCountry($rawCountry);
         $region = $this->standardiseRegion($value('region'));
@@ -104,6 +106,24 @@ class NormaliseService
             ? WineTypeFromName::inferSubType($colour, trim($wineName.' '.(string) $value('colour')), $producer)
             : null;
 
+        // A price cell with no number in it may still be saying something: a
+        // supplier's own "POA"/"ask your rep" is a deliberate state, not a gap.
+        // Only consulted when there is genuinely no figure to read.
+        $priceState = PriceState::Priced;
+        $priceNote = null;
+
+        if ($unitPrice === null) {
+            $stated = PriceState::fromPriceText($rawUnitPrice)
+                // Some lists put the explanation in the wine's own description
+                // rather than the price column.
+                ?? PriceState::fromPriceText($value('price_note'));
+
+            if ($stated !== null) {
+                $priceState = $stated;
+                $priceNote = $this->nullableString($value('price_note') ?? $rawUnitPrice);
+            }
+        }
+
         return new ProductData(
             id: null,
             uuid: null,
@@ -124,6 +144,8 @@ class NormaliseService
             unit_price: $unitPrice !== null ? number_format($unitPrice, 2, '.', '') : null,
             pack_price: $packPrice !== null ? number_format($packPrice, 2, '.', '') : null,
             price_per_litre: $pricePerLitre !== null ? number_format($pricePerLitre, 2, '.', '') : null,
+            price_state: $priceState,
+            price_note: $priceNote,
             stock: $this->parseInt($value('stock')) ?? 0,
             latitude: $coords['lat'] ?? null,
             longitude: $coords['lng'] ?? null,

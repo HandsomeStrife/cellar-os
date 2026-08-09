@@ -6,7 +6,7 @@
         <x-upgrade-gate
             title="Inventory is a paid feature"
             message="Track received stock per venue, archive lines, and attach invoices and tasting notes."
-            plan="Starter"
+            plan="Pro"
         />
     @elseif($venues->isEmpty())
         {{-- No venue yet --}}

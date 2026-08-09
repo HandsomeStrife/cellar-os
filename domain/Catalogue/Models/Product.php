@@ -6,6 +6,7 @@ namespace Domain\Catalogue\Models;
 
 use Database\Factories\ProductFactory;
 use Domain\Catalogue\Data\ProductData;
+use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
@@ -29,6 +30,8 @@ class Product extends Model
         'grape',
         'colour',
         'sub_type',
+        'price_state',
+        'price_note',
         'vintage',
         'format_ml',
         'case_size',
@@ -52,6 +55,7 @@ class Product extends Model
             'grape' => 'array',
             'colour' => WineType::class,
             'sub_type' => WineSubType::class,
+            'price_state' => PriceState::class,
             'sold_by' => SellingUnit::class,
             'unit_price' => 'decimal:2',
             'pack_price' => 'decimal:2',

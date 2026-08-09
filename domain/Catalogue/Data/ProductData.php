@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Domain\Catalogue\Data;
 
 use Carbon\CarbonImmutable;
+use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
@@ -34,6 +35,8 @@ class ProductData extends AbstractData
         public ?string $latitude,
         public ?string $longitude,
         public ?WineSubType $sub_type = null,
+        public PriceState $price_state = PriceState::Priced,
+        public ?string $price_note = null,
         public SellingUnit $sold_by = SellingUnit::Bottle,
         public ?string $pack_price = null,
         public ?CarbonImmutable $last_seen_at = null,
@@ -57,6 +60,8 @@ class ProductData extends AbstractData
             grape: $model->grape,
             colour: $model->colour,
             sub_type: $model->sub_type,
+            price_state: $model->price_state ?? PriceState::Priced,
+            price_note: $model->price_note,
             vintage: $model->vintage,
             format_ml: $model->format_ml,
             case_size: $model->case_size,

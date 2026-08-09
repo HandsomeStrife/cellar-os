@@ -85,14 +85,28 @@ class OrderItemData extends AbstractData
             return $this->pack_price_at_order;
         }
 
+        if ($this->unit_price_at_order === null) {
+            return null;
+        }
+
         return number_format((float) $this->unit_price_at_order * (int) $this->pack_size_at_order, 2, '.', '');
     }
 
     /**
      * Line total (always bottles × per-bottle price — the canonical maths).
+     * A POA line has no price yet, so it contributes nothing.
      */
     public function lineTotal(): float
     {
         return $this->quantity_units * (float) $this->unit_price_at_order;
+    }
+
+    /**
+     * Whether this line was raised without a price — the supplier quotes on
+     * application, so the figure is agreed when they confirm the order.
+     */
+    public function isPoa(): bool
+    {
+        return $this->unit_price_at_order === null;
     }
 }
