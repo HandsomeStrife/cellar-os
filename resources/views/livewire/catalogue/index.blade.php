@@ -74,14 +74,28 @@
         <div x-show="filtersOpen" x-cloak x-transition.opacity class="rounded-lg border border-border bg-card p-4 shadow-sm">
             <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
                 <label class="block">
-                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Colour</span>
+                    <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</span>
                     <select wire:model.live="colour" class="{{ $selectClasses }}">
-                        <option value="">All colours</option>
-                        @foreach($colours as $colourOption)
-                            <option value="{{ $colourOption->value }}">{{ $colourOption->getLabel() }}</option>
+                        <option value="">All types</option>
+                        @foreach($types as $typeOption)
+                            <option value="{{ $typeOption->value }}">{{ $typeOption->getLabel() }}</option>
                         @endforeach
                     </select>
                 </label>
+
+                {{-- Sub-type only exists under some types (Sparkling, Fortified),
+                     and only narrows a type you've already picked. --}}
+                @if($subTypes !== [])
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Style</span>
+                        <select wire:model.live="sub_type" class="{{ $selectClasses }}">
+                            <option value="">All {{ strtolower($colour) }}</option>
+                            @foreach($subTypes as $subTypeOption)
+                                <option value="{{ $subTypeOption->value }}">{{ $subTypeOption->getShortLabel() }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                @endif
 
                 <label class="block">
                     <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Country</span>
@@ -173,7 +187,7 @@
                  blocks interaction so the result swap reads as deliberate. --}}
             <div
                 wire:loading.flex
-                wire:target="search, colour, supplierFilter, country, region, sub_region, producer, grape, priceMin, priceMax, vintageMin, vintageMax, sortBy, resetFilters, gotoPage, nextPage, previousPage"
+                wire:target="search, colour, sub_type, supplierFilter, country, region, sub_region, producer, grape, priceMin, priceMax, vintageMin, vintageMax, sortBy, resetFilters, gotoPage, nextPage, previousPage"
                 class="absolute inset-0 z-10 hidden items-center justify-center rounded-lg bg-card/60"
             >
                 <x-icon.loader-circle class="size-6 animate-spin text-primary" />
@@ -195,7 +209,7 @@
                                 @if($rowColour)
                                     <span class="inline-flex items-center gap-1">
                                         <span class="size-2 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $rowColour->getSwatch() }}"></span>
-                                        {{ $rowColour->getLabel() }}
+                                        {{ $rowColour->getLabel() }}{{ $product->sub_type ? ' · '.$product->sub_type->getShortLabel() : '' }}
                                     </span>
                                     <span aria-hidden="true">·</span>
                                 @endif
@@ -229,6 +243,12 @@
                 <thead class="border-b border-border bg-secondary/40">
                     <tr>
                         <x-th-sort column="wine_name" :sort="$sort" :direction="$direction">Wine</x-th-sort>
+                        @if(in_array('producer', $visibleColumns, true))
+                            <x-th-sort column="producer" :sort="$sort" :direction="$direction">Producer</x-th-sort>
+                        @endif
+                        @if($showSupplierColumn)
+                            <x-th-sort column="supplier" :sort="$sort" :direction="$direction">Supplier</x-th-sort>
+                        @endif
                         @if(in_array('country', $visibleColumns, true))
                             <x-th-sort column="country" :sort="$sort" :direction="$direction">Country</x-th-sort>
                         @endif
@@ -239,7 +259,7 @@
                             <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Grapes</th>
                         @endif
                         @if(in_array('colour', $visibleColumns, true))
-                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Colour</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</th>
                         @endif
                         @if(in_array('vintage', $visibleColumns, true))
                             <x-th-sort column="vintage" :sort="$sort" :direction="$direction">Vintage</x-th-sort>
@@ -259,10 +279,18 @@
                                 <button type="button" wire:click="showWine({{ $product->id }})" class="text-left font-medium text-foreground transition hover:text-primary">
                                     {{ $product->wine_name }}
                                 </button>
-                                @if($product->producer)
+                                {{-- Producer has its own column; only fall back to
+                                     the sub-line when that column is switched off. --}}
+                                @if($product->producer && ! in_array('producer', $visibleColumns, true))
                                     <div class="text-xs text-muted-foreground">{{ $product->producer }}</div>
                                 @endif
                             </td>
+                            @if(in_array('producer', $visibleColumns, true))
+                                <td class="px-3 py-2.5 text-muted-foreground">{{ $product->producer ?: '–' }}</td>
+                            @endif
+                            @if($showSupplierColumn)
+                                <td class="px-3 py-2.5 text-muted-foreground">{{ $supplierNames[$product->supplier_id] ?? '–' }}</td>
+                            @endif
                             @if(in_array('country', $visibleColumns, true))
                                 <td class="px-3 py-2.5 text-muted-foreground">
                                     @if($product->country)
@@ -306,6 +334,9 @@
                                             <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $product->colour->getSwatch() }}"></span>
                                             {{ $product->colour->getLabel() }}
                                         </span>
+                                        @if($product->sub_type)
+                                            <div class="text-xs text-muted-foreground">{{ $product->sub_type->getShortLabel() }}</div>
+                                        @endif
                                     @elseif(isset($fill['colour']))
                                         <x-enriched-fact :source="$fill['colour']['source']">
                                             <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
@@ -420,12 +451,12 @@
                         <dd class="text-right font-medium text-foreground">{{ $detailSupplier?->name ?? '–' }}</dd>
                     </div>
                     <div class="flex items-start justify-between gap-4 py-2.5">
-                        <dt class="shrink-0 text-muted-foreground">Colour</dt>
+                        <dt class="shrink-0 text-muted-foreground">Type</dt>
                         <dd class="text-right">
                             @if($detail->colour)
                                 <span class="inline-flex items-center gap-1.5">
                                     <span class="size-3 rounded-full ring-1 ring-border dark:ring-white/30" style="background-color: {{ $detail->colour->getSwatch() }}"></span>
-                                    {{ $detail->colour->getLabel() }}
+                                    {{ $detail->colour->getLabel() }}{{ $detail->sub_type ? ' · '.$detail->sub_type->getShortLabel() : '' }}
                                 </span>
                             @elseif(isset($detailFill['colour']))
                                 <x-enriched-fact :source="$detailFill['colour']['source']">

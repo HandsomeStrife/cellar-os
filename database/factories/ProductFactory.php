@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -32,7 +32,7 @@ class ProductFactory extends Factory
             'region' => fake()->city(),
             'sub_region' => fake()->city(),
             'grape' => [fake()->word()],
-            'colour' => fake()->randomElement(WineColour::cases())->value,
+            'colour' => fake()->randomElement(WineType::cases())->value,
             'vintage' => (int) fake()->year(),
             'format_ml' => $formatMl,
             'case_size' => 6,

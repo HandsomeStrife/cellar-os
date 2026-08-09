@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Domain\Catalogue\Data;
 
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Lwin;
 use Domain\Shared\Data\AbstractData;
 
@@ -16,7 +16,7 @@ class LwinData extends AbstractData
         public ?string $country,
         public ?string $region,
         public ?string $sub_region,
-        public ?WineColour $colour,
+        public ?WineType $colour,
         public ?string $classification,
     ) {}
 
@@ -34,12 +34,12 @@ class LwinData extends AbstractData
     }
 
     /** LWIN colour vocabulary → ours ("Mixed" and non-wine values drop to null). */
-    private static function mapColour(?string $colour): ?WineColour
+    private static function mapColour(?string $colour): ?WineType
     {
         return match ($colour) {
-            'Red' => WineColour::Red,
-            'White' => WineColour::White,
-            'Rose' => WineColour::Rose,
+            'Red' => WineType::Red,
+            'White' => WineType::White,
+            'Rose' => WineType::Rose,
             default => null,
         };
     }

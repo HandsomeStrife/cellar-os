@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Livewire\Catalogue\Index;
 use Domain\Billing\Enums\Plan;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Company\Models\Company;
@@ -102,19 +102,19 @@ it('excludes private suppliers\' wines from the global sourcing map', function (
 });
 
 it('filters by colour', function () {
-    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Crimson One', 'colour' => WineColour::Red->value]);
-    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Pale One', 'colour' => WineColour::White->value]);
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Crimson One', 'colour' => WineType::Red->value]);
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Pale One', 'colour' => WineType::White->value]);
 
     Livewire::test(Index::class)
-        ->set('colour', WineColour::Red->value)
+        ->set('colour', WineType::Red->value)
         ->assertSee('Crimson One')
         ->assertDontSee('Pale One');
 });
 
 it('filters by region and price range and clears them', function () {
-    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Cheap White Burgundy', 'colour' => WineColour::White->value, 'region' => 'Burgundy', 'unit_price' => '18.00']);
-    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Grand Cru Burgundy', 'colour' => WineColour::White->value, 'region' => 'Burgundy', 'unit_price' => '120.00']);
-    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Loire White', 'colour' => WineColour::White->value, 'region' => 'Loire', 'unit_price' => '14.00']);
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Cheap White Burgundy', 'colour' => WineType::White->value, 'region' => 'Burgundy', 'unit_price' => '18.00']);
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Grand Cru Burgundy', 'colour' => WineType::White->value, 'region' => 'Burgundy', 'unit_price' => '120.00']);
+    Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Loire White', 'colour' => WineType::White->value, 'region' => 'Loire', 'unit_price' => '14.00']);
 
     Livewire::test(Index::class)
         ->set('region', 'Burgundy')
@@ -154,14 +154,14 @@ it('defaults to cellar order: type, then country, region and sub-region', functi
         ['supplier_id' => $this->supplier->id] + $attributes
     );
 
-    $make(['wine_name' => 'Rioja Reserva', 'colour' => WineColour::Red, 'country' => 'Spain', 'region' => 'Rioja']);
-    $make(['wine_name' => 'Vintage Port', 'colour' => WineColour::Fortified, 'country' => 'Portugal']);
-    $make(['wine_name' => 'Sancerre', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Loire']);
-    $make(['wine_name' => 'Champagne Brut', 'colour' => WineColour::Sparkling, 'country' => 'France']);
-    $make(['wine_name' => 'Chablis', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => null]);
+    $make(['wine_name' => 'Rioja Reserva', 'colour' => WineType::Red, 'country' => 'Spain', 'region' => 'Rioja']);
+    $make(['wine_name' => 'Vintage Port', 'colour' => WineType::Fortified, 'country' => 'Portugal']);
+    $make(['wine_name' => 'Sancerre', 'colour' => WineType::White, 'country' => 'France', 'region' => 'Loire']);
+    $make(['wine_name' => 'Champagne Brut', 'colour' => WineType::Sparkling, 'country' => 'France']);
+    $make(['wine_name' => 'Chablis', 'colour' => WineType::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => null]);
     $make(['wine_name' => 'Mystery Wine', 'colour' => null, 'country' => 'France']);
-    $make(['wine_name' => 'Meursault Charmes', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => 'Meursault']);
-    $make(['wine_name' => 'Corton-Charlemagne', 'colour' => WineColour::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => 'Aloxe-Corton']);
+    $make(['wine_name' => 'Meursault Charmes', 'colour' => WineType::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => 'Meursault']);
+    $make(['wine_name' => 'Corton-Charlemagne', 'colour' => WineType::White, 'country' => 'France', 'region' => 'Burgundy', 'sub_region' => 'Aloxe-Corton']);
 
     $names = (new ProductRepository)->search(supplierIds: [$this->supplier->id])
         ->getCollection()

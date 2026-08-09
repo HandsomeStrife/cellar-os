@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Domain\Catalogue\Data\ProductData;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Supplier\Models\Supplier;
@@ -12,13 +12,13 @@ it('returns DTOs, never models, from the repository', function () {
     $supplier = Supplier::factory()->create();
     $product = Product::factory()->create([
         'supplier_id' => $supplier->id,
-        'colour' => WineColour::Red->value,
+        'colour' => WineType::Red->value,
     ]);
 
     $result = (new ProductRepository)->findByUuid($product->uuid);
 
     expect($result)->toBeInstanceOf(ProductData::class)
-        ->and($result->colour)->toBe(WineColour::Red)
+        ->and($result->colour)->toBe(WineType::Red)
         ->and($result->uuid)->toBe($product->uuid);
 });
 

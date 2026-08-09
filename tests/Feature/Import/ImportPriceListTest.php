@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Livewire\Import\Index;
 use Domain\Billing\Enums\Plan;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Domain\Import\Services\PriceListParser;
 use Domain\Supplier\Actions\ConnectCompanyToSupplierAction;
@@ -74,7 +74,7 @@ it('imports a CSV price list end to end', function () {
     expect($this->supplier->fresh()->column_mapping)->not->toBeNull();
 
     $barolo = Product::where('wine_name', 'Barolo Riserva')->first();
-    expect($barolo->colour)->toBe(WineColour::Red)
+    expect($barolo->colour)->toBe(WineType::Red)
         ->and($barolo->vintage)->toBe(2017);
 });
 

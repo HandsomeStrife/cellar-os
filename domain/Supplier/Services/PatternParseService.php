@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Domain\Supplier\Services;
 
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 
 /**
  * Executes a machine "rules" recipe over coordinate-extracted rows — the cheap
@@ -38,7 +38,7 @@ use Domain\Catalogue\Enums\WineColour;
  *                   rule without skip matches.
  *   pages:          {min?, max?} — 1-based inclusive page window; rows outside
  *                   it are ignored entirely (front matter, spirits back pages).
- *   colour_map:     {code => WineColour value} for style shorthands (r, w, sp…)
+ *   colour_map:     {code => WineType value} for style shorthands (r, w, sp…)
  *   format_unit:    appended to a bare numeric format_ml (e.g. "cl" → "75cl")
  */
 class PatternParseService
@@ -288,7 +288,7 @@ class PatternParseService
             }
         }
 
-        $colours = array_column(WineColour::cases(), 'value');
+        $colours = array_column(WineType::cases(), 'value');
         $colourMap = [];
         foreach ((array) ($rules['colour_map'] ?? []) as $code => $colour) {
             // Accept both {code: colour} and the LLM's [{code, colour}] pair shape.

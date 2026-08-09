@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Domain\Catalogue\Data;
 
 use Carbon\CarbonImmutable;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Shared\Data\AbstractData;
 
@@ -25,7 +25,7 @@ class WineFactData extends AbstractData
         public ?string $region,
         public ?string $sub_region,
         public ?array $grape,
-        public ?WineColour $colour,
+        public ?WineType $colour,
         public array $conflicted_fields = [],
         public int $observations = 1,
         public ?CarbonImmutable $created_at = null,

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Domain\Catalogue\Enums;
 
-enum WineColour: string
+enum WineType: string
 {
     case Red = 'Red';
     case White = 'White';

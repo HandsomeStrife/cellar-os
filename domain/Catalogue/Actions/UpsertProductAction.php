@@ -40,6 +40,7 @@ class UpsertProductAction extends AbstractAction
             'sub_region' => $data->sub_region,
             'grape' => $data->grape,
             'colour' => $data->colour,
+            'sub_type' => $data->sub_type,
             'case_size' => $data->case_size,
             'sold_by' => $data->sold_by,
             'unit_price' => $data->unit_price,
@@ -62,7 +63,7 @@ class UpsertProductAction extends AbstractAction
         // keep the existing value. Prices/stock/lifecycle always take the new
         // value (those genuinely change edition to edition).
         if ($existing !== null) {
-            foreach (['country', 'region', 'sub_region', 'grape', 'colour', 'latitude', 'longitude'] as $field) {
+            foreach (['country', 'region', 'sub_region', 'grape', 'colour', 'sub_type', 'latitude', 'longitude'] as $field) {
                 if (($attributes[$field] ?? null) === null && $existing->{$field} !== null) {
                     $attributes[$field] = $existing->{$field};
                 }

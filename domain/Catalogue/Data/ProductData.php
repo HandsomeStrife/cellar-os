@@ -6,7 +6,8 @@ namespace Domain\Catalogue\Data;
 
 use Carbon\CarbonImmutable;
 use Domain\Catalogue\Enums\SellingUnit;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Domain\Shared\Data\AbstractData;
 
@@ -23,7 +24,7 @@ class ProductData extends AbstractData
         public ?string $region,
         public ?string $sub_region,
         public ?array $grape,
-        public ?WineColour $colour,
+        public ?WineType $colour,
         public ?int $vintage,
         public int $format_ml,
         public int $case_size,
@@ -32,6 +33,7 @@ class ProductData extends AbstractData
         public int $stock,
         public ?string $latitude,
         public ?string $longitude,
+        public ?WineSubType $sub_type = null,
         public SellingUnit $sold_by = SellingUnit::Bottle,
         public ?string $pack_price = null,
         public ?CarbonImmutable $last_seen_at = null,
@@ -54,6 +56,7 @@ class ProductData extends AbstractData
             sub_region: $model->sub_region,
             grape: $model->grape,
             colour: $model->colour,
+            sub_type: $model->sub_type,
             vintage: $model->vintage,
             format_ml: $model->format_ml,
             case_size: $model->case_size,

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Domain\Catalogue\Actions;
 
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Shared\Actions\AbstractAction;
 
@@ -45,7 +45,7 @@ class ImportWineFactsAction extends AbstractAction
                         'region' => $row['region'] ?? null,
                         'sub_region' => $row['sub_region'] ?? null,
                         'grape' => is_array($row['grape'] ?? null) ? $row['grape'] : null,
-                        'colour' => WineColour::tryFrom((string) ($row['colour'] ?? ''))?->value,
+                        'colour' => WineType::tryFrom((string) ($row['colour'] ?? ''))?->value,
                         'lwin' => preg_match('/^\d{7}$/', (string) ($row['lwin'] ?? '')) === 1 ? $row['lwin'] : null,
                         'lwin_source' => $row['lwin_source'] ?? null,
                         'field_sources' => is_array($row['field_sources'] ?? null) ? $row['field_sources'] : [],

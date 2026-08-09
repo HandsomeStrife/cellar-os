@@ -17,7 +17,7 @@ class BackfillCatalogueAttributes extends Command
 {
     protected $signature = 'wine:backfill-attributes {--dry-run : report what would change, write nothing}';
 
-    protected $description = 'Backfill country/region/colour/producer/geo on the catalogue from authoritative sources.';
+    protected $description = 'Backfill country/region/type/sub-type/producer/geo on the catalogue from authoritative sources.';
 
     public function handle(): int
     {
@@ -30,9 +30,9 @@ class BackfillCatalogueAttributes extends Command
 
         $this->newLine();
         $this->info(sprintf(
-            '%s from LWIN: %d wine(s) · country from region: %d · colour from name: %d · geocoded: %d',
+            '%s from LWIN: %d wine(s) · country from region: %d · type from name: %d · sub-type from name: %d · geocoded: %d',
             $apply ? 'Filled' : 'Would fill',
-            $stats['lwin'], $stats['country'], $stats['colour'], $stats['geo'],
+            $stats['lwin'], $stats['country'], $stats['colour'], $stats['sub_type'], $stats['geo'],
         ));
 
         if ($apply) {
@@ -50,7 +50,8 @@ class BackfillCatalogueAttributes extends Command
         $fields = [
             'country' => "country IS NOT NULL AND country <> ''",
             'region' => "region IS NOT NULL AND region <> ''",
-            'colour' => 'colour IS NOT NULL',
+            'type' => 'colour IS NOT NULL',
+            'sub-type' => 'sub_type IS NOT NULL',
             'producer' => "producer IS NOT NULL AND producer <> ''",
             'geo' => 'latitude IS NOT NULL AND longitude IS NOT NULL',
         ];

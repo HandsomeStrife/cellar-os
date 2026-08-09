@@ -9,7 +9,8 @@ use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Actions\DeleteProductAction;
 use Domain\Catalogue\Actions\UpdateProductPriceAction;
 use Domain\Catalogue\Data\ProductData;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Repositories\LwinRepository;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Catalogue\Repositories\WineFactRepository;
@@ -46,6 +47,9 @@ class Index extends Component
     public string $colour = '';
 
     #[Url(history: true)]
+    public string $sub_type = '';
+
+    #[Url(history: true)]
     public string $supplierFilter = '';
 
     #[Url(history: true)]
@@ -77,7 +81,7 @@ class Index extends Component
      * always-visible toolbar and are counted separately).
      */
     private const PANEL_FILTERS = [
-        'colour', 'country', 'region', 'sub_region', 'producer', 'grape',
+        'colour', 'sub_type', 'country', 'region', 'sub_region', 'producer', 'grape',
         'priceMin', 'priceMax', 'vintageMin', 'vintageMax',
     ];
 
@@ -86,17 +90,19 @@ class Index extends Component
      * basket actions always render.
      */
     public const COLUMNS = [
+        'producer' => 'Producer',
+        'supplier' => 'Supplier',
         'country' => 'Country',
         'region' => 'Region',
         'grapes' => 'Grapes',
-        'colour' => 'Colour',
+        'colour' => 'Type',
         'vintage' => 'Vintage',
         'format' => 'Format',
     ];
 
     /** @var array<int, string> */
     #[Session(key: 'catalogue-columns')]
-    public array $visibleColumns = ['country', 'region', 'grapes', 'colour', 'vintage', 'format'];
+    public array $visibleColumns = ['producer', 'supplier', 'country', 'region', 'grapes', 'colour', 'vintage', 'format'];
 
     // Wine detail slideover.
     public bool $showDetail = false;
@@ -141,6 +147,12 @@ class Index extends Component
 
         if ($property === 'region') {
             $this->sub_region = '';
+        }
+
+        // Sub-types belong to one type, so changing the type invalidates any
+        // sub-type already chosen.
+        if ($property === 'colour') {
+            $this->sub_type = '';
         }
     }
 
@@ -472,7 +484,8 @@ class Index extends Component
         $products = $repository->search(
             term: $this->search,
             country: $this->country,
-            colour: WineColour::tryFrom($this->colour),
+            colour: WineType::tryFrom($this->colour),
+            subType: WineSubType::tryFrom($this->sub_type),
             region: $this->region ?: null,
             subRegion: $this->sub_region ?: null,
             producer: $this->producer ?: null,
@@ -536,8 +549,18 @@ class Index extends Component
             }
         }
 
+        // Naming the supplier in every row is noise once you've filtered to a
+        // single supplier — the whole table is theirs.
+        $showSupplierColumn = in_array('supplier', $this->visibleColumns, true) && $supplierFilter === 0;
+
         return view('livewire.catalogue.index', [
-            'columns' => self::COLUMNS,
+            // The supplier column is meaningless while filtered to one supplier,
+            // so it drops out of the picker too rather than toggling nothing.
+            'columns' => $supplierFilter !== 0
+                ? array_diff_key(self::COLUMNS, ['supplier' => null])
+                : self::COLUMNS,
+            'showSupplierColumn' => $showSupplierColumn,
+            'supplierNames' => $connected->pluck('name', 'id')->all(),
             'detail' => $detail,
             'detailFill' => $detailFill,
             'detailSupplier' => $detailSupplier,
@@ -547,7 +570,10 @@ class Index extends Component
             'regions' => $repository->regions($connectedIds, $this->country ?: null),
             'subRegions' => $repository->subRegions($connectedIds, $this->country ?: null, $this->region ?: null),
             'filterCount' => $filterCount,
-            'colours' => WineColour::cases(),
+            'types' => WineType::cases(),
+            'subTypes' => $this->colour !== '' && WineType::tryFrom($this->colour) !== null
+                ? WineSubType::forType(WineType::from($this->colour))
+                : [],
             'connectedSuppliers' => $connected,
             'hasConnections' => $connected->isNotEmpty(),
             'editableSupplierIds' => $editableSupplierIds,

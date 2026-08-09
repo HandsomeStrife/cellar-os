@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Domain\Catalogue\Actions;
 
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Lwin;
 use Domain\Catalogue\Models\Product;
-use Domain\Catalogue\Support\WineColourFromName;
+use Domain\Catalogue\Support\WineTypeFromName;
 use Domain\Import\Services\NormaliseService;
 use Domain\Shared\Actions\AbstractAction;
 
@@ -20,10 +22,12 @@ use Domain\Shared\Actions\AbstractAction;
  *   1. LWIN reference (country/region/sub_region/colour/producer) for linked wines.
  *   2. region -> country derivation (geography is deterministic; many fine-wine
  *      lists omit country because it's implicit in the region).
- *   3. colour from the wine's NAME (WineColourFromName — explicit style words,
+ *   3. colour from the wine's NAME (WineTypeFromName — explicit style words,
  *      then single-colour appellations/grapes; for lists like O.W. Loeb's
  *      that carry no colour column or section at all).
- *   4. geocode lat/lng from region/country so wines appear on the sourcing map.
+ *   4. sub-type from the wine's NAME, for wines whose type is known but whose
+ *      style within it isn't (Sparkling Rosé, Port, Sherry).
+ *   5. geocode lat/lng from region/country so wines appear on the sourcing map.
  *
  * Idempotent: re-running only touches still-empty columns.
  */
@@ -32,7 +36,7 @@ class BackfillCatalogueAttributesAction extends AbstractAction
     public function __construct(private NormaliseService $normalise = new NormaliseService) {}
 
     /**
-     * @return array{lwin: int, country: int, colour: int, geo: int}
+     * @return array{lwin: int, country: int, colour: int, sub_type: int, geo: int}
      */
     public function execute(bool $apply = true): array
     {
@@ -40,8 +44,47 @@ class BackfillCatalogueAttributesAction extends AbstractAction
             'lwin' => $this->fromLwin($apply),
             'country' => $this->countryFromRegion($apply),
             'colour' => $this->colourFromName($apply),
+            // After the colour passes, so wines that only just gained a type
+            // are considered for a sub-type in the same run.
+            'sub_type' => $this->subTypeFromName($apply),
             'geo' => $this->geocodeMissing($apply),
         ];
+    }
+
+    /** Pass 4 — the style within an already-known type (Sparkling Rosé, Port). */
+    private function subTypeFromName(bool $apply): int
+    {
+        $touched = 0;
+
+        Product::whereNull('archived_at')
+            ->whereNotNull('colour')
+            ->whereNull('sub_type')
+            // Only two type families have sub-types; skip the rest outright.
+            ->whereIn('colour', array_map(
+                fn (WineType $type) => $type->value,
+                WineSubType::typesWithSubTypes(),
+            ))
+            ->orderBy('id')
+            ->chunkById(500, function ($products) use (&$touched, $apply) {
+                foreach ($products as $product) {
+                    $subType = WineTypeFromName::inferSubType(
+                        $product->colour,
+                        $product->wine_name,
+                        $product->producer,
+                    );
+
+                    if ($subType === null) {
+                        continue;
+                    }
+
+                    $touched++;
+                    if ($apply) {
+                        Product::whereKey($product->id)->update(['sub_type' => $subType->value]);
+                    }
+                }
+            });
+
+        return $touched;
     }
 
     /** Pass 3 — deterministic colour from explicit name words / single-colour appellations and grapes. */
@@ -54,7 +97,7 @@ class BackfillCatalogueAttributesAction extends AbstractAction
             ->orderBy('id')
             ->chunkById(500, function ($products) use (&$touched, $apply) {
                 foreach ($products as $product) {
-                    $colour = WineColourFromName::infer($product->wine_name, $product->producer);
+                    $colour = WineTypeFromName::infer($product->wine_name, $product->producer);
                     if ($colour === null) {
                         continue;
                     }

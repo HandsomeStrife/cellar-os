@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Supplier\Models\Supplier;
@@ -21,18 +21,18 @@ function makeWine(int $supplierId, array $overrides = []): Product
 it('finds a white Burgundy under £20 with the new filters combined', function () {
     $target = makeWine($this->supplier->id, [
         'wine_name' => 'Petit Chablis',
-        'colour' => WineColour::White,
+        'colour' => WineType::White,
         'region' => 'Burgundy',
         'unit_price' => '18.50',
     ]);
 
     // Decoys that each fail exactly one of the three filters.
-    makeWine($this->supplier->id, ['wine_name' => 'Red Burgundy', 'colour' => WineColour::Red, 'region' => 'Burgundy', 'unit_price' => '15.00']);
-    makeWine($this->supplier->id, ['wine_name' => 'White Bordeaux', 'colour' => WineColour::White, 'region' => 'Bordeaux', 'unit_price' => '12.00']);
-    makeWine($this->supplier->id, ['wine_name' => 'Grand Cru Chablis', 'colour' => WineColour::White, 'region' => 'Burgundy', 'unit_price' => '85.00']);
+    makeWine($this->supplier->id, ['wine_name' => 'Red Burgundy', 'colour' => WineType::Red, 'region' => 'Burgundy', 'unit_price' => '15.00']);
+    makeWine($this->supplier->id, ['wine_name' => 'White Bordeaux', 'colour' => WineType::White, 'region' => 'Bordeaux', 'unit_price' => '12.00']);
+    makeWine($this->supplier->id, ['wine_name' => 'Grand Cru Chablis', 'colour' => WineType::White, 'region' => 'Burgundy', 'unit_price' => '85.00']);
 
     $results = (new ProductRepository)->search(
-        colour: WineColour::White,
+        colour: WineType::White,
         region: 'Burgundy',
         priceMax: 20.0,
     );

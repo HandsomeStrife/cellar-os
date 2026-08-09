@@ -6,7 +6,7 @@ namespace Domain\Catalogue\Models;
 
 use Database\Factories\WineFactFactory;
 use Domain\Catalogue\Data\WineFactData;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -36,7 +36,7 @@ class WineFact extends Model
     {
         return [
             'grape' => 'array',
-            'colour' => WineColour::class,
+            'colour' => WineType::class,
             'field_sources' => 'array',
             'field_conflicts' => 'array',
             'observations' => 'integer',

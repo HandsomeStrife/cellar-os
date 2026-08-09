@@ -6,7 +6,8 @@ namespace Domain\Import\Services;
 
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\SellingUnit;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
+use Domain\Catalogue\Support\WineTypeFromName;
 
 /**
  * Turns a raw uploaded price-list row into a normalised ProductData using a
@@ -91,6 +92,18 @@ class NormaliseService
         // Geocode from region/country so the wine appears on the sourcing map.
         $coords = $this->geocode($region, $country, $wineName.$producer);
 
+        $colour = $this->normaliseColour($value('colour'))
+            // Vermouth is aromatised fortified wine by definition — lists
+            // rarely give it a colour column, but the name is unambiguous.
+            ?? (preg_match('/\bvermouth\b/iu', $wineName) === 1 ? WineType::Fortified : null);
+
+        // The sub-type is read from the type column AND the wine name together:
+        // a list may say "Sparkling Rosé" in one and "Crémant … Rosé" in the
+        // other, and either is enough.
+        $subType = $colour !== null
+            ? WineTypeFromName::inferSubType($colour, trim($wineName.' '.(string) $value('colour')), $producer)
+            : null;
+
         return new ProductData(
             id: null,
             uuid: null,
@@ -102,10 +115,8 @@ class NormaliseService
             region: $region,
             sub_region: $this->nullableString($value('sub_region')),
             grape: $this->parseGrapes($value('grape')),
-            colour: $this->normaliseColour($value('colour'))
-                // Vermouth is aromatised fortified wine by definition — lists
-                // rarely give it a colour column, but the name is unambiguous.
-                ?? (preg_match('/\bvermouth\b/iu', $wineName) === 1 ? WineColour::Fortified : null),
+            colour: $colour,
+            sub_type: $subType,
             vintage: $this->parseVintage($value('vintage')),
             format_ml: $formatMl,
             case_size: $caseSize,
@@ -270,7 +281,7 @@ class NormaliseService
         ];
     }
 
-    public function normaliseColour(?string $value): ?WineColour
+    public function normaliseColour(?string $value): ?WineType
     {
         if ($value === null || $value === '') {
             return null;
@@ -279,13 +290,13 @@ class NormaliseService
         $value = strtolower(trim($value));
 
         return match (true) {
-            str_contains($value, 'sparkl'), str_contains($value, 'champagne'), str_contains($value, 'spumante'), str_contains($value, 'cava'), str_contains($value, 'cremant'), str_contains($value, 'prosecco') => WineColour::Sparkling,
-            str_contains($value, 'rosé'), str_contains($value, 'rose'), str_contains($value, 'rosado'), str_contains($value, 'rosato') => WineColour::Rose,
-            str_contains($value, 'orange') => WineColour::Orange,
-            str_contains($value, 'dessert'), str_contains($value, 'sweet'), str_contains($value, 'sauternes') => WineColour::Dessert,
-            str_contains($value, 'fortif'), str_contains($value, 'port'), str_contains($value, 'sherry'), str_contains($value, 'madeira'), str_contains($value, 'marsala') => WineColour::Fortified,
-            str_contains($value, 'red'), str_contains($value, 'rouge'), str_contains($value, 'rosso'), str_contains($value, 'tinto'), str_contains($value, 'rot') => WineColour::Red,
-            str_contains($value, 'white'), str_contains($value, 'blanc'), str_contains($value, 'bianco'), str_contains($value, 'blanco'), str_contains($value, 'weiss'), str_contains($value, 'weiß') => WineColour::White,
+            str_contains($value, 'sparkl'), str_contains($value, 'champagne'), str_contains($value, 'spumante'), str_contains($value, 'cava'), str_contains($value, 'cremant'), str_contains($value, 'prosecco') => WineType::Sparkling,
+            str_contains($value, 'rosé'), str_contains($value, 'rose'), str_contains($value, 'rosado'), str_contains($value, 'rosato') => WineType::Rose,
+            str_contains($value, 'orange') => WineType::Orange,
+            str_contains($value, 'dessert'), str_contains($value, 'sweet'), str_contains($value, 'sauternes') => WineType::Dessert,
+            str_contains($value, 'fortif'), str_contains($value, 'port'), str_contains($value, 'sherry'), str_contains($value, 'madeira'), str_contains($value, 'marsala') => WineType::Fortified,
+            str_contains($value, 'red'), str_contains($value, 'rouge'), str_contains($value, 'rosso'), str_contains($value, 'tinto'), str_contains($value, 'rot') => WineType::Red,
+            str_contains($value, 'white'), str_contains($value, 'blanc'), str_contains($value, 'bianco'), str_contains($value, 'blanco'), str_contains($value, 'weiss'), str_contains($value, 'weiß') => WineType::White,
             default => null,
         };
     }

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Domain\Catalogue\Repositories;
 
 use Domain\Catalogue\Data\ProductData;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -36,7 +37,7 @@ class ProductRepository
     /**
      * Sortable columns, mapped to allow-list lookups (never trust raw input).
      */
-    public const SORTABLE = ['wine_name', 'producer', 'country', 'region', 'sub_region', 'vintage', 'unit_price'];
+    public const SORTABLE = ['wine_name', 'producer', 'supplier', 'country', 'region', 'sub_region', 'vintage', 'unit_price'];
 
     /**
      * The default "cellar list" ordering: wines grouped by type in the trade's
@@ -51,7 +52,8 @@ class ProductRepository
     public function search(
         ?string $term = null,
         ?string $country = null,
-        ?WineColour $colour = null,
+        ?WineType $colour = null,
+        ?WineSubType $subType = null,
         ?string $region = null,
         ?string $subRegion = null,
         ?string $producer = null,
@@ -78,7 +80,10 @@ class ProductRepository
                 });
             })
             ->when($country !== null && $country !== '', fn ($query) => $query->where('country', $country))
+            // Filtering by a type always includes its sub-types (a Sparkling
+            // Rosé is a Sparkling); narrowing further is what sub_type is for.
             ->when($colour !== null, fn ($query) => $query->where('colour', $colour->value))
+            ->when($subType !== null, fn ($query) => $query->where('sub_type', $subType->value))
             ->when($region !== null && $region !== '', fn ($query) => $query->where('region', $region))
             ->when($subRegion !== null && $subRegion !== '', fn ($query) => $query->where('sub_region', $subRegion))
             ->when($producer !== null && $producer !== '', fn ($query) => $query->where('producer', 'like', "%{$producer}%"))
@@ -88,9 +93,16 @@ class ProductRepository
             ->when($vintageMin !== null, fn ($query) => $query->where('vintage', '>=', $vintageMin))
             ->when($vintageMax !== null, fn ($query) => $query->where('vintage', '<=', $vintageMax));
 
-        $query = $sort === self::DEFAULT_SORT
-            ? $this->applyCellarOrder($query)
-            : $query->orderBy($sort, $direction);
+        // Sorting by supplier means the supplier's NAME, which lives in
+        // another context's table — a sub-select keeps this a read-only join
+        // without reaching for a cross-context Eloquent relation.
+        $query = match (true) {
+            $sort === self::DEFAULT_SORT => $this->applyCellarOrder($query),
+            $sort === 'supplier' => $query->orderByRaw(
+                '(select name from suppliers where suppliers.id = products.supplier_id) '.$direction
+            ),
+            default => $query->orderBy($sort, $direction),
+        };
 
         return $query
             ->paginate($perPage)
@@ -98,7 +110,7 @@ class ProductRepository
     }
 
     /**
-     * Type (in WineColour display order, unknowns last) → country → region →
+     * Type (in WineType display order, unknowns last) → country → region →
      * sub-region, empty geography sorting after named geography at each level,
      * with wine name as the final tie-break.
      *
@@ -108,7 +120,7 @@ class ProductRepository
     private function applyCellarOrder($query)
     {
         $case = 'CASE colour';
-        foreach (WineColour::cases() as $colour) {
+        foreach (WineType::cases() as $colour) {
             $case .= sprintf(" WHEN '%s' THEN %d", $colour->value, $colour->getSortOrder());
         }
         $case .= ' ELSE 99 END';

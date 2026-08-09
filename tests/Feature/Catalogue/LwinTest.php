@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Livewire\Catalogue\Index;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Lwin;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Models\WineFact;
@@ -141,7 +141,7 @@ it('gap-fills the catalogue from LWIN with a distinct source label, supplier dat
 
     expect($enriched[$bare->id]['country'])->toBe(['value' => 'France', 'source' => 'lwin'])
         ->and($enriched[$bare->id]['region'])->toBe(['value' => 'Burgundy', 'source' => 'lwin'])
-        ->and($enriched[$bare->id]['colour']['value'])->toBe(WineColour::White)
+        ->and($enriched[$bare->id]['colour']['value'])->toBe(WineType::White)
         ->and(isset($enriched[$own->id]['country']))->toBeFalse()   // supplier's own value never overridden
         ->and(isset($enriched[$own->id]['region']))->toBeFalse();
 

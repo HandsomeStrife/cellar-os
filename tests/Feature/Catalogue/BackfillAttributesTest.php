@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Domain\Catalogue\Actions\BackfillCatalogueAttributesAction;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Lwin;
 use Domain\Catalogue\Models\Product;
 use Domain\Supplier\Models\Supplier;
@@ -36,7 +36,7 @@ it('fills empty columns from the linked LWIN reference without overwriting suppl
     $fresh = $product->fresh();
     expect($fresh->country)->toBe('France')            // filled
         ->and($fresh->producer)->toBe('Domaine Test')  // filled
-        ->and($fresh->colour)->toBe(WineColour::Red)   // filled
+        ->and($fresh->colour)->toBe(WineType::Red)   // filled
         ->and($fresh->region)->toBe('Margaux Estate'); // NOT overwritten
 });
 

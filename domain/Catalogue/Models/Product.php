@@ -7,7 +7,8 @@ namespace Domain\Catalogue\Models;
 use Database\Factories\ProductFactory;
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\SellingUnit;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -27,6 +28,7 @@ class Product extends Model
         'sub_region',
         'grape',
         'colour',
+        'sub_type',
         'vintage',
         'format_ml',
         'case_size',
@@ -48,7 +50,8 @@ class Product extends Model
     {
         return [
             'grape' => 'array',
-            'colour' => WineColour::class,
+            'colour' => WineType::class,
+            'sub_type' => WineSubType::class,
             'sold_by' => SellingUnit::class,
             'unit_price' => 'decimal:2',
             'pack_price' => 'decimal:2',

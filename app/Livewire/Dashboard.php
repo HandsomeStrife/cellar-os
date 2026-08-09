@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire;
 
 use App\Livewire\Concerns\WithTenant;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Repositories\ProductRepository;
 use Domain\Inventory\Repositories\InventoryItemRepository;
 use Domain\Order\Repositories\OrderRepository;
@@ -135,7 +135,7 @@ class Dashboard extends Component
             'lowStockItems' => array_slice($lowStock, 0, 10),
             'recentOrders' => $recentOrders,
             // Unknown/uncategorised gets a neutral grey — it's a data gap, not a wine colour.
-            'colourSwatch' => fn (string $label) => WineColour::tryFrom($label)?->getSwatch() ?? '#a8a29e',
+            'colourSwatch' => fn (string $label) => WineType::tryFrom($label)?->getSwatch() ?? '#a8a29e',
         ]);
     }
 }

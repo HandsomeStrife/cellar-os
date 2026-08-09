@@ -7,7 +7,7 @@ namespace Database\Seeders;
 use Database\Seeders\Concerns\BuildsDemoData;
 use Domain\Catalogue\Actions\ContributeWineFactsAction;
 use Domain\Catalogue\Data\ProductData;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Domain\Company\Models\Company;
 use Domain\Order\Enums\OrderStatus;
@@ -89,16 +89,16 @@ class DemoSupplierSeeder extends Seeder
     {
         // wine_name, producer, country, region, colour, vintage, price, lat, lng, supplier
         $wines = [
-            ['Chablis Premier Cru', 'Domaine Laroche', 'France', 'Burgundy', WineColour::White, 2021, '28.50', '47.82', '3.80', 'Bordeaux Imports'],
-            ['Sancerre Les Monts', 'Henri Bourgeois', 'France', 'Loire', WineColour::White, 2022, '22.00', '47.33', '2.84', 'Bordeaux Imports'],
-            ['Provence Rosé', 'Whispering Angel', 'France', 'Provence', WineColour::Rose, 2023, '19.50', '43.53', '6.45', 'Bordeaux Imports'],
-            ['Champagne Brut Réserve', 'Pol Roger', 'France', 'Champagne', WineColour::Sparkling, null, '55.00', '49.04', '4.02', 'Bordeaux Imports'],
-            ['Barolo Riserva', 'Giacomo Conterno', 'Italy', 'Piedmont', WineColour::Red, 2017, '92.00', '44.61', '7.94', 'Italian Fine Wines'],
-            ['Brunello di Montalcino', 'Biondi-Santi', 'Italy', 'Tuscany', WineColour::Red, 2018, '120.00', '43.06', '11.49', 'Italian Fine Wines'],
-            ['Rioja Gran Reserva', 'La Rioja Alta', 'Spain', 'Rioja', WineColour::Red, 2015, '45.00', '42.46', '-2.45', 'New World Selections'],
-            ['Vintage Port', 'Taylor Fladgate', 'Portugal', 'Douro', WineColour::Fortified, 2016, '68.00', '41.16', '-7.79', 'New World Selections'],
-            ['Napa Cabernet Sauvignon', 'Stag\'s Leap', 'United States', 'Napa Valley', WineColour::Red, 2019, '75.00', '38.50', '-122.27', 'New World Selections'],
-            ['Marlborough Sauvignon Blanc', 'Cloudy Bay', 'New Zealand', 'Marlborough', WineColour::White, 2023, '21.00', '-41.51', '173.86', 'New World Selections'],
+            ['Chablis Premier Cru', 'Domaine Laroche', 'France', 'Burgundy', WineType::White, 2021, '28.50', '47.82', '3.80', 'Bordeaux Imports'],
+            ['Sancerre Les Monts', 'Henri Bourgeois', 'France', 'Loire', WineType::White, 2022, '22.00', '47.33', '2.84', 'Bordeaux Imports'],
+            ['Provence Rosé', 'Whispering Angel', 'France', 'Provence', WineType::Rose, 2023, '19.50', '43.53', '6.45', 'Bordeaux Imports'],
+            ['Champagne Brut Réserve', 'Pol Roger', 'France', 'Champagne', WineType::Sparkling, null, '55.00', '49.04', '4.02', 'Bordeaux Imports'],
+            ['Barolo Riserva', 'Giacomo Conterno', 'Italy', 'Piedmont', WineType::Red, 2017, '92.00', '44.61', '7.94', 'Italian Fine Wines'],
+            ['Brunello di Montalcino', 'Biondi-Santi', 'Italy', 'Tuscany', WineType::Red, 2018, '120.00', '43.06', '11.49', 'Italian Fine Wines'],
+            ['Rioja Gran Reserva', 'La Rioja Alta', 'Spain', 'Rioja', WineType::Red, 2015, '45.00', '42.46', '-2.45', 'New World Selections'],
+            ['Vintage Port', 'Taylor Fladgate', 'Portugal', 'Douro', WineType::Fortified, 2016, '68.00', '41.16', '-7.79', 'New World Selections'],
+            ['Napa Cabernet Sauvignon', 'Stag\'s Leap', 'United States', 'Napa Valley', WineType::Red, 2019, '75.00', '38.50', '-122.27', 'New World Selections'],
+            ['Marlborough Sauvignon Blanc', 'Cloudy Bay', 'New Zealand', 'Marlborough', WineType::White, 2023, '21.00', '-41.51', '173.86', 'New World Selections'],
         ];
 
         foreach ($wines as $i => [$name, $producer, $country, $region, $colour, $vintage, $price, $lat, $lng, $supplierName]) {
@@ -201,9 +201,9 @@ class DemoSupplierSeeder extends Seeder
     private function seedParsedDocument(Company $company, User $owner, Supplier $supplier): void
     {
         $wines = [
-            ['Borough Reserve Claret', 'France', 'Bordeaux', WineColour::Red, 2020, '18.50', ['Cabernet Sauvignon', 'Merlot']],
-            ['Borough White Burgundy', 'France', 'Bourgogne', WineColour::White, 2022, '22.00', ['Chardonnay']],
-            ['Borough Provence Rosé', 'France', 'Provence', WineColour::Rose, 2023, '14.75', ['Grenache']],
+            ['Borough Reserve Claret', 'France', 'Bordeaux', WineType::Red, 2020, '18.50', ['Cabernet Sauvignon', 'Merlot']],
+            ['Borough White Burgundy', 'France', 'Bourgogne', WineType::White, 2022, '22.00', ['Chardonnay']],
+            ['Borough Provence Rosé', 'France', 'Provence', WineType::Rose, 2023, '14.75', ['Grenache']],
         ];
 
         $csv = "Wine,Vintage,Price,Country,Colour\n".implode("\n", array_map(

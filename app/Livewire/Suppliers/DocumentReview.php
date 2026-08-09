@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Suppliers;
 
 use App\Livewire\Concerns\WithTenant;
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Supplier\Actions\ApproveParsedWineAction;
 use Domain\Supplier\Actions\RefineParseProfileAction;
 use Domain\Supplier\Actions\RejectParsedWineAction;
@@ -183,7 +183,7 @@ class DocumentReview extends Component
             'edit.sold_by' => ['nullable', Rule::in(['bottle', 'case'])],
             'edit.case_size' => 'nullable|integer|between:1,99',
             'edit.pack_price' => 'nullable|numeric|between:0,1000000',
-            'edit.colour' => ['nullable', Rule::in(array_column(WineColour::cases(), 'value'))],
+            'edit.colour' => ['nullable', Rule::in(array_column(WineType::cases(), 'value'))],
             'edit.country' => 'nullable|string|max:255',
             'edit.region' => 'nullable|string|max:255',
             'edit.grape' => 'nullable|string|max:500',
@@ -267,7 +267,7 @@ class DocumentReview extends Component
                 $this->currentUser()?->company_id,
             ),
             'canCommit' => $supplier !== null && $supplier->created_by_company_id === $this->currentUser()?->company_id,
-            'colours' => WineColour::cases(),
+            'colours' => WineType::cases(),
             'bulkProgress' => BulkApprovalProgress::get($this->documentId),
         ]);
     }

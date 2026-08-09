@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use Domain\Catalogue\Enums\WineColour;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Import\Services\NormaliseService;
 
 beforeEach(function () {
@@ -10,12 +10,12 @@ beforeEach(function () {
 });
 
 it('maps colours across languages and styles', function () {
-    expect($this->svc->normaliseColour('Rouge'))->toBe(WineColour::Red)
-        ->and($this->svc->normaliseColour('Bianco'))->toBe(WineColour::White)
-        ->and($this->svc->normaliseColour('Champagne'))->toBe(WineColour::Sparkling)
-        ->and($this->svc->normaliseColour('Tawny Port'))->toBe(WineColour::Fortified)
-        ->and($this->svc->normaliseColour('Rosado'))->toBe(WineColour::Rose)
-        ->and($this->svc->normaliseColour('Orange'))->toBe(WineColour::Orange)
+    expect($this->svc->normaliseColour('Rouge'))->toBe(WineType::Red)
+        ->and($this->svc->normaliseColour('Bianco'))->toBe(WineType::White)
+        ->and($this->svc->normaliseColour('Champagne'))->toBe(WineType::Sparkling)
+        ->and($this->svc->normaliseColour('Tawny Port'))->toBe(WineType::Fortified)
+        ->and($this->svc->normaliseColour('Rosado'))->toBe(WineType::Rose)
+        ->and($this->svc->normaliseColour('Orange'))->toBe(WineType::Orange)
         ->and($this->svc->normaliseColour(''))->toBeNull()
         ->and($this->svc->normaliseColour('mystery'))->toBeNull();
 });
@@ -105,7 +105,7 @@ it('builds normalised ProductData from a mapped row', function () {
 
     expect($product)->not->toBeNull()
         ->and($product->wine_name)->toBe('Test Red')
-        ->and($product->colour)->toBe(WineColour::Red)
+        ->and($product->colour)->toBe(WineType::Red)
         ->and($product->vintage)->toBe(2019)
         ->and($product->unit_price)->toBe('30.00')
         ->and($product->price_per_litre)->toBe('40.00')
