@@ -66,6 +66,7 @@
                                     <div class="flex items-center justify-end gap-1">
                                         <x-button wire:click="$set('viewingId', {{ $order->id }})" variant="ghost" size="sm">View</x-button>
                                         <x-dropdown label="Order actions">
+                                            <x-dropdown.item icon="repeat" wire:click="repeat({{ $order->id }})">Repeat this order</x-dropdown.item>
                                             <x-dropdown.item icon="download" :href="route('orders.pdf', $order->id)">Download PDF</x-dropdown.item>
                                             @if($order->status === \Domain\Order\Enums\OrderStatus::Sent)
                                                 <x-dropdown.item icon="package" wire:click="receive({{ $order->id }})" wire:confirm="Receive this order into inventory?">Receive into inventory</x-dropdown.item>
@@ -89,6 +90,17 @@
         @if($viewing !== null)
             <x-modal model="viewingId" title="Order {{ $viewing->displayNumber() }}" max-width="2xl">
                 <div class="space-y-4">
+                    @if($repeatChanges !== [])
+                        {{-- Only ever set right after a repeat: what moved since last time. --}}
+                        <x-alert variant="warning">
+                            <p class="font-medium">Some lines changed since the order you repeated:</p>
+                            <ul class="mt-1 list-disc space-y-0.5 pl-5 text-sm">
+                                @foreach($repeatChanges as $change)
+                                    <li><span class="font-medium">{{ $change['wine_name'] }}</span> — {{ $change['change'] }}</li>
+                                @endforeach
+                            </ul>
+                        </x-alert>
+                    @endif
                     <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
                         <div>
                             <span class="text-muted-foreground">Supplier:</span>

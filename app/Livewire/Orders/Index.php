@@ -10,6 +10,7 @@ use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
 use Domain\Inventory\Actions\AddInventoryItemAction;
 use Domain\Order\Actions\DeleteOrderAction;
+use Domain\Order\Actions\RepeatOrderAction;
 use Domain\Order\Actions\UpdateOrderStatusAction;
 use Domain\Order\Data\OrderData;
 use Domain\Order\Enums\OrderStatus;
@@ -18,6 +19,7 @@ use Domain\Order\Services\OrderPdfService;
 use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\Venue\Repositories\VenueRepository;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -33,6 +35,14 @@ class Index extends Component
     public string $statusFilter = '';
 
     public ?int $viewingId = null;
+
+    /**
+     * What moved since the order being repeated was raised, shown once on the
+     * new draft so the buyer reviews rather than sends blind.
+     *
+     * @var array<int, array{wine_name: string, change: string}>
+     */
+    public array $repeatChanges = [];
 
     private ?Plan $memoPlan = null;
 
@@ -107,6 +117,35 @@ class Index extends Component
         (new DeleteOrderAction)->execute($id);
         $this->viewingId = null;
         $this->dispatch('toast', message: 'Order deleted.');
+    }
+
+    /**
+     * "Same again": a new draft with the same lines, priced from today's
+     * catalogue rather than the old order's snapshot. The buyer lands on the
+     * draft to review it, with anything that moved spelled out.
+     */
+    public function repeat(int $id): void
+    {
+        abort_unless($this->entitled(), 403);
+        $this->guardOwnsOrder($id);
+
+        $result = (new RepeatOrderAction)->execute(
+            $id,
+            (int) $this->currentUser()?->company_id,
+            $this->currentUser()?->id,
+        );
+
+        $changes = $result['changes'];
+        $message = 'Draft '.$result['order']->displayNumber().' created.';
+
+        if ($changes !== []) {
+            $message .= ' '.count($changes).' '
+                .Str::plural('line', count($changes)).' changed since last time — check before sending.';
+        }
+
+        $this->viewingId = $result['order']->id;
+        $this->repeatChanges = $changes;
+        $this->dispatch('toast', message: $message);
     }
 
     public function sendEmail(int $id): void
