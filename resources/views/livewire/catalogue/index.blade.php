@@ -6,6 +6,38 @@
     {{-- Toolbar --}}
     @php($inputClasses = 'block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40')
     @php($selectClasses = 'select-field block w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-ring/40')
+    {{-- Ask in plain English. The answer lands in the ordinary filters below,
+         so the buyer can see what was understood and correct any of it. --}}
+    <form wire:submit="runAiSearch" class="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 shadow-sm">
+        <x-icon.sparkles class="size-5 shrink-0 text-primary" />
+        <input
+            type="text"
+            wire:model="aiQuery"
+            aria-label="Describe the wine you're looking for"
+            placeholder="Describe what you're after — “a punchy natural red under £20 for a bistro list”"
+            class="min-w-0 flex-1 border-0 bg-transparent px-1 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-0"
+        />
+        <x-button type="submit" size="sm" wire:loading.attr="disabled" wire:target="runAiSearch">
+            <span wire:loading.remove wire:target="runAiSearch">Search</span>
+            <span wire:loading wire:target="runAiSearch">Reading…</span>
+        </x-button>
+        @if($aiSummary !== '' || $aiFailed)
+            <x-button type="button" variant="ghost" size="sm" wire:click="clearAiSearch">Clear</x-button>
+        @endif
+    </form>
+
+    @if($aiSummary !== '')
+        <div class="flex items-start gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5 text-sm">
+            <x-icon.sparkles class="mt-0.5 size-4 shrink-0 text-primary" />
+            <div>
+                <p class="text-foreground">{{ $aiSummary }}</p>
+                <p class="mt-0.5 text-xs text-muted-foreground">Shown as filters below — change any of them if we read it wrong.</p>
+            </div>
+        </div>
+    @elseif($aiFailed)
+        <x-alert variant="info">We couldn't read that as a set of filters, so we've searched for it as plain text instead.</x-alert>
+    @endif
+
     <div x-data="{ filtersOpen: @js($filterCount > 0) }" class="space-y-3">
         <div class="flex flex-wrap items-center gap-3">
             <div class="relative w-full max-w-xs">
@@ -287,6 +319,12 @@
                                      the sub-line when that column is switched off. --}}
                                 @if($product->producer && ! in_array('producer', $visibleColumns, true))
                                     <div class="text-xs text-muted-foreground">{{ $product->producer }}</div>
+                                @endif
+                                @if(isset($aiReasons[$product->id]))
+                                    <div class="mt-0.5 flex items-center gap-1 text-xs text-primary">
+                                        <x-icon.sparkles class="size-3 shrink-0" />
+                                        {{ $aiReasons[$product->id] }}
+                                    </div>
                                 @endif
                             </td>
                             @if(in_array('producer', $visibleColumns, true))

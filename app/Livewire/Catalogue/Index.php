@@ -8,11 +8,13 @@ use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Actions\DeleteProductAction;
 use Domain\Catalogue\Actions\UpdateProductPriceAction;
+use Domain\Catalogue\Data\AiSearchFilterData;
 use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Repositories\CatalogueEnrichmentRepository;
 use Domain\Catalogue\Repositories\ProductRepository;
+use Domain\Catalogue\Services\AiSearchService;
 use Domain\Company\Repositories\CompanyRepository;
 use Domain\Order\Actions\CreateOrderAction;
 use Domain\Order\Data\OrderData;
@@ -21,6 +23,7 @@ use Domain\Order\Enums\OrderStatus;
 use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\User\Repositories\UserRepository;
 use Domain\Venue\Repositories\VenueRepository;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Session;
@@ -102,6 +105,21 @@ class Index extends Component
     #[Session(key: 'catalogue-columns')]
     public array $visibleColumns = ['producer', 'supplier', 'country', 'region', 'grapes', 'colour', 'vintage', 'format'];
 
+    // AI search: a plain-English question, read into the filters below.
+    public string $aiQuery = '';
+
+    /** What the model understood, shown above the results. */
+    public string $aiSummary = '';
+
+    public bool $aiFailed = false;
+
+    /**
+     * The last interpretation, kept so the per-wine reasons can be recomputed
+     * as the buyer pages through the results (it's Wireable, and costs nothing
+     * to re-apply — no further model calls).
+     */
+    public ?AiSearchFilterData $aiFilter = null;
+
     // "Add to basket" panel: how many, and who else stocks this wine.
     public ?int $addingId = null;
 
@@ -164,8 +182,117 @@ class Index extends Component
     public function resetFilters(): void
     {
         $this->reset([
-            'search', 'supplierFilter', 'sort', 'direction', ...self::PANEL_FILTERS,
+            'search', 'supplierFilter', 'sort', 'direction',
+            'aiQuery', 'aiSummary', 'aiFailed', 'aiFilter',
+            ...self::PANEL_FILTERS,
         ]);
+        $this->resetPage();
+    }
+
+    /**
+     * Read a plain-English question into the ordinary filters.
+     *
+     * Deliberately no separate "AI results" mode: the interpretation lands in
+     * the same filter fields the buyer could have set by hand, so they can see
+     * exactly what it understood and correct any part of it. Throttled per
+     * company, and identical questions are answered from cache.
+     */
+    public function runAiSearch(): void
+    {
+        $query = trim($this->aiQuery);
+
+        if ($query === '') {
+            return;
+        }
+
+        $companyId = (new UserRepository)->getLoggedInUser()?->company_id ?? 0;
+
+        if (RateLimiter::tooManyAttempts('ai-search:'.$companyId, 20)) {
+            $this->dispatch('toast', message: 'That\'s a lot of searches — give it a minute.');
+
+            return;
+        }
+
+        RateLimiter::hit('ai-search:'.$companyId, 60);
+
+        $connectedIds = (new SupplierRepository)->connectedToCompany($companyId)->pluck('id')->all();
+        $repository = new ProductRepository;
+
+        // Resolved from the container so a test can bind a fake client.
+        // Most common first, so the model picks the spelling the catalogue
+        // actually uses rather than a near-empty variant of it.
+        $filter = app(AiSearchService::class)->interpret($query, [
+            'countries' => $repository->popularValues('country', $connectedIds, 60),
+            'regions' => $repository->popularValues('region', $connectedIds, 120),
+        ], $companyId);
+
+        if ($filter === null || $filter->isEmpty()) {
+            // Couldn't read it (or it said nothing filterable) — fall back to
+            // an ordinary text search rather than showing an error.
+            $this->reset(self::PANEL_FILTERS);
+            $this->search = $query;
+            $this->aiSummary = '';
+            $this->aiFailed = true;
+            $this->aiFilter = null;
+            $this->resetPage();
+
+            return;
+        }
+
+        // A reading can be right and still find nothing — supplier lists record
+        // grape so unevenly that "white Burgundy Chardonnay" can hide 1,500
+        // white Burgundies. Give criteria up until something is found, and say
+        // which, rather than showing an empty page.
+        $service = app(AiSearchService::class);
+        ['filter' => $filter, 'dropped' => $dropped] = $service->relax(
+            $filter,
+            fn ($candidate) => $repository->search(
+                term: $candidate->search,
+                country: $candidate->country,
+                colour: $candidate->type,
+                subType: $candidate->sub_type,
+                region: $candidate->region ?: null,
+                producer: $candidate->producer ?: null,
+                grape: $candidate->grape ?: null,
+                priceMin: $candidate->price_min,
+                priceMax: $candidate->price_max,
+                vintageMin: $candidate->vintage_min,
+                vintageMax: $candidate->vintage_max,
+                perPage: 1,
+                supplierIds: $connectedIds,
+            )->total(),
+        );
+
+        // Replace the panel filters wholesale: a new question means a new
+        // search, not a narrowing of the last one.
+        $this->reset(self::PANEL_FILTERS);
+
+        $this->search = $filter->search;
+        $this->colour = $filter->type?->value ?? '';
+        $this->sub_type = $filter->sub_type?->value ?? '';
+        $this->country = $filter->country;
+        $this->region = $filter->region;
+        $this->producer = $filter->producer;
+        $this->grape = $filter->grape;
+        $this->priceMin = $filter->price_min !== null ? (string) $filter->price_min : '';
+        $this->priceMax = $filter->price_max !== null ? (string) $filter->price_max : '';
+        $this->vintageMin = $filter->vintage_min !== null ? (string) $filter->vintage_min : '';
+        $this->vintageMax = $filter->vintage_max !== null ? (string) $filter->vintage_max : '';
+
+        $this->aiSummary = $dropped === []
+            ? $filter->summary
+            : $filter->summary.' Nothing matched all of that, so I set aside '
+                .Str::of(implode(', ', $dropped))->replaceLast(', ', ' and ').'.';
+        $this->aiFailed = false;
+        $this->aiFilter = $filter;
+        $this->resetPage();
+    }
+
+    public function clearAiSearch(): void
+    {
+        $this->reset(['aiQuery', 'aiSummary', 'aiFailed', 'aiFilter']);
+        $this->reset(self::PANEL_FILTERS);
+        $this->search = '';
         $this->resetPage();
     }
 
@@ -561,6 +688,12 @@ class Index extends Component
         return view('livewire.catalogue.index', [
             'adding' => $adding,
             'alternatives' => $alternatives,
+            'aiSummary' => $this->aiSummary,
+            // Recomputed per page from the stored interpretation — deterministic,
+            // so it never contradicts the row it sits under.
+            'aiReasons' => $this->aiFilter !== null
+                ? app(AiSearchService::class)->reasons($this->aiFilter, $products->items())
+                : [],
             // The supplier column is meaningless while filtered to one supplier,
             // so it drops out of the picker too rather than toggling nothing.
             'columns' => $supplierFilter !== 0

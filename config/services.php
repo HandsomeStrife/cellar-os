@@ -53,6 +53,12 @@ return [
     'anthropic' => [
         'key' => env('ANTHROPIC_API_KEY'),
         'model' => env('ANTHROPIC_MODEL', 'claude-opus-4-8'),
+
+        // Reading a search box into filter values is a small, well-specified
+        // extraction — exactly what Haiku is as good at as Opus, at a fraction
+        // of the cost. Measured on real queries: ~$0.012 a search on Opus vs
+        // ~$0.0017 on Haiku, and a search box is used constantly.
+        'search_model' => env('ANTHROPIC_SEARCH_MODEL', 'claude-haiku-4-5'),
     ],
 
 ];

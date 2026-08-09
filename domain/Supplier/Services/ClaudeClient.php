@@ -7,6 +7,8 @@ namespace Domain\Supplier\Services;
 use Anthropic\Client;
 use Anthropic\Messages\JSONOutputFormat;
 use Anthropic\Messages\OutputConfig;
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Supplier\Actions\RecordLlmCallAction;
 use Domain\Supplier\Data\LlmCallData;
 use Domain\Supplier\Exceptions\ResponseTruncatedException;
@@ -121,6 +123,95 @@ class ClaudeClient
             'confidence' => (float) ($out['confidence'] ?? 0),
             'notes' => (string) ($out['notes'] ?? ''),
         ];
+    }
+
+    /**
+     * Read a buyer's plain-English catalogue query into the filters the
+     * catalogue already has.
+     *
+     * The model NEVER sees or writes a query — it only picks values for fields
+     * a buyer could set by hand. That is what keeps the result explainable and
+     * puts tenant/supplier scoping structurally out of its reach: whatever it
+     * returns is run through the same scoped ProductRepository::search() as a
+     * hand-set filter.
+     *
+     * Every field is a required string, per the structured-output API's
+     * constraints; "" means "the query didn't say".
+     *
+     * @param  array<string, array<int, string>>  $facets  the values actually present in
+     *                                                     this buyer's catalogue, so the model picks real ones
+     * @return array<string, mixed>
+     */
+    public function interpretSearch(string $query, array $facets, ?string $model = null): array
+    {
+        $types = implode(', ', array_map(fn ($case) => $case->value, WineType::cases()));
+        $subTypes = implode(', ', array_map(fn ($case) => $case->value, WineSubType::cases()));
+
+        $lists = '';
+        foreach ($facets as $name => $values) {
+            if ($values !== []) {
+                $lists .= "\n{$name}: ".implode(', ', array_slice($values, 0, 120));
+            }
+        }
+
+        $system = <<<SYS
+            You turn a wine buyer's request into catalogue filter values.
+
+            Wine types: {$types}
+            Sub-types (styles within a type): {$subTypes}
+
+            Rules:
+            - Only fill a field the request actually implies. Leave it "" otherwise.
+            - Prefer values from the catalogue's own lists below, which are
+              ordered most-common first: where two entries mean the same place,
+              pick the one listed earlier. If the request names something not in
+              a list, leave that field "" and put the words in `search` instead.
+            - `search` matches the wine's NAME and PRODUCER text only. Use it for
+              names, estates and appellations. Do NOT put tasting or style words
+              in it (crisp, punchy, elegant, natural, easy-drinking): the
+              catalogue holds no tasting notes, so they would match nothing.
+              Leave such words out and reflect them in `summary` instead.
+            - Prices are per bottle, in the buyer's own currency. "Under £20" is
+              price_max 20. "Around £30" is price_min 25 and price_max 35.
+            - `summary` is one short sentence, addressed to the buyer, saying what
+              you understood — not a restatement of their words.
+            - Exclusions ("not Bordeaux") cannot be expressed: say so in `summary`
+              and leave the field empty rather than filtering the opposite way.
+
+            The catalogue contains:{$lists}
+            SYS;
+
+        $schema = [
+            'type' => 'object',
+            'additionalProperties' => false,
+            'properties' => [
+                'summary' => ['type' => 'string'],
+                'search' => ['type' => 'string'],
+                'type' => ['type' => 'string'],
+                'sub_type' => ['type' => 'string'],
+                'country' => ['type' => 'string'],
+                'region' => ['type' => 'string'],
+                'producer' => ['type' => 'string'],
+                'grape' => ['type' => 'string'],
+                'price_min' => ['type' => 'string'],
+                'price_max' => ['type' => 'string'],
+                'vintage_min' => ['type' => 'string'],
+                'vintage_max' => ['type' => 'string'],
+            ],
+            'required' => [
+                'summary', 'search', 'type', 'sub_type', 'country', 'region',
+                'producer', 'grape', 'price_min', 'price_max', 'vintage_min', 'vintage_max',
+            ],
+        ];
+
+        return $this->call(
+            'ai_search',
+            $system,
+            $query,
+            $schema,
+            $model ?: (string) config('services.anthropic.search_model', 'claude-haiku-4-5'),
+            600,
+        );
     }
 
     /**

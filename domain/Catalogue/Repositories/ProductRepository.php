@@ -277,6 +277,38 @@ class ProductRepository
             ->values();
     }
 
+    /**
+     * Distinct values of a filterable column, MOST COMMON FIRST.
+     *
+     * Alphabetical order is right for a dropdown but wrong for telling a model
+     * which values are real: a catalogue can carry both "Bourgogne" (4,950
+     * wines) and a stray "Burgundy" (1), and an alphabetical list gives no clue
+     * which one a buyer means.
+     *
+     * @param  array<int, int>|null  $supplierIds
+     * @return array<int, string>
+     */
+    public function popularValues(string $column, ?array $supplierIds = null, int $limit = 100): array
+    {
+        // Allow-list: this reaches the query builder as a column name.
+        if (! in_array($column, ['country', 'region', 'sub_region', 'producer'], true)) {
+            return [];
+        }
+
+        return Product::query()
+            ->whereNull('archived_at')
+            ->when($supplierIds !== null, fn ($query) => $query->whereIn('supplier_id', $supplierIds))
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->select($column)
+            ->selectRaw('count(*) as wines')
+            ->groupBy($column)
+            ->orderByDesc('wines')
+            ->limit($limit)
+            ->pluck($column)
+            ->all();
+    }
+
     public function allForMap(): Collection
     {
         // The public sourcing map excludes wines from buyers' private suppliers.
