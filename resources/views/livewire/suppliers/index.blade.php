@@ -67,16 +67,19 @@
                                     {{ $venueCount === 0 ? 'None' : $venueCount.' '.\Illuminate\Support\Str::plural('venue', $venueCount) }}
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <x-button wire:click="startAllocate({{ $supplier->id }})" variant="ghost" size="sm"><x-icon.map-pin class="size-4" /> Venues</x-button>
-                                        <x-button :href="route('suppliers.documents', $supplier->uuid)" wire:navigate variant="ghost" size="sm"><x-icon.file-text class="size-4" /> Documents</x-button>
+                                    <x-dropdown :label="'Actions for '.$supplier->name">
+                                        <x-dropdown.item icon="file-text" :href="route('suppliers.documents', $supplier->uuid)" wire:navigate>Price lists &amp; documents</x-dropdown.item>
+                                        <x-dropdown.item icon="upload" :href="route('suppliers.import', $supplier->uuid)" wire:navigate>Import a CSV / Excel list</x-dropdown.item>
+                                        <x-dropdown.item icon="map-pin" wire:click="startAllocate({{ $supplier->id }})">Allocate to venues</x-dropdown.item>
                                         @if($owned)
-                                            <x-button wire:click="edit({{ $supplier->id }})" variant="ghost" size="sm" title="Edit supplier"><x-icon.pencil class="size-4" /></x-button>
-                                            <x-button wire:click="delete({{ $supplier->id }})" wire:confirm="Delete {{ $supplier->name }}? This cannot be undone." variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" title="Delete supplier"><x-icon.trash-2 class="size-4" /></x-button>
+                                            <x-dropdown.divider />
+                                            <x-dropdown.item icon="pencil" wire:click="edit({{ $supplier->id }})">Edit supplier</x-dropdown.item>
+                                            <x-dropdown.item icon="trash-2" variant="danger" wire:click="delete({{ $supplier->id }})" wire:confirm="Delete {{ $supplier->name }}? This cannot be undone.">Delete supplier</x-dropdown.item>
                                         @else
-                                            <x-button wire:click="disconnect({{ $supplier->id }})" wire:confirm="Remove {{ $supplier->name }} from your suppliers?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" title="Remove from my suppliers"><x-icon.x class="size-4" /> Disconnect</x-button>
+                                            <x-dropdown.divider />
+                                            <x-dropdown.item icon="x" variant="danger" wire:click="disconnect({{ $supplier->id }})" wire:confirm="Remove {{ $supplier->name }} from your suppliers?">Remove from my suppliers</x-dropdown.item>
                                         @endif
-                                    </div>
+                                    </x-dropdown>
                                 </td>
                             </tr>
                         @endforeach

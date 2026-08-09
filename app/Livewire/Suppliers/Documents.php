@@ -93,14 +93,6 @@ class Documents extends Component
         $this->dispatch('toast', message: 'Document removed.');
     }
 
-    private function requireCompany(): int
-    {
-        $companyId = $this->currentUser()?->company_id;
-        abort_if($companyId === null, 403);
-
-        return $companyId;
-    }
-
     private function guardOwnDocument(int $id): void
     {
         $document = (new SupplierDocumentRepository)->find($id);

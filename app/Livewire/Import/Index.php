@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Import;
 
+use App\Livewire\Concerns\WithTenant;
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Actions\UpsertProductAction;
@@ -22,11 +23,19 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
+/**
+ * The deterministic CSV/Excel price-list import wizard.
+ *
+ * It is always entered from a supplier (`/suppliers/{uuid}/import`) — there is
+ * no standalone "Import" area — so the supplier is fixed for the whole run and
+ * never chosen inside the wizard.
+ */
 #[Layout('layouts.app')]
-#[Title('Import')]
+#[Title('Import a price list')]
 class Index extends Component
 {
     use WithFileUploads;
+    use WithTenant;
 
     /** Mappable product fields => label. wine_name is required. */
     public const FIELDS = [
@@ -46,7 +55,11 @@ class Index extends Component
 
     public int $step = 1;
 
+    public string $uuid = '';
+
     public ?int $supplierId = null;
+
+    public string $supplierName = '';
 
     public $upload;
 
@@ -59,6 +72,20 @@ class Index extends Component
     public array $mapping = [];
 
     public ?int $importedCount = null;
+
+    public function mount(string $uuid): void
+    {
+        $companyId = $this->requireCompany();
+        $supplier = (new SupplierRepository)->findByUuid($uuid);
+        abort_if($supplier === null, 404);
+
+        // You may only import a list for a supplier you're connected to.
+        abort_unless((new SupplierRepository)->isConnectedToCompany($supplier->id, $companyId), 403);
+
+        $this->uuid = $supplier->uuid;
+        $this->supplierId = $supplier->id;
+        $this->supplierName = $supplier->name;
+    }
 
     private function plan(): Plan
     {
@@ -75,7 +102,6 @@ class Index extends Component
         abort_unless($this->entitled(), 403);
 
         $this->validate([
-            'supplierId' => 'required|integer|exists:suppliers,id',
             'upload' => 'required|file|max:10240|mimes:csv,txt,xls,xlsx',
         ]);
 
@@ -177,6 +203,7 @@ class Index extends Component
 
     public function restart(): void
     {
+        // Everything except the supplier, which is fixed by the route.
         $this->reset(['step', 'upload', 'rawUploadId', 'headers', 'mapping', 'importedCount']);
         $this->step = 1;
     }
@@ -260,7 +287,6 @@ class Index extends Component
 
         return view('livewire.import.index', [
             'entitled' => $entitled,
-            'suppliers' => (new SupplierRepository)->all(),
             'fields' => self::FIELDS,
             'preview' => $preview,
         ]);

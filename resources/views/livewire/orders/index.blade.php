@@ -61,21 +61,19 @@
                                 <td class="px-3 py-2.5 text-right tabular-nums">{{ Currency::format($order->total, data_get($order->items, '0.currency_at_order', $currency)) }}</td>
                                 <td class="px-3 py-2.5 text-muted-foreground">{{ $order->created_at?->format('j M Y') }}</td>
                                 <td class="px-3 py-2.5">
+                                    {{-- Opening the order is the row's main affordance, so it
+                                         stays inline; everything else collapses. --}}
                                     <div class="flex items-center justify-end gap-1">
                                         <x-button wire:click="$set('viewingId', {{ $order->id }})" variant="ghost" size="sm">View</x-button>
-                                        <a href="{{ route('orders.pdf', $order->id) }}" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Download PDF">
-                                            <x-icon.download class="size-4" />
-                                        </a>
-                                        @if($order->status === \Domain\Order\Enums\OrderStatus::Sent)
-                                            <button type="button" wire:click="receive({{ $order->id }})" wire:confirm="Receive this order into inventory?" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Receive into inventory">
-                                                <x-icon.package class="size-4" />
-                                            </button>
-                                        @endif
-                                        @if($canEmail)
-                                            <button type="button" wire:click="sendEmail({{ $order->id }})" wire:confirm="Email this order to the supplier?" class="flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground" title="Email to supplier">
-                                                <x-icon.mail class="size-4" />
-                                            </button>
-                                        @endif
+                                        <x-dropdown label="Order actions">
+                                            <x-dropdown.item icon="download" :href="route('orders.pdf', $order->id)">Download PDF</x-dropdown.item>
+                                            @if($order->status === \Domain\Order\Enums\OrderStatus::Sent)
+                                                <x-dropdown.item icon="package" wire:click="receive({{ $order->id }})" wire:confirm="Receive this order into inventory?">Receive into inventory</x-dropdown.item>
+                                            @endif
+                                            @if($canEmail)
+                                                <x-dropdown.item icon="mail" wire:click="sendEmail({{ $order->id }})" wire:confirm="Email this order to the supplier?">Email to supplier</x-dropdown.item>
+                                            @endif
+                                        </x-dropdown>
                                     </div>
                                 </td>
                             </tr>

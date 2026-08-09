@@ -46,14 +46,12 @@
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <x-button wire:click="resendInvite({{ $member->id }})" variant="ghost" size="sm" aria-label="Resend invite"><x-icon.mail class="size-4" /></x-button>
-                                        <form method="POST" action="{{ route('admin.impersonate.user', $member->id) }}" class="inline">
-                                            @csrf
-                                            <x-button type="submit" variant="ghost" size="sm" aria-label="Impersonate {{ $member->email }}" title="View the app as this user"><x-icon.eye class="size-4" /></x-button>
-                                        </form>
-                                        <x-button wire:click="removeUser({{ $member->id }})" wire:confirm="Remove {{ $member->email }}?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" aria-label="Remove"><x-icon.trash-2 class="size-4" /></x-button>
-                                    </div>
+                                    <x-dropdown :label="'Actions for '.$member->email">
+                                        <x-dropdown.item icon="eye" :post="route('admin.impersonate.user', $member->id)">View the app as this user</x-dropdown.item>
+                                        <x-dropdown.item icon="mail" wire:click="resendInvite({{ $member->id }})">Resend invite</x-dropdown.item>
+                                        <x-dropdown.divider />
+                                        <x-dropdown.item icon="trash-2" variant="danger" wire:click="removeUser({{ $member->id }})" wire:confirm="Remove {{ $member->email }}?">Remove from company</x-dropdown.item>
+                                    </x-dropdown>
                                 </td>
                             </tr>
                         @endforeach

@@ -72,8 +72,10 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/suppliers/documents/{id}/download', SupplierDocumentDownloadController::class)->name('suppliers.documents.download');
     Route::get('/suppliers/{uuid}/documents', BuyerSupplierDocuments::class)->name('suppliers.documents');
     Route::get('/suppliers/{uuid}/documents/{documentId}/review', BuyerSupplierDocumentReview::class)->name('suppliers.documents.review');
+    // Importing a price list is always done against a supplier — there is no
+    // standalone Import area.
+    Route::get('/suppliers/{uuid}/import', ImportIndex::class)->name('suppliers.import');
     Route::get('/catalogue', CatalogueIndex::class)->name('catalogue');
-    Route::get('/import', ImportIndex::class)->name('import');
     Route::get('/inventory', InventoryIndex::class)->name('inventory');
     Route::get('/inventory/attachments/{id}/download', DownloadAttachmentController::class)->name('inventory.attachments.download');
     Route::get('/orders', OrderIndex::class)->name('orders');

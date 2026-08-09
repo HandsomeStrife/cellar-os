@@ -171,7 +171,9 @@
             <ol class="mt-6 divide-y divide-border border-y border-border">
                 @php($steps = [
                     ['label' => 'Add your suppliers', 'desc' => 'Record who you buy from.', 'route' => 'suppliers'],
-                    ['label' => 'Import a price list', 'desc' => 'Upload a supplier CSV or Excel file to build your catalogue.', 'route' => 'import'],
+                    {{-- Importing is done against a supplier, so this step lands on
+                         the suppliers list where each row offers the upload. --}}
+                    ['label' => 'Import a price list', 'desc' => 'Upload a supplier CSV or Excel file to build your catalogue.', 'route' => 'suppliers'],
                     ['label' => 'Browse the catalogue', 'desc' => 'Sort, filter and add wines to an order.', 'route' => 'catalogue'],
                     ['label' => 'Raise a purchase order', 'desc' => 'Generate a PO PDF and email it to a supplier.', 'route' => 'orders'],
                 ])

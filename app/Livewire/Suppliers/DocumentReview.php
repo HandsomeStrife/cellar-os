@@ -215,14 +215,6 @@ class DocumentReview extends Component
         $this->dispatch('toast', message: 'Wine updated.');
     }
 
-    private function requireCompany(): int
-    {
-        $companyId = $this->currentUser()?->company_id;
-        abort_if($companyId === null, 403);
-
-        return $companyId;
-    }
-
     private function guardDocument(): void
     {
         $document = (new SupplierDocumentRepository)->find($this->documentId);

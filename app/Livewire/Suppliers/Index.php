@@ -193,14 +193,6 @@ class Index extends Component
         $this->dispatch('toast', message: 'Venues updated.');
     }
 
-    private function requireCompany(): int
-    {
-        $companyId = $this->currentUser()?->company_id;
-        abort_if($companyId === null, 403);
-
-        return $companyId;
-    }
-
     /**
      * Guard that the supplier is this company's own (private) record — only those
      * may be edited/deleted/toggled by a buyer.

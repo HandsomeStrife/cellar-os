@@ -3,8 +3,15 @@
         <a href="{{ route('suppliers') }}" wire:navigate class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
             <x-icon.chevron-right class="size-4 rotate-180" /> Back to suppliers
         </a>
-        <h2 class="mt-2 font-serif text-2xl font-semibold">{{ $supplierName }} documents</h2>
-        <p class="mt-1 text-sm text-muted-foreground">Upload this supplier's portfolio or price sheet and we'll prepare it for your catalogue.</p>
+        <div class="mt-2 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <div class="min-w-0">
+                <h2 class="font-serif text-2xl font-semibold">{{ $supplierName }} documents</h2>
+                <p class="mt-1 text-sm text-muted-foreground">Upload this supplier's portfolio or price sheet and we'll prepare it for your catalogue.</p>
+            </div>
+            <x-button :href="route('suppliers.import', $uuid)" wire:navigate variant="outline" size="sm">
+                <x-icon.columns-3 class="size-4" /> Map columns yourself
+            </x-button>
+        </div>
     </div>
 
     <x-card title="Upload a document">
@@ -50,13 +57,18 @@
                             <td class="px-3 py-2.5"><x-badge :color="$document->status->getColour()">{{ $document->status->getLabel() }}</x-badge></td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $document->created_at?->format('j M Y') }}</td>
                             <td class="px-3 py-2.5 text-right">
+                                {{-- Reviewing an analysed document is the point of this
+                                     screen, so it stays inline; the rest collapse. --}}
                                 <div class="flex items-center justify-end gap-1">
-                                    <x-button wire:click="analyse({{ $document->id }})" variant="outline" size="sm">Analyse</x-button>
                                     @if($document->status === \Domain\Supplier\Enums\SupplierDocumentStatus::Analysed)
                                         <x-button :href="route('suppliers.documents.review', [$uuid, $document->id])" wire:navigate variant="primary" size="sm">Review</x-button>
                                     @endif
-                                    <x-button :href="route('suppliers.documents.download', $document->id)" variant="ghost" size="sm" aria-label="Download"><x-icon.download class="size-4" /></x-button>
-                                    <x-button wire:click="delete({{ $document->id }})" wire:confirm="Remove this document?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" aria-label="Delete"><x-icon.trash-2 class="size-4" /></x-button>
+                                    <x-dropdown label="Document actions">
+                                        <x-dropdown.item icon="zap" wire:click="analyse({{ $document->id }})">Analyse</x-dropdown.item>
+                                        <x-dropdown.item icon="download" :href="route('suppliers.documents.download', $document->id)">Download</x-dropdown.item>
+                                        <x-dropdown.divider />
+                                        <x-dropdown.item icon="trash-2" variant="danger" wire:click="delete({{ $document->id }})" wire:confirm="Remove this document?">Delete document</x-dropdown.item>
+                                    </x-dropdown>
                                 </div>
                             </td>
                         </tr>

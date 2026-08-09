@@ -155,12 +155,16 @@
                                 <td class="px-3 py-2.5"><x-badge :color="$wine->status->getColour()">{{ $wine->status->getLabel() }}</x-badge></td>
                                 <td class="px-3 py-2.5 text-right">
                                     @if($wine->status->value === 'proposed')
+                                        {{-- Approve is the high-frequency triage action and stays
+                                             one click away; edit/reject collapse behind the menu. --}}
                                         <div class="flex items-center justify-end gap-1">
                                             @if($canCommit)
                                                 <x-button wire:click="approve({{ $wine->id }})" size="sm" title="Approve"><x-icon.check class="size-4" /></x-button>
                                             @endif
-                                            <x-button wire:click="startEdit({{ $wine->id }})" variant="ghost" size="sm" title="Edit"><x-icon.pencil class="size-4" /></x-button>
-                                            <x-button wire:click="reject({{ $wine->id }})" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" title="Reject"><x-icon.x class="size-4" /></x-button>
+                                            <x-dropdown label="Row actions">
+                                                <x-dropdown.item icon="pencil" wire:click="startEdit({{ $wine->id }})">Edit this wine</x-dropdown.item>
+                                                <x-dropdown.item icon="x" variant="danger" wire:click="reject({{ $wine->id }})">Reject</x-dropdown.item>
+                                            </x-dropdown>
                                         </div>
                                     @endif
                                 </td>

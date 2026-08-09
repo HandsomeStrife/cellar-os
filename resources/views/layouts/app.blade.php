@@ -14,7 +14,6 @@
             ['label' => 'Suppliers', 'icon' => 'users', 'route' => 'suppliers'],
             ['label' => 'Inventory', 'icon' => 'package', 'route' => 'inventory'],
             ['label' => 'Orders', 'icon' => 'clipboard-list', 'route' => 'orders'],
-            ['label' => 'Import', 'icon' => 'upload', 'route' => 'import'],
             config('features.map') ? ['label' => 'Map', 'icon' => 'map', 'route' => 'map'] : null,
         ]))],
         ['heading' => 'Account', 'items' => array_values(array_filter([

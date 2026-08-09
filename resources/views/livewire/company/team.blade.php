@@ -85,15 +85,16 @@
                                 @endif
                             </td>
                             <td class="px-3 py-2.5 text-right">
-                                <div class="flex items-center justify-end gap-1">
+                                <x-dropdown :label="'Actions for '.$member->email">
+                                    <x-dropdown.item icon="pencil" wire:click="startEdit({{ $member->id }})">Edit access</x-dropdown.item>
                                     @unless($member->has_password)
-                                        <x-button wire:click="resendInvite({{ $member->id }})" variant="ghost" size="sm" aria-label="Resend invite"><x-icon.mail class="size-4" /></x-button>
+                                        <x-dropdown.item icon="mail" wire:click="resendInvite({{ $member->id }})">Resend invite</x-dropdown.item>
                                     @endunless
-                                    <x-button wire:click="startEdit({{ $member->id }})" variant="ghost" size="sm" aria-label="Edit"><x-icon.pencil class="size-4" /></x-button>
                                     @if($member->id !== $currentUserId)
-                                        <x-button wire:click="remove({{ $member->id }})" wire:confirm="Remove {{ $member->email }}?" variant="ghost" size="sm" class="text-destructive hover:bg-destructive/10" aria-label="Remove"><x-icon.trash-2 class="size-4" /></x-button>
+                                        <x-dropdown.divider />
+                                        <x-dropdown.item icon="trash-2" variant="danger" wire:click="remove({{ $member->id }})" wire:confirm="Remove {{ $member->email }}?">Remove from team</x-dropdown.item>
                                     @endif
-                                </div>
+                                </x-dropdown>
                             </td>
                         @endif
                     </tr>

@@ -62,4 +62,16 @@ trait WithTenant
     {
         return $this->accessibleVenues()->pluck('id')->all();
     }
+
+    /**
+     * The acting user's company id, or a 403 — for the many write paths that
+     * are meaningless without a tenant.
+     */
+    protected function requireCompany(): int
+    {
+        $companyId = $this->currentUser()?->company_id;
+        abort_if($companyId === null, 403);
+
+        return $companyId;
+    }
 }

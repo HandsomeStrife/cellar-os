@@ -1,11 +1,8 @@
 <p>The import wizard turns a supplier's CSV or Excel price list into catalogue wines in four steps.</p>
-<p class="meta">Route: <code>/import</code> · Requires the <strong>Starter</strong> plan or above</p>
+<p class="meta">Start from <a href="{{ route('suppliers') }}" wire:navigate>Suppliers</a> — open a supplier's actions menu and choose <strong>Import a CSV / Excel list</strong>.</p>
 
 <h2>Step 1, Upload</h2>
-<ol>
-    <li>Choose the <strong>supplier</strong> the list belongs to.</li>
-    <li>Upload a <code>.csv</code>, <code>.xls</code> or <code>.xlsx</code> file (up to 10 MB).</li>
-</ol>
+<p>Importing always happens against a supplier, so the supplier is already chosen for you. Upload a <code>.csv</code>, <code>.xls</code> or <code>.xlsx</code> file (up to 10 MB).</p>
 <p>CellarOS reads the headers and rows, and if it has imported from this supplier before, it pre-loads their saved column mapping.</p>
 
 <h2>Step 2, Map columns</h2>
@@ -17,7 +14,7 @@
     <li><strong>Colours</strong> are recognised across languages (e.g. <em>rouge</em>, <em>bianco</em>, <em>champagne</em> → Sparkling).</li>
     <li><strong>Grapes &amp; regions</strong> are standardised (e.g. <em>Shiraz</em> → Syrah, <em>Burgundy</em> → Bourgogne).</li>
     <li><strong>Prices, vintages and bottle formats</strong> are parsed from messy text (currency symbols, <em>75cl</em>, <em>Magnum</em>, "NV", etc.).</li>
-    <li>Each wine is <strong>geocoded</strong> from its region/country so it appears on the <a href="{{ url('/guide/map') }}" wire:navigate>sourcing map</a>.</li>
+    <li>Each wine is <strong>geocoded</strong> from its region and country.</li>
 </ul>
 
 <h2>Step 4, Import</h2>

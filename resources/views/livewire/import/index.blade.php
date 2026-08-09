@@ -3,10 +3,14 @@
         <x-upgrade-gate
             title="Importing price lists is a paid feature"
             message="Upload a supplier's CSV or Excel price list, map the columns once, and build your catalogue in seconds."
-            plan="Starter"
+            plan="Pro"
         />
     @else
-        <x-page-header title="Import a price list" subtitle="Upload a supplier's CSV or Excel file and map the columns once." />
+        <x-page-header :title="'Import a price list'" :subtitle="'Upload a CSV or Excel file from '.$supplierName.' and map the columns once.'">
+            <x-slot:actions>
+                <x-button :href="route('suppliers.documents', $uuid)" wire:navigate variant="outline" size="sm">Back to {{ $supplierName }}</x-button>
+            </x-slot:actions>
+        </x-page-header>
 
         {{-- Stepper --}}
         @php($steps = ['Upload', 'Map columns', 'Preview', 'Import'])
@@ -30,21 +34,7 @@
         {{-- Step 1: Upload --}}
         @if($step === 1)
             <x-card title="Upload a price list" subtitle="CSV or Excel (.csv, .xls, .xlsx), up to 10 MB.">
-                @if($suppliers->isEmpty())
-                    <x-alert variant="info">
-                        You need a supplier first.
-                        <a href="{{ route('suppliers') }}" class="font-medium underline" wire:navigate>Add a supplier</a> to import their list.
-                    </x-alert>
-                @else
-                    <form wire:submit="uploadFile" class="space-y-4">
-                        <x-input.select
-                            name="supplierId"
-                            label="Supplier"
-                            :options="$suppliers->pluck('name', 'id')->all()"
-                            placeholder="Select a supplier"
-                            wire:model="supplierId"
-                        />
-
+                <form wire:submit="uploadFile" class="space-y-4">
                         <div x-data="{ dragging: false }">
                             <x-input.label for="upload-file">Price-list file</x-input.label>
                             {{-- Dropzone: the label wraps a hidden file input, so click-to-browse
@@ -77,7 +67,6 @@
                             </x-button>
                         </div>
                     </form>
-                @endif
             </x-card>
         @endif
 
