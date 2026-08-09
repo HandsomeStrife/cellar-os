@@ -723,6 +723,7 @@
                                 <input
                                     type="number" min="1"
                                     value="{{ $line['cases'] }}"
+                                    aria-label="Cases of {{ $line['product']->wine_name }}"
                                     wire:change="setBasketCases({{ $line['product']->id }}, $event.target.value)"
                                     class="w-16 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                                 />
@@ -732,6 +733,7 @@
                             <input
                                 type="number" min="1"
                                 value="{{ $line['qty'] }}"
+                                aria-label="Bottles of {{ $line['product']->wine_name }}"
                                 wire:change="setBasketQty({{ $line['product']->id }}, $event.target.value)"
                                 class="w-20 rounded-md border border-input bg-card px-2 py-1 text-right text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
                             />

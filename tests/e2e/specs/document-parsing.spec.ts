@@ -12,12 +12,9 @@ test.describe('Supplier document parsing', () => {
 
     await page.goto('/suppliers');
 
-    // Open the private supplier's documents, then its analysed list.
-    const boroughCard = page.locator('div')
-      .filter({ hasText: 'Borough Wine Co' })
-      .filter({ has: page.getByRole('link', { name: 'Documents' }) })
-      .last();
-    await boroughCard.getByRole('link', { name: 'Documents' }).click();
+    // Row actions live in a dropdown now (3+ actions collapse by house style).
+    await page.getByRole('button', { name: 'Actions for Borough Wine Co' }).click();
+    await page.getByRole('menuitem', { name: 'Price lists & documents' }).click();
     await expect(page).toHaveURL(/\/documents$/);
 
     await page.getByRole('link', { name: 'Review' }).first().click();
@@ -32,6 +29,7 @@ test.describe('Supplier document parsing', () => {
     // The approved wine now shows in the (connection-scoped) catalogue.
     await page.goto('/catalogue');
     await page.getByPlaceholder('Search wine or producer').fill('Borough Reserve Claret');
-    await expect(page.getByText('Borough Reserve Claret')).toBeVisible();
+    // Scoped to the table: the stacked mobile card list renders the same name.
+    await expect(page.locator('table').getByText('Borough Reserve Claret').first()).toBeVisible();
   });
 });

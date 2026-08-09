@@ -67,17 +67,25 @@ test.describe('Company tenancy', () => {
     // The group is connected to these.
     await expect(page.getByText('Italian Fine Wines')).toBeVisible();
     await expect(page.getByText('New World Selections')).toBeVisible();
-    // Not connected to Bordeaux (it's discoverable), so it isn't in My suppliers.
+    // Not connected to Bordeaux, so it isn't in My suppliers. (The Discover
+    // tab that would list it is currently hidden behind an @if(false) guard in
+    // suppliers/index.blade.php — restore the guard to cover it here too.)
     await expect(page.getByText('Bordeaux Imports')).toHaveCount(0);
-
-    // Discover lists the unconnected public suppliers.
-    await page.getByRole('button', { name: 'Discover' }).click();
-    await expect(page.getByText('Bordeaux Imports')).toBeVisible();
   });
 
   test('the catalogue is scoped to connected suppliers', async ({ page }) => {
-    // The Free demo company has no supplier connections yet.
-    await login(page, 'free@cellaros.test');
+    // A brand-new company has no supplier connections. Registered fresh rather
+    // than using a demo login: the demo accounts are all connected by design.
+    const email = `e2e-scope-${Date.now()}@cellaros.test`;
+    await page.goto('/register');
+    await page.getByLabel('Full name').fill('E2E Newcomer');
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Company / venue').fill('E2E Empty Cellar');
+    await page.getByLabel('Password', { exact: true }).fill('password123');
+    await page.getByLabel('Confirm password').fill('password123');
+    await page.getByRole('button', { name: /create account/i }).click();
+    await expect(page).toHaveURL(/dashboard/);
+
     await page.goto('/catalogue');
 
     await expect(page.getByText('No suppliers connected yet')).toBeVisible();
