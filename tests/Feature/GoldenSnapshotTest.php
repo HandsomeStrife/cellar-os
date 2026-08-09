@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Domain\Catalogue\Enums\PriceState;
+use Domain\Catalogue\Enums\WineSubType;
+use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
 use Domain\Catalogue\Models\WineFact;
 use Domain\Company\Models\Company;
@@ -108,4 +111,55 @@ it('imports idempotently (double import duplicates nothing)', function () {
 
 it('fails clearly when no snapshot exists', function () {
     $this->artisan('wine:import-golden')->assertFailed();
+});
+
+it('carries wine type sub-types and POA pricing through a golden round-trip', function () {
+    // These fields are the whole point of a POA wine and a sparkling rosé; if
+    // golden drops them, a restored environment archives every POA wine and
+    // loses every style. Regression guard for exactly that.
+    [$public] = seedCanonical();
+
+    Product::factory()->create([
+        'supplier_id' => $public->id,
+        'wine_name' => 'Golden Crémant',
+        'producer' => 'Domaine Or',
+        'colour' => WineType::Sparkling,
+        'sub_type' => WineSubType::SparklingRose,
+        'vintage' => null,
+        'format_ml' => 750,
+        'unit_price' => '24.00',
+    ]);
+    Product::factory()->create([
+        'supplier_id' => $public->id,
+        'wine_name' => 'Golden Allocation',
+        'producer' => 'Domaine Or',
+        'unit_price' => null,
+        'price_state' => PriceState::Poa,
+        'price_note' => 'Tiny allocations — ask your rep.',
+        'vintage' => null,
+        'format_ml' => 750,
+    ]);
+
+    $supplier = Supplier::find($public->id);
+    $supplier->update(['type_mapping' => ['skin contact' => ['type' => 'Orange', 'sub_type' => null, 'label' => 'Skin Contact']]]);
+
+    $this->artisan('wine:export-golden')->assertSuccessful();
+
+    // Wipe the catalogue and restore it from the snapshot alone.
+    Product::query()->delete();
+    Supplier::whereKey($public->id)->update(['type_mapping' => null]);
+
+    $this->artisan('wine:import-golden')->assertSuccessful();
+
+    $sparkling = Product::where('wine_name', 'Golden Crémant')->first();
+    $poa = Product::where('wine_name', 'Golden Allocation')->first();
+
+    expect($sparkling->sub_type)->toBe(WineSubType::SparklingRose)
+        ->and($poa->price_state)->toBe(PriceState::Poa)
+        ->and($poa->price_note)->toContain('Tiny allocations')
+        ->and(Supplier::find($public->id)->type_mapping)->toHaveKey('skin contact');
+
+    // And the restored POA wine survives the price-less archive sweep.
+    $this->artisan('wine:archive-priceless')->assertSuccessful();
+    expect($poa->fresh()->archived_at)->toBeNull();
 });

@@ -101,8 +101,13 @@ class Index extends Component
         'format' => 'Format',
     ];
 
-    /** @var array<int, string> */
-    #[Session(key: 'catalogue-columns')]
+    /**
+     * Versioned key: a returning user's stored choice predates Producer and
+     * Supplier, and an old array would silently hide the new columns.
+     *
+     * @var array<int, string>
+     */
+    #[Session(key: 'catalogue-columns-v2')]
     public array $visibleColumns = ['producer', 'supplier', 'country', 'region', 'grapes', 'colour', 'vintage', 'format'];
 
     // AI search: a plain-English question, read into the filters below.

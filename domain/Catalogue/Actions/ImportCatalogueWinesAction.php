@@ -50,11 +50,16 @@ class ImportCatalogueWinesAction extends AbstractAction
                     'sub_region' => $row['sub_region'] ?? null,
                     'grape' => is_array($row['grape'] ?? null) ? $row['grape'] : null,
                     'colour' => $row['colour'] ?? null,
+                    'sub_type' => $row['sub_type'] ?? null,
                     'vintage' => is_numeric($row['vintage'] ?? null) ? (int) $row['vintage'] : null,
                     'format_ml' => is_numeric($row['format_ml'] ?? null) ? (int) $row['format_ml'] : 750,
                     'case_size' => is_numeric($row['case_size'] ?? null) ? (int) $row['case_size'] : 6,
                     'sold_by' => $row['sold_by'] ?? 'bottle',
                     'unit_price' => $row['unit_price'] ?? null,
+                    // A POA wine must arrive as POA, or this environment's
+                    // archive sweep would treat it as missing data.
+                    'price_state' => $row['price_state'] ?? 'priced',
+                    'price_note' => $row['price_note'] ?? null,
                     'pack_price' => $row['pack_price'] ?? null,
                     'price_per_litre' => $row['price_per_litre'] ?? null,
                     'stock' => is_numeric($row['stock'] ?? null) ? (int) $row['stock'] : 0,

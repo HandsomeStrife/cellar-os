@@ -59,6 +59,9 @@ class ExportGoldenSnapshot extends Command
             'website' => $s->website,
             'status' => $s->status?->value ?? 'Active',
             'onboarded_at' => $s->onboarded_at?->toIso8601String(),
+            // How this supplier's own wine-type words map onto ours — learned
+            // once by a human, so it travels rather than being relearned.
+            'type_mapping' => $s->type_mapping,
             'notes' => ($notesBySupplier[$s->id] ?? collect())->map(fn (SupplierNote $n) => [
                 'note' => $n->note,
                 'created_at' => $n->created_at?->toIso8601String(),
@@ -77,11 +80,16 @@ class ExportGoldenSnapshot extends Command
                 'sub_region' => $p->sub_region,
                 'grape' => $p->grape,
                 'colour' => $p->colour?->value,
+                'sub_type' => $p->sub_type?->value,
                 'vintage' => $p->vintage,
                 'format_ml' => $p->format_ml,
                 'case_size' => $p->case_size,
                 'sold_by' => $p->sold_by?->value,
                 'unit_price' => $p->unit_price,
+                // Why a wine has no price is knowledge, not a gap: without it a
+                // restored environment would archive every POA wine.
+                'price_state' => $p->price_state?->value,
+                'price_note' => $p->price_note,
                 'pack_price' => $p->pack_price,
                 'price_per_litre' => $p->price_per_litre,
                 'stock' => $p->stock,

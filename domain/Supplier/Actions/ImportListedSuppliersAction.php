@@ -17,7 +17,7 @@ use Illuminate\Support\Carbon;
  */
 class ImportListedSuppliersAction extends AbstractAction
 {
-    private const FIELDS = ['contact', 'email', 'phone', 'location', 'address', 'city', 'postcode', 'country', 'website', 'status', 'onboarded_at'];
+    private const FIELDS = ['contact', 'email', 'phone', 'location', 'address', 'city', 'postcode', 'country', 'website', 'status', 'onboarded_at', 'type_mapping'];
 
     /**
      * @param  array<int, array<string, mixed>>  $rows
@@ -36,6 +36,12 @@ class ImportListedSuppliersAction extends AbstractAction
 
             $attributes = array_intersect_key($row, array_flip(self::FIELDS));
             $attributes['status'] = SupplierStatus::tryFrom((string) ($attributes['status'] ?? ''))?->value ?? SupplierStatus::Active->value;
+
+            // A learned type vocabulary is a human decision; an export that
+            // doesn't carry one must not wipe what this environment knows.
+            if (! is_array($attributes['type_mapping'] ?? null)) {
+                unset($attributes['type_mapping']);
+            }
 
             if (array_key_exists('onboarded_at', $attributes) && $attributes['onboarded_at'] !== null) {
                 try {

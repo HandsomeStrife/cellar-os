@@ -14,6 +14,7 @@ use Domain\Import\Actions\StoreRawUploadAction;
 use Domain\Import\Repositories\RawUploadRepository;
 use Domain\Import\Services\NormaliseService;
 use Domain\Import\Services\PriceListParser;
+use Domain\Supplier\Actions\RecordUnmappedTypeLabelsAction;
 use Domain\Supplier\Actions\SaveColumnMappingAction;
 use Domain\Supplier\Repositories\SupplierRepository;
 use Domain\User\Repositories\UserRepository;
@@ -192,6 +193,13 @@ class Index extends Component
             }
 
             (new MarkRawUploadImportedAction)->execute($upload->id, $mapping);
+
+            // Type words this list used that we couldn't place are offered for
+            // mapping later, exactly as they are on the parse-review screen.
+            (new RecordUnmappedTypeLabelsAction)->execute(
+                $upload->supplier_id,
+                $normalise->unresolvedTypeLabels(),
+            );
 
             if ($upload->supplier_id !== null) {
                 (new SaveColumnMappingAction)->execute($upload->supplier_id, $mapping);
