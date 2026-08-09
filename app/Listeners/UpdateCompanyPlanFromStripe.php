@@ -45,7 +45,7 @@ class UpdateCompanyPlanFromStripe
         }
 
         if ($type === 'customer.subscription.deleted') {
-            (new SetCompanyPlanAction)->execute($company->id, Plan::Free);
+            (new SetCompanyPlanAction)->execute($company->id, Plan::default());
 
             return;
         }

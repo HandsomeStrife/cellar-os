@@ -383,7 +383,7 @@ class Index extends Component
 
     private function plan(): Plan
     {
-        return (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::Free;
+        return (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::default();
     }
 
     /**

@@ -29,11 +29,15 @@ class EnsureFeatureAccess
             abort(500, "Unknown gated feature [{$feature}].");
         }
 
-        $plan = $this->companies->getLoggedInCompany()?->plan ?? Plan::Free;
+        $plan = $this->companies->getLoggedInCompany()?->plan ?? Plan::default();
 
         if (! $plan->can($featureEnum)) {
+            // With self-serve plans hidden there is nowhere to upgrade, so send
+            // them home rather than to a 404'd pricing page.
+            $destination = config('features.pricing') ? 'pricing' : 'dashboard';
+
             return redirect()
-                ->route('pricing')
+                ->route($destination)
                 ->with('upgrade_required', $featureEnum->value);
         }
 

@@ -24,7 +24,7 @@ pest()->extend(TestCase::class)
  *
  * @return array{0: Company, 1: User, 2: Venue}
  */
-function makeTenant(Plan $plan = Plan::Free, Role $role = Role::Owner): array
+function makeTenant(Plan $plan = Plan::Pro, Role $role = Role::Owner): array
 {
     $company = Company::factory()->onPlan($plan)->create();
     $user = User::factory()->role($role)->create(['company_id' => $company->id]);

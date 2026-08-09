@@ -25,8 +25,6 @@ it('seeds the clean default WITHOUT any dummy supplier data', function () {
     expect(Admin::where('email', 'admin@cellaros.test')->exists())->toBeTrue();
 
     $tiers = [
-        'free@cellaros.test' => Plan::Free,
-        'starter@cellaros.test' => Plan::Starter,
         'demo@cellaros.test' => Plan::Pro,
         'group@cellaros.test' => Plan::Group,
     ];
@@ -42,7 +40,7 @@ it('seeds the clean default WITHOUT any dummy supplier data', function () {
         ->and(Order::count())->toBe(0)
         ->and(InventoryItem::count())->toBe(0)
         ->and(SupplierUser::count())->toBe(0)
-        ->and(Venue::count())->toBe(5);
+        ->and(Venue::count())->toBe(3);
 });
 
 it('wires demo journeys to REAL suppliers when a catalogue exists', function () {
@@ -69,19 +67,7 @@ it('wires demo journeys to REAL suppliers when a catalogue exists', function () 
 
     // Idempotent.
     $this->seed();
-    expect(Company::count())->toBe(4)->and(User::count())->toBe(5);
-});
-
-it('keeps the free demo account in its empty getting-started state', function () {
-    $this->seed();
-
-    $free = User::where('email', 'free@cellaros.test')->first();
-    $freeVenue = Venue::where('company_id', $free->company_id)->first();
-
-    expect($freeVenue)->not->toBeNull()
-        ->and(InventoryItem::where('venue_id', $freeVenue->id)->count())->toBe(0)
-        ->and(Order::where('created_by', $free->id)->count())->toBe(0)
-        ->and(DB::table('company_supplier')->where('company_id', $free->company_id)->count())->toBe(0);
+    expect(Company::count())->toBe(2)->and(User::count())->toBe(3);
 });
 
 // ----------------------------------------------- opt-in demo content ----
@@ -92,9 +78,9 @@ it('seeds the full fictional demo via DemoSupplierSeeder (dev/E2E only)', functi
     expect(Supplier::count())->toBe(4)            // 3 fictional shared + Borough private
         ->and(Product::count())->toBe(11)
         ->and(Product::whereNotNull('latitude')->count())->toBe(10)
-        ->and(Venue::count())->toBe(5)
-        ->and(InventoryItem::count())->toBe(10)
-        ->and(Order::count())->toBe(7)
+        ->and(Venue::count())->toBe(3)
+        ->and(InventoryItem::count())->toBe(8)
+        ->and(Order::count())->toBe(5)
         ->and(SupplierUser::count())->toBe(4)
         ->and(ParsedWine::count())->toBe(3);
 
@@ -105,5 +91,5 @@ it('seeds the full fictional demo via DemoSupplierSeeder (dev/E2E only)', functi
 
     // Idempotent.
     $this->seed(DemoSupplierSeeder::class);
-    expect(Supplier::count())->toBe(4)->and(Product::count())->toBe(11)->and(Order::count())->toBe(7);
+    expect(Supplier::count())->toBe(4)->and(Product::count())->toBe(11)->and(Order::count())->toBe(5);
 });

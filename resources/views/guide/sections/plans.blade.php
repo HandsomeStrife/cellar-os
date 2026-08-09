@@ -2,10 +2,10 @@
     use Domain\Billing\Enums\Plan;
     use Domain\Billing\Enums\Feature;
 
-    $plans = [Plan::Free, ...Plan::paid()];
+    $plans = Plan::paid();
 @endphp
 
-<p>CellarOS has four plans. Everyone can browse the catalogue and manage suppliers; paid plans unlock importing, ordering, inventory and more. There's no currency conversion, money is shown in your venue's base currency.</p>
+<p>CellarOS has two plans. <strong>Pro</strong> carries the whole day-to-day product for a single venue: suppliers, price lists, catalogue, purchase orders and inventory. <strong>Group</strong> is the same across every venue in the group. There's no currency conversion, money is shown in your venue's base currency.</p>
 
 <h2>At a glance</h2>
 <ul>
@@ -42,4 +42,8 @@
     </table>
 </div>
 
-<p>Upgrade any time from the <a href="{{ route('pricing') }}" wire:navigate>pricing page</a>, see <a href="{{ url('/guide/billing') }}" wire:navigate>Plans &amp; billing</a>.</p>
+@if(config('features.pricing'))
+    <p>Upgrade any time from the <a href="{{ route('pricing') }}" wire:navigate>pricing page</a>, see <a href="{{ url('/guide/billing') }}" wire:navigate>Plans &amp; billing</a>.</p>
+@else
+    <p>To move between plans, get in touch and we'll switch you over.</p>
+@endif

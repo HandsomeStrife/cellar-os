@@ -29,7 +29,7 @@ class CompanyShow extends Component
 
     public ?int $companyId = null;
 
-    public string $plan = Plan::Free->value;
+    public string $plan = Plan::Pro->value;
 
     #[Validate('required|string|max:255')]
     public string $newUserName = '';

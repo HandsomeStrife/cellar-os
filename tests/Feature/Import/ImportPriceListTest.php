@@ -15,7 +15,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 beforeEach(function () {
-    $this->user = userOnPlan(Plan::Starter);
+    $this->user = userOnPlan(Plan::Pro);
     $this->supplier = Supplier::factory()->create();
     $this->actingAs($this->user);
 });
@@ -35,12 +35,6 @@ it('parses a CSV into headers and associative rows', function () {
 
 it('renders the import page', function () {
     $this->get(route('import'))->assertOk()->assertSeeLivewire(Index::class);
-});
-
-it('shows an upgrade gate for free users', function () {
-    $this->actingAs(userOnPlan(Plan::Free));
-
-    Livewire::test(Index::class)->assertSee('paid feature');
 });
 
 it('imports a CSV price list end to end', function () {
@@ -68,18 +62,6 @@ it('imports a CSV price list end to end', function () {
     $barolo = Product::where('wine_name', 'Barolo Riserva')->first();
     expect($barolo->colour)->toBe(WineColour::Red)
         ->and($barolo->vintage)->toBe(2017);
-});
-
-it('forbids uploading for free users', function () {
-    $this->actingAs(userOnPlan(Plan::Free));
-
-    Livewire::test(Index::class)
-        ->set('supplierId', $this->supplier->id)
-        ->set('upload', UploadedFile::fake()->createWithContent('list.csv', "Wine\nX\n"))
-        ->call('uploadFile')
-        ->assertForbidden();
-
-    expect(Product::count())->toBe(0);
 });
 
 it('parses an xlsx file', function () {
@@ -135,7 +117,7 @@ it('forbids importing another user\'s upload', function () {
     $rawUploadId = $component->get('rawUploadId');
 
     // A different user tries to import it.
-    $this->actingAs(userOnPlan(Plan::Starter));
+    $this->actingAs(userOnPlan(Plan::Pro));
     Livewire::test(Index::class)
         ->set('rawUploadId', $rawUploadId)
         ->set('mapping', ['wine_name' => 'Wine'])

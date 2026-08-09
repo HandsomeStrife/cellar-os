@@ -58,12 +58,13 @@ enum Feature: string
     public function minPlan(): Plan
     {
         return match ($this) {
+            // Pro is the entry tier and carries the whole day-to-day product;
+            // Group's only addition is trading across more than one venue.
             self::ImportSupplierLists,
+            self::PdfImport,
             self::CreatePurchaseOrders,
             self::SendPurchaseOrderEmail,
-            self::Inventory => Plan::Starter,
-
-            self::PdfImport,
+            self::Inventory,
             self::InventoryArchive,
             self::ManualInventoryAdd,
             self::InventoryAttachments => Plan::Pro,

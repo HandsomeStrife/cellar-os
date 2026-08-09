@@ -19,7 +19,7 @@ class DownloadOrderPdfController
     {
         // Same entitlement as the rest of the Orders feature.
         $company = (new CompanyRepository)->getLoggedInCompany();
-        $plan = $company?->plan ?? Plan::Free;
+        $plan = $company?->plan ?? Plan::default();
         abort_unless($plan->can(Feature::CreatePurchaseOrders), 403);
 
         // Tenant guard: the order must belong to the current company.

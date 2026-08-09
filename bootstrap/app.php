@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureFeatureAccess;
+use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'feature' => EnsureFeatureAccess::class,
+            'flag' => EnsureFeatureEnabled::class,
             'abilities' => CheckAbilities::class,
             'ability' => CheckForAnyAbility::class,
         ]);

@@ -145,20 +145,6 @@ class DemoSupplierSeeder extends Seeder
     /** Demo-company journeys against the fictional suppliers (mirrors the original demo). */
     private function seedJourneys(): void
     {
-        $starter = Company::firstWhere('name', 'Tasting Room Wines');
-        $starterOwner = User::firstWhere('email', 'starter@cellaros.test');
-        $starterVenue = $this->venue($starter, 'The Tasting Room', 'Bristol');
-        $this->inventory($starterVenue, $this->products['Sancerre Les Monts'], 18, 6);
-        $this->inventory($starterVenue, $this->products['Provence Rosé'], 12, 9);
-        $this->order($starterOwner, $starterVenue, $this->suppliers['Bordeaux Imports'], OrderStatus::Draft, 'First order: house whites and rosé.', [
-            [$this->products['Chablis Premier Cru'], 12], [$this->products['Provence Rosé'], 6],
-        ]);
-        $this->order($starterOwner, $starterVenue, $this->suppliers['New World Selections'], OrderStatus::Sent, 'New World reds for the by-the-glass list.', [
-            [$this->products['Rioja Gran Reserva'], 6],
-        ]);
-        $this->connectSupplier($starter, $this->suppliers['Bordeaux Imports'], [$starterVenue]);
-        $this->connectSupplier($starter, $this->suppliers['New World Selections'], [$starterVenue]);
-
         $pro = Company::firstWhere('name', 'Cellar Door Group');
         $proOwner = User::firstWhere('email', 'demo@cellaros.test');
         $proVenue = $this->venue($pro, 'The Cellar Door', 'London');

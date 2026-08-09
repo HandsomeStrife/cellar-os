@@ -574,8 +574,10 @@
                 <x-button variant="outline" wire:click="$set('showBasket', false)">Keep browsing</x-button>
                 @if($canCreateOrders)
                     <x-button wire:click="createOrders" wire:loading.attr="disabled" wire:target="createOrders">Create purchase orders</x-button>
-                @else
+                @elseif(config('features.pricing'))
                     <x-button :href="route('pricing')" wire:navigate>Upgrade to order</x-button>
+                @else
+                    <p class="text-sm text-muted-foreground">Purchase orders aren't included in your plan.</p>
                 @endif
             </div>
         @endif

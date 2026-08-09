@@ -31,24 +31,17 @@
                 <p class="mt-2 min-h-10 text-sm text-muted-foreground">{{ $plan->tagline() }}</p>
 
                 <ul class="mt-4 flex-1 space-y-2 text-sm">
-                    @if($plan === \Domain\Billing\Enums\Plan::Free)
-                        <li class="flex items-start gap-2"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /> Browsable catalogue</li>
-                        <li class="flex items-start gap-2"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /> Supplier management</li>
-                    @else
-                        @if($plan !== \Domain\Billing\Enums\Plan::Starter)
-                            <li class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Everything in {{ ['pro' => 'Starter', 'group' => 'Pro'][$plan->value] ?? '' }}, plus:</li>
-                        @endif
-                        @foreach($unlockedAt($plan) as $feature)
-                            <li class="flex items-start gap-2"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /> {{ $feature->label() }}</li>
-                        @endforeach
+                    @if($plan === \Domain\Billing\Enums\Plan::Group)
+                        <li class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Everything in Pro, plus:</li>
                     @endif
+                    @foreach($unlockedAt($plan) as $feature)
+                        <li class="flex items-start gap-2"><x-icon.check class="mt-0.5 size-4 shrink-0 text-primary" /> {{ $feature->label() }}</li>
+                    @endforeach
                 </ul>
 
                 <div class="mt-6">
                     @if($isCurrent)
                         <x-button variant="outline" class="w-full" disabled>Current plan</x-button>
-                    @elseif($plan === \Domain\Billing\Enums\Plan::Free)
-                        <x-button variant="outline" class="w-full" disabled>Free</x-button>
                     @elseif($plan->rank() > $currentPlan->rank())
                         <x-button wire:click="checkout('{{ $plan->value }}')" class="w-full">Upgrade</x-button>
                     @else

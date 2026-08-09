@@ -5,20 +5,22 @@
 
     // Sidebar IA, grouped by purpose: the daily trade work, then account, then
     // help. Items whose route doesn't exist yet render inert ("soon").
+    // Flagged-off areas (config/features.php) drop out of the nav entirely
+    // rather than rendering as "soon" — they are hidden, not forthcoming.
     $navGroups = [
-        ['heading' => 'Trade', 'items' => [
+        ['heading' => 'Trade', 'items' => array_values(array_filter([
             ['label' => 'Dashboard', 'icon' => 'layout-dashboard', 'route' => 'dashboard'],
             ['label' => 'Catalogue', 'icon' => 'wine', 'route' => 'catalogue'],
             ['label' => 'Suppliers', 'icon' => 'users', 'route' => 'suppliers'],
             ['label' => 'Inventory', 'icon' => 'package', 'route' => 'inventory'],
             ['label' => 'Orders', 'icon' => 'clipboard-list', 'route' => 'orders'],
             ['label' => 'Import', 'icon' => 'upload', 'route' => 'import'],
-            ['label' => 'Map', 'icon' => 'map', 'route' => 'map'],
-        ]],
+            config('features.map') ? ['label' => 'Map', 'icon' => 'map', 'route' => 'map'] : null,
+        ]))],
         ['heading' => 'Account', 'items' => array_values(array_filter([
             // Team management is for owners/managers only.
             $user?->role?->canManageTeam() ? ['label' => 'Team', 'icon' => 'user', 'route' => 'team'] : null,
-            ['label' => 'Pricing', 'icon' => 'credit-card', 'route' => 'pricing'],
+            config('features.pricing') ? ['label' => 'Pricing', 'icon' => 'credit-card', 'route' => 'pricing'] : null,
         ]))],
         ['heading' => 'Help', 'items' => [
             ['label' => 'Guide', 'icon' => 'file-text', 'route' => 'guide'],

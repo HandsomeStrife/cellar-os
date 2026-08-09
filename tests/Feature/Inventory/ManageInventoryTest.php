@@ -28,12 +28,6 @@ it('renders the inventory page', function () {
         ->assertSeeLivewire(Index::class);
 });
 
-it('shows an upgrade gate for free users', function () {
-    $this->actingAs(userOnPlan(Plan::Free));
-
-    Livewire::test(Index::class)->assertSee('Inventory is a paid feature');
-});
-
 it('lists stock for the active venue', function () {
     InventoryItem::factory()->create([
         'venue_id' => $this->venue->id,
@@ -47,7 +41,7 @@ it('lists stock for the active venue', function () {
 });
 
 it('creates a venue', function () {
-    $user = userOnPlan(Plan::Starter);
+    $user = userOnPlan(Plan::Pro);
     $this->actingAs($user);
 
     Livewire::test(Index::class)
@@ -89,19 +83,6 @@ it('tops up an existing line instead of duplicating', function () {
     $this->assertDatabaseCount('inventory_items', 1);
 });
 
-it('forbids manual add below the Pro plan', function () {
-    $this->actingAs($starter = userOnPlan(Plan::Starter));
-    Venue::factory()->create(['company_id' => $starter->company_id]);
-
-    Livewire::test(Index::class)
-        ->set('addProductId', $this->product->id)
-        ->set('addQuantity', 1)
-        ->call('saveItem')
-        ->assertForbidden();
-
-    $this->assertDatabaseCount('inventory_items', 0);
-});
-
 it('adjusts a quantity', function () {
     $item = InventoryItem::factory()->create([
         'venue_id' => $this->venue->id,
@@ -126,21 +107,6 @@ it('archives and restores a line', function () {
 
     Livewire::test(Index::class)->set('showArchived', true)->call('restore', $item->id);
     expect($item->fresh()->is_archived)->toBeFalse();
-});
-
-it('forbids adjusting quantity for free users', function () {
-    $free = userOnPlan(Plan::Free);
-    $venue = Venue::factory()->create(['company_id' => $free->company_id]);
-    $item = InventoryItem::factory()->create([
-        'venue_id' => $venue->id,
-        'product_id' => $this->product->id,
-        'quantity_units' => 5,
-    ]);
-    $this->actingAs($free);
-
-    Livewire::test(Index::class)->call('adjustQuantity', $item->id, 50)->assertForbidden();
-
-    expect($item->fresh()->quantity_units)->toBe(5);
 });
 
 it('requires the Group plan to create a second venue', function () {

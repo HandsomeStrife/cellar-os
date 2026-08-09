@@ -79,9 +79,13 @@ Route::middleware('auth:web')->group(function () {
     Route::get('/orders', OrderIndex::class)->name('orders');
     Route::get('/orders/new', OrderCreate::class)->name('orders.create');
     Route::get('/orders/{id}/pdf', DownloadOrderPdfController::class)->name('orders.pdf');
-    Route::get('/map', MapIndex::class)->name('map');
     Route::get('/team', CompanyTeam::class)->name('team');
-    Route::get('/pricing', Pricing::class)->name('pricing');
+
+    // Built, tested, but not exposed yet — see config/features.php. The routes
+    // stay registered (so route() and Route::has() keep working) but 404 while
+    // their flag is off.
+    Route::get('/map', MapIndex::class)->middleware('flag:map')->name('map');
+    Route::get('/pricing', Pricing::class)->middleware('flag:pricing')->name('pricing');
 
     Route::post('/logout', function (Request $request) {
         Auth::logout();

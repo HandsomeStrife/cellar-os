@@ -35,16 +35,9 @@ class DatabaseSeeder extends Seeder
     {
         $this->seedAdmin();
 
-        $free = $this->company('Harbourview Hospitality', Plan::Free);
-        $freeOwner = $this->owner($free, 'free@cellaros.test', 'Olivia Newbury');
-        $freeVenue = $this->venue($free, 'Harbourview Bistro', 'Brighton');
-        $this->assignVenues($freeOwner, [$freeVenue->id]);
-
-        $starter = $this->company('Tasting Room Wines', Plan::Starter);
-        $starterOwner = $this->owner($starter, 'starter@cellaros.test', 'Marcus Trent');
-        $starterVenue = $this->venue($starter, 'The Tasting Room', 'Bristol');
-        $this->assignVenues($starterOwner, [$starterVenue->id]);
-
+        // Two demo accounts only, one per plan: Pro (single venue) and Group
+        // (multi-venue + a scoped team member). Between them they must reach
+        // every feature we demo — see seedRealJourneys().
         $pro = $this->company('Cellar Door Group', Plan::Pro);
         $proOwner = $this->owner($pro, 'demo@cellaros.test', 'Demo Sommelier');
         $proVenue = $this->venue($pro, 'The Cellar Door', 'London');
@@ -108,19 +101,6 @@ class DatabaseSeeder extends Seeder
             ->orderBy('id')
             ->limit($n)
             ->get();
-
-        // STARTER — getting going: one supplier, first orders, a little stock.
-        $starter = $this->company('Tasting Room Wines', Plan::Starter);
-        $starterOwner = $this->owner($starter, 'starter@cellaros.test', 'Marcus Trent');
-        $starterVenue = $this->venue($starter, 'The Tasting Room', 'Bristol');
-        $this->connectSupplier($starter, $first, [$starterVenue]);
-        $w = $wines($first, 5);
-        if ($w->count() >= 5) {
-            $this->inventory($starterVenue, $w[0], 18, 6);
-            $this->inventory($starterVenue, $w[3], 12, 9);
-            $this->order($starterOwner, $starterVenue, $first, OrderStatus::Draft, 'First order: by-the-glass restock.', [[$w[0], 12], [$w[1], 6]]);
-            $this->order($starterOwner, $starterVenue, $first, OrderStatus::Sent, 'Topping up the house pours.', [[$w[2], 6], [$w[4], 6]]);
-        }
 
         // PRO — fully operational single venue: three suppliers, stock across
         // the cellar, orders at every point of the lifecycle, low-stock alerts.

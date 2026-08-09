@@ -6,31 +6,64 @@ namespace Domain\Billing\Enums;
 
 enum Plan: string
 {
-    case Free = 'free';
-    case Starter = 'starter';
     case Pro = 'pro';
     case Group = 'group';
+
+    /**
+     * Plans that existed before the line-up collapsed to Pro + Group
+     * (2026-08-09), mapped to what they became. Production rows and Stripe
+     * subscriptions still carry these values, so every read path normalises
+     * through {@see self::fromValue()} rather than a bare `from()`.
+     *
+     * @var array<string, string>
+     */
+    public const LEGACY = [
+        'free' => 'pro',
+        'starter' => 'pro',
+    ];
+
+    /**
+     * The plan a company gets when nothing else is known — on registration,
+     * when a subscription lapses, and as the fallback for an unresolved
+     * company. Everything except multiple venues is included.
+     */
+    public static function default(): self
+    {
+        return self::Pro;
+    }
+
+    /**
+     * Resolve a stored/legacy string to a live plan. Unknown values fall back
+     * to the default rather than throwing: a plan we can't read should never
+     * take the whole app down.
+     */
+    public static function fromValue(?string $value): self
+    {
+        if ($value === null || $value === '') {
+            return self::default();
+        }
+
+        return self::tryFrom($value)
+            ?? self::tryFrom(self::LEGACY[$value] ?? '')
+            ?? self::default();
+    }
 
     public function getLabel(): string
     {
         return match ($this) {
-            self::Free => 'Free',
-            self::Starter => 'Starter',
             self::Pro => 'Pro',
             self::Group => 'Group',
         };
     }
 
     /**
-     * Rank within the upgrade ladder (free < starter < pro < group).
+     * Rank within the upgrade ladder (pro < group).
      */
     public function rank(): int
     {
         return match ($this) {
-            self::Free => 0,
-            self::Starter => 1,
-            self::Pro => 2,
-            self::Group => 3,
+            self::Pro => 0,
+            self::Group => 1,
         };
     }
 
@@ -50,8 +83,6 @@ enum Plan: string
     public function monthlyPrice(): string
     {
         return match ($this) {
-            self::Free => '£0',
-            self::Starter => '£29',
             self::Pro => '£79',
             self::Group => '£199',
         };
@@ -60,16 +91,14 @@ enum Plan: string
     public function tagline(): string
     {
         return match ($this) {
-            self::Free => 'Browse the catalogue and manage suppliers.',
-            self::Starter => 'Import price lists, run inventory and raise purchase orders.',
-            self::Pro => 'Manual inventory, archiving and invoice attachments.',
-            self::Group => 'Everything, across multiple venues.',
+            self::Pro => 'Everything one venue needs: suppliers, price lists, catalogue, orders and inventory.',
+            self::Group => 'The same, across every venue in the group, with a team to match.',
         };
     }
 
     public function isPaid(): bool
     {
-        return $this !== self::Free;
+        return true;
     }
 
     /**
@@ -82,9 +111,21 @@ enum Plan: string
 
     public static function forStripePrice(string $priceId): ?self
     {
+        if ($priceId === '') {
+            return null;
+        }
+
         foreach (self::cases() as $plan) {
-            if ($plan->stripePriceId() === $priceId && $priceId !== '') {
+            if ($plan->stripePriceId() === $priceId) {
                 return $plan;
+            }
+        }
+
+        // A subscription still on a retired price id keeps working at the
+        // tier that price mapped to.
+        foreach (self::LEGACY as $legacy => $replacement) {
+            if (config("billing.prices.{$legacy}") === $priceId) {
+                return self::tryFrom($replacement);
             }
         }
 
@@ -92,12 +133,12 @@ enum Plan: string
     }
 
     /**
-     * Paid plans, in upgrade order.
+     * Paid plans, in upgrade order. Every plan is paid.
      *
      * @return array<int, self>
      */
     public static function paid(): array
     {
-        return [self::Starter, self::Pro, self::Group];
+        return self::cases();
     }
 }

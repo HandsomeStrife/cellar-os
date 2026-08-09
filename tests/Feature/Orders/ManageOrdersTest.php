@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->user = userOnPlan(Plan::Starter);
+    $this->user = userOnPlan(Plan::Pro);
     $this->supplier = Supplier::factory()->create(['email' => 'supplier@example.test']);
     // Orders can only be placed with a connected supplier.
     (new ConnectCompanyToSupplierAction)->execute($this->user->company_id, $this->supplier->id);
@@ -33,18 +33,6 @@ beforeEach(function () {
 
 it('renders the orders page', function () {
     $this->get(route('orders'))->assertOk()->assertSeeLivewire(Index::class);
-});
-
-it('shows an upgrade gate for free users', function () {
-    $this->actingAs(userOnPlan(Plan::Free));
-
-    Livewire::test(Index::class)->assertSee('paid feature');
-});
-
-it('forbids creating orders for free users', function () {
-    $this->actingAs(userOnPlan(Plan::Free));
-
-    Livewire::test(Create::class)->assertForbidden();
 });
 
 it('creates an order with line items and computes the total', function () {
@@ -243,20 +231,6 @@ it('does not email when the supplier has no address', function () {
     Mail::assertNothingSent();
 });
 
-it('blocks the PDF download for free users', function () {
-    $order = Order::factory()->create(['company_id' => $this->user->company_id, 'supplier_id' => $this->supplier->id]);
-    $this->actingAs(userOnPlan(Plan::Free));
-
-    $this->get(route('orders.pdf', $order->id))->assertForbidden();
-});
-
-it('forbids line edits for free users', function () {
-    $this->actingAs(userOnPlan(Plan::Free));
-
-    // The composer page itself is gated, so line edits are unreachable.
-    Livewire::test(Create::class)->assertForbidden();
-});
-
 it('rejects attaching another user\'s venue', function () {
     $otherVenue = Venue::factory()->create(['company_id' => User::factory()->create()->company_id]);
 
@@ -335,7 +309,7 @@ it('assigns sequential PO numbers per company per year', function () {
         ->toBe(["PO-{$year}-0001", "PO-{$year}-0002"]);
 
     // A different company starts its own sequence — numbers are per tenant.
-    $other = userOnPlan(Plan::Starter);
+    $other = userOnPlan(Plan::Pro);
     (new ConnectCompanyToSupplierAction)->execute($other->company_id, $this->supplier->id);
     $this->actingAs($other);
 

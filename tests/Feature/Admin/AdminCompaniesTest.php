@@ -24,14 +24,14 @@ it('lists companies for an admin', function () {
 
 it('changes a company plan', function () {
     $this->actingAs(Admin::factory()->create(), 'admin');
-    $company = Company::factory()->onPlan(Plan::Free)->create();
+    $company = Company::factory()->onPlan(Plan::Pro)->create();
 
     Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
-        ->set('plan', Plan::Pro->value)
+        ->set('plan', Plan::Group->value)
         ->call('setPlan')
         ->assertHasNoErrors();
 
-    expect($company->fresh()->plan)->toBe(Plan::Pro);
+    expect($company->fresh()->plan)->toBe(Plan::Group);
 });
 
 it('adds a user to a company and sends an invite', function () {

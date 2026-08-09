@@ -17,7 +17,7 @@ use Domain\Venue\Models\Venue;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->user = userOnPlan(Plan::Starter);
+    $this->user = userOnPlan(Plan::Pro);
     $this->supplier = Supplier::factory()->create();
     (new ConnectCompanyToSupplierAction)->execute($this->user->company_id, $this->supplier->id);
     $this->caseWine = Product::factory()->soldByCase(6, 120.0)->create([

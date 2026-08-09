@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Domain\Company\Models;
 
 use Database\Factories\CompanyFactory;
-use Domain\Billing\Enums\Plan;
+use Domain\Billing\Casts\PlanCast;
 use Domain\Company\Data\CompanyData;
 use Domain\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -31,7 +31,7 @@ class Company extends Model
     protected function casts(): array
     {
         return [
-            'plan' => Plan::class,
+            'plan' => PlanCast::class,
         ];
     }
 

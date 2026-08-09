@@ -29,7 +29,7 @@ class RegisterUserAction extends AbstractAction
                 uuid: null,
                 name: $data->company_name ?: 'My Company',
                 base_currency: $data->base_currency,
-                plan: Plan::Free,
+                plan: Plan::default(),
             ));
 
             $user = User::create([

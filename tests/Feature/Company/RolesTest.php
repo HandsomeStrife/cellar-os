@@ -10,11 +10,11 @@ use Domain\Venue\Models\Venue;
 use Livewire\Livewire;
 
 it('lets only an owner change the plan', function () {
-    config(['cashier.secret' => 'sk_test', 'billing.prices.starter' => 'price_starter']);
+    config(['cashier.secret' => 'sk_test', 'billing.prices.group' => 'price_group']);
     [$company, $manager] = makeTenant(Plan::Pro, Role::Manager);
     $this->actingAs($manager);
 
-    Livewire::test(Pricing::class)->call('checkout', 'starter')->assertForbidden();
+    Livewire::test(Pricing::class)->call('checkout', 'group')->assertForbidden();
 });
 
 it('scopes a member to only their assigned venues', function () {

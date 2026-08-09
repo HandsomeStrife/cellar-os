@@ -16,7 +16,7 @@
             <p class="mt-1 text-sm text-muted-foreground">Available on the <span class="font-medium text-foreground">{{ $plan }}</span> plan and above.</p>
         @endif
     </div>
-    @if(\Illuminate\Support\Facades\Route::has('pricing'))
+    @if(config('features.pricing') && \Illuminate\Support\Facades\Route::has('pricing'))
         <x-button :href="route('pricing')" size="sm" wire:navigate>View plans</x-button>
     @endif
     {{ $slot }}

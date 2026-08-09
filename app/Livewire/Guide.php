@@ -62,6 +62,27 @@ class Guide extends Component
      */
     public static function sections(): array
     {
+        // Sections documenting a flagged-off area (config/features.php) are
+        // dropped so the guide never describes something the user can't reach.
+        return array_map(
+            fn (array $group) => [
+                ...$group,
+                'items' => array_filter(
+                    $group['items'],
+                    fn (array $item) => ($item['flag'] ?? null) === null || config('features.'.$item['flag']),
+                ),
+            ],
+            self::allSections(),
+        );
+    }
+
+    /**
+     * Every guide section, including those currently hidden behind a flag.
+     *
+     * @return array<string, array{title: string, items: array<string, array{title: string, partial: string, flag?: string}>}>
+     */
+    private static function allSections(): array
+    {
         return [
             'getting-started' => [
                 'title' => 'Getting started',
@@ -80,13 +101,13 @@ class Guide extends Component
                     'catalogue' => ['title' => 'Catalogue', 'partial' => 'guide.sections.catalogue'],
                     'orders' => ['title' => 'Purchase orders', 'partial' => 'guide.sections.orders'],
                     'inventory' => ['title' => 'Inventory', 'partial' => 'guide.sections.inventory'],
-                    'map' => ['title' => 'Sourcing map', 'partial' => 'guide.sections.map'],
+                    'map' => ['title' => 'Sourcing map', 'partial' => 'guide.sections.map', 'flag' => 'map'],
                 ],
             ],
             'billing-admin' => [
                 'title' => 'Billing & administration',
                 'items' => [
-                    'billing' => ['title' => 'Plans & billing', 'partial' => 'guide.sections.billing'],
+                    'billing' => ['title' => 'Plans & billing', 'partial' => 'guide.sections.billing', 'flag' => 'pricing'],
                     'admin' => ['title' => 'Admin back-office', 'partial' => 'guide.sections.admin'],
                 ],
             ],

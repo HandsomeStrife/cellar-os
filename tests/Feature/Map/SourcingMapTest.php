@@ -9,6 +9,9 @@ use Domain\User\Models\User;
 use Livewire\Livewire;
 
 beforeEach(function () {
+    // The map is behind a product flag (config/features.php) — turn it on so
+    // the feature itself stays covered while it is hidden from the product.
+    config(['features.map' => true]);
     $this->actingAs(User::factory()->create());
     $this->supplier = Supplier::factory()->create();
 });

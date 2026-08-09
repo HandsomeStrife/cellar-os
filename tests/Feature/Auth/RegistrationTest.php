@@ -35,7 +35,7 @@ it('registers a new user on the free plan and signs them in', function () {
     $user = User::where('email', 'ada@cellaros.test')->firstOrFail();
     $this->assertDatabaseHas('companies', [
         'id' => $user->company_id,
-        'plan' => Plan::Free->value,
+        'plan' => Plan::default()->value,
     ]);
 });
 

@@ -51,7 +51,7 @@ it('only shows wines from the company\'s connected suppliers', function () {
 });
 
 it('shows a connect-suppliers prompt when the company has no connections', function () {
-    $loner = userOnPlan(Plan::Starter); // fresh company, no connections
+    $loner = userOnPlan(Plan::Pro); // fresh company, no connections
     $this->actingAs($loner);
     Product::factory()->create(['supplier_id' => $this->supplier->id, 'wine_name' => 'Somewhere Wine']);
 
@@ -222,7 +222,7 @@ it('deletes a product from the catalogue', function () {
 });
 
 it('creates one draft order per supplier from the basket', function () {
-    $user = userOnPlan(Plan::Starter);
+    $user = userOnPlan(Plan::Pro);
     $this->actingAs($user);
     $supplierTwo = Supplier::factory()->create();
     (new ConnectCompanyToSupplierAction)->execute($user->company_id, $this->supplier->id);
@@ -239,17 +239,6 @@ it('creates one draft order per supplier from the basket', function () {
     expect(Order::count())->toBe(2);
     $this->assertDatabaseHas('orders', ['supplier_id' => $this->supplier->id]);
     $this->assertDatabaseHas('orders', ['supplier_id' => $supplierTwo->id]);
-});
-
-it('forbids basket checkout for free users', function () {
-    $product = Product::factory()->create(['supplier_id' => $this->supplier->id]);
-
-    Livewire::test(Index::class)
-        ->call('addToBasket', $product->id)
-        ->call('createOrders')
-        ->assertForbidden();
-
-    expect(Order::count())->toBe(0);
 });
 
 it('manages the order basket', function () {

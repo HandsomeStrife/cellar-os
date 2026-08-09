@@ -34,7 +34,7 @@ trait WithTenant
 
     protected function companyPlan(): Plan
     {
-        return $this->currentCompany()?->plan ?? Plan::Free;
+        return $this->currentCompany()?->plan ?? Plan::default();
     }
 
     /**

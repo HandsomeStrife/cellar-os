@@ -5,22 +5,35 @@ declare(strict_types=1);
 use Domain\Billing\Enums\Feature;
 use Domain\Billing\Enums\Plan;
 
-it('orders plans by rank', function () {
-    expect(Plan::Free->atLeast(Plan::Free))->toBeTrue()
-        ->and(Plan::Pro->atLeast(Plan::Starter))->toBeTrue()
-        ->and(Plan::Starter->atLeast(Plan::Pro))->toBeFalse();
+it('offers exactly two plans', function () {
+    expect(Plan::cases())->toBe([Plan::Pro, Plan::Group]);
 });
 
-it('gates features by minimum plan', function () {
-    // createPOs requires Starter
-    expect(Plan::Free->can(Feature::CreatePurchaseOrders))->toBeFalse()
-        ->and(Plan::Starter->can(Feature::CreatePurchaseOrders))->toBeTrue();
+it('orders plans by rank', function () {
+    expect(Plan::Pro->atLeast(Plan::Pro))->toBeTrue()
+        ->and(Plan::Group->atLeast(Plan::Pro))->toBeTrue()
+        ->and(Plan::Pro->atLeast(Plan::Group))->toBeFalse();
+});
 
-    // pdfImport requires Pro
-    expect(Plan::Starter->can(Feature::PdfImport))->toBeFalse()
-        ->and(Plan::Pro->can(Feature::PdfImport))->toBeTrue();
+it('gives Pro the whole day-to-day product', function () {
+    foreach (Feature::cases() as $feature) {
+        if ($feature === Feature::MultiVenue) {
+            continue;
+        }
 
-    // multiVenue requires Group
+        expect(Plan::Pro->can($feature))->toBeTrue();
+    }
+});
+
+it('reserves multiple venues for Group', function () {
     expect(Plan::Pro->can(Feature::MultiVenue))->toBeFalse()
         ->and(Plan::Group->can(Feature::MultiVenue))->toBeTrue();
+});
+
+it('resolves retired plan values to Pro', function () {
+    expect(Plan::fromValue('free'))->toBe(Plan::Pro)
+        ->and(Plan::fromValue('starter'))->toBe(Plan::Pro)
+        ->and(Plan::fromValue('group'))->toBe(Plan::Group)
+        ->and(Plan::fromValue(null))->toBe(Plan::Pro)
+        ->and(Plan::fromValue('nonsense'))->toBe(Plan::Pro);
 });

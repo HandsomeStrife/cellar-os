@@ -25,7 +25,7 @@ class CompanyFactory extends Factory
             'uuid' => (string) Str::uuid(),
             'name' => fake()->company(),
             'base_currency' => 'GBP',
-            'plan' => Plan::Free->value,
+            'plan' => Plan::default()->value,
         ];
     }
 

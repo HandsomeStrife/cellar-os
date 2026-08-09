@@ -1,8 +1,6 @@
 @php
     $accounts = [
         ['demo@cellaros.test', 'Pro', 'A fully operational single venue: three connected suppliers, a working cellar (including low-stock alerts on the dashboard), and orders at every point of the lifecycle — draft, sent and received.'],
-        ['free@cellaros.test', 'Free', 'A brand-new account: the empty dashboard and getting-started checklist, before any suppliers are connected.'],
-        ['starter@cellaros.test', 'Starter', 'Getting going: a first connected supplier, a draft and a sent order, and a little received stock.'],
         ['group@cellaros.test', 'Group', 'A multi-venue operation: two venues with their own suppliers, stock and orders — plus group.member@cellaros.test, a team member scoped to just the Riverside venue.'],
     ];
 @endphp

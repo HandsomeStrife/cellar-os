@@ -305,7 +305,7 @@
                 <p class="mt-4 text-lg text-muted-foreground">Every plan includes the catalogue and supplier management. Paid plans add importing, ordering, inventory and more.</p>
             </div>
 
-            @php($plans = [Plan::Free, ...Plan::paid()])
+            @php($plans = Plan::paid())
             @php($featured = \Domain\Billing\Enums\Plan::Pro)
             @php($tint = fn ($plan) => $plan === $featured ? ' bg-primary/[0.06] border-x border-primary/25' : '')
             <div class="mt-12 overflow-x-auto pb-2">
@@ -352,7 +352,7 @@
                             @foreach($plans as $plan)
                                 <td class="rounded-b-lg px-4 py-5{{ $tint($plan) }}{{ $plan === $featured ? ' border-b border-primary/25' : '' }}">
                                     <x-button :href="route('register')" :variant="$plan === $featured ? 'primary' : 'outline'" size="md">
-                                        {{ $plan === Plan::Free ? 'Start free' : 'Choose '.$plan->getLabel() }}
+                                        {{ 'Choose '.$plan->getLabel() }}
                                     </x-button>
                                 </td>
                             @endforeach
