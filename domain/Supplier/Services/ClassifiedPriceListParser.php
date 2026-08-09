@@ -82,6 +82,12 @@ class ClassifiedPriceListParser
 
         // Track page breaks (form-feed) so each wine keeps a page source_ref.
         $priceRe = '/£\s?([\d,]+\.\d{2})(?:\s*LIST)?(?:\s+([\d.]+)\s*cl)?(?:\s+([\d.]+)\s*%)?/u';
+        // Some rows carry a WORD where the figure should be: this merchant
+        // prints TBC (or "on allocation") for growers whose tiny allocations
+        // they'd rather quote for. Those are real listings the buyer needs to
+        // know about, so they're kept with the word intact — NormaliseService
+        // turns it into a POA/TBC price state rather than a missing price.
+        $withheldRe = '/(?:^|\s{2,})(TBC|POA|ON\s+ALLOCATION)(?:\s+([\d.]+)\s*cl)?(?:\s+(?:TBC|[\d.]+\s*%))?\s*$/iu';
         // `#` delimiter: the tag alternation contains slashes (ORANGE/SKIN,
         // KEG/KEYKEGS) that would otherwise close a `/`-delimited pattern.
         $tag = self::TAG_ALTERNATION;
@@ -113,7 +119,15 @@ class ClassifiedPriceListParser
                 $lastSection = $sm[1];
             }
 
-            if (! str_contains($line, '£') || ! preg_match($priceRe, $line, $pm)) {
+            $withheld = null;
+            if (str_contains($line, '£') && preg_match($priceRe, $line, $pm)) {
+                // Ordinary priced row.
+            } elseif (preg_match($withheldRe, $line, $wm)) {
+                // Price withheld: keep the merchant's own word as the "price",
+                // and reuse the size capture so the format still lands.
+                $withheld = mb_strtoupper(trim($wm[1]));
+                $pm = [$wm[0], $withheld, $wm[2] ?? ''];
+            } else {
                 continue;
             }
 
@@ -123,7 +137,7 @@ class ClassifiedPriceListParser
             }
 
             $tagValue = $nm[3] ?? $lastSection;
-            $fields = $this->rowFields($nm[1], trim($nm[2]), $tagValue, $pm);
+            $fields = $this->rowFields($nm[1], trim($nm[2]), $tagValue, $pm, $withheld);
 
             if ($fields !== null) {
                 $out[] = ['fields' => $fields, 'page' => $pageOfLine[$j] ?? null];
@@ -141,8 +155,13 @@ class ClassifiedPriceListParser
      * @param  array<int, string>  $priceMatch
      * @return array<string, string>|null
      */
-    private function rowFields(string $vintage, string $descriptor, ?string $tag, array $priceMatch): ?array
-    {
+    private function rowFields(
+        string $vintage,
+        string $descriptor,
+        ?string $tag,
+        array $priceMatch,
+        ?string $withheldPrice = null,
+    ): ?array {
         // The index opens with a short non-alcoholic block (cordials, grape
         // juice, fermented teas). Most lack a vintage and never reach here;
         // the few that carry an "NV" are excluded by their explicit label.
@@ -179,7 +198,9 @@ class ClassifiedPriceListParser
         $fields = [
             'wine_name' => $name,
             'vintage' => $vintage,
-            'unit_price' => str_replace(',', '', $priceMatch[1]),
+            // For a withheld price this is the merchant's own word, which
+            // NormaliseService reads as a POA/TBC state rather than a figure.
+            'unit_price' => $withheldPrice ?? str_replace(',', '', $priceMatch[1]),
         ];
 
         if ($producer !== null) {

@@ -122,7 +122,11 @@ class NormaliseService
 
             if ($stated !== null) {
                 $priceState = $stated;
-                $priceNote = $this->nullableString($value('price_note') ?? $rawUnitPrice);
+
+                // Keep the merchant's explanation, not the bare marker: a note
+                // reading "TBC" under a TBC badge tells the buyer nothing.
+                $note = $this->nullableString($value('price_note') ?? $rawUnitPrice);
+                $priceNote = $note !== null && mb_strlen($note) > 15 ? $note : null;
             }
         }
 

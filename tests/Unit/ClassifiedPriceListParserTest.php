@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Domain\Catalogue\Enums\PriceState;
+use Domain\Import\Services\NormaliseService;
 use Domain\Supplier\Services\ClassifiedPriceListParser;
 
 beforeEach(function () {
@@ -35,6 +37,12 @@ function classifiedFixture(): string
         '                                     SPARKLING WINES',
         '      NV      Pet Nat Red, Ancre Hill Estates - Monmouthshire, Wales             SPARKLING WINES - CLASSIFIED',
         '                                                                                 £16.50    LIST',
+        // Growers whose price this merchant withholds — the figure column
+        // carries a word instead. These are real listings, not junk rows.
+        '      2022    Pupillin Ploussard, Domaine Renaud Bruyère - Jura, France          RED WINES - CLASSIFIED',
+        '                                                                                 TBC       75.00cl    TBC',
+        '      2021    Arbois Savagnin, Domaine Kevin Bouillet - Jura, France             RED WINES - CLASSIFIED',
+        '                                                                                 ON ALLOCATION    75.00cl',
         '                                     ROSÉ WINES',
         '      2023    Bandol Rosé, Château de Pibarnon - Provence, France                ROSÉ WINES - CLASSIFIED',
         '                                                                                 £30.05 LIST',
@@ -68,9 +76,11 @@ it('parses the index and ignores the producer-grid lines before it', function ()
     $rows = $this->parser->parseIndex(classifiedFixture());
 
     // whites: Le Lesc, Chardonnay (Substance/s dropped as non-alcoholic);
-    // red: Pinot Noir; sparkling: Pet Nat Red; rosé: Bandol Rosé;
-    // magnums: Some Big Bottle + Chardonnay magnum; half: Little Red; BIB: Le Lesc Blanc = 9.
-    expect($rows)->toHaveCount(9);
+    // reds: Pinot Noir + the two whose price is withheld (Pupillin Ploussard,
+    // Arbois Savagnin); sparkling: Pet Nat Red; rosé: Bandol Rosé;
+    // magnums: Some Big Bottle + Chardonnay magnum; half: Little Red;
+    // BIB: Le Lesc Blanc = 11.
+    expect($rows)->toHaveCount(11);
 
     $names = array_map(fn ($r) => $r['fields']['wine_name'], $rows);
     expect($names)->toContain('Le Lesc', 'Chardonnay', 'Pinot Noir', 'Pet Nat Red', 'Bandol Rosé')
@@ -204,4 +214,38 @@ it('does not bleed grape across a price mismatch or overwrite an existing grape'
     expect($result['enriched'])->toBe(0);
     expect($result['rows'][0]['fields'])->not->toHaveKey('grape');
     expect($result['rows'][1]['fields']['grape'])->toBe('Existing');
+});
+
+it('keeps the wines whose price the merchant withheld', function () {
+    // Les Caves prints TBC (or "on allocation") where the figure would be, for
+    // growers whose allocations are too small to hold stock. Dropping those
+    // rows loses real listings the buyer needs to know exist.
+    $rows = $this->parser->parseIndex(classifiedFixture());
+
+    $byName = collect($rows)->keyBy(fn (array $r) => $r['fields']['wine_name']);
+
+    expect($byName)->toHaveKey('Pupillin Ploussard')
+        ->and($byName)->toHaveKey('Arbois Savagnin');
+
+    // The merchant's own word is carried through as the price, for
+    // NormaliseService to read as a withheld-price state.
+    expect($byName['Pupillin Ploussard']['fields']['unit_price'])->toBe('TBC')
+        ->and($byName['Arbois Savagnin']['fields']['unit_price'])->toBe('ON ALLOCATION')
+        // The bottle size still lands from the same line.
+        ->and($byName['Pupillin Ploussard']['fields']['format_ml'])->toBe('75.00cl');
+});
+
+it('normalises a withheld classified price into a POA/TBC wine', function () {
+    $rows = $this->parser->parseIndex(classifiedFixture());
+    $fields = collect($rows)->firstWhere(fn (array $r) => $r['fields']['wine_name'] === 'Pupillin Ploussard')['fields'];
+
+    $product = (new NormaliseService)->toProductData(
+        $fields,
+        array_combine(array_keys($fields), array_keys($fields)),
+    );
+
+    expect($product->unit_price)->toBeNull()
+        ->and($product->price_state)->toBe(PriceState::Tbc)
+        // A note that just repeats the badge is no use, so it isn't kept.
+        ->and($product->price_note)->toBeNull();
 });
