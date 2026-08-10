@@ -312,7 +312,7 @@ class DemoSeeder extends Seeder
             $soldBy = $extra['sold_by'] ?? SellingUnit::Bottle;
             $caseSize = $soldBy === SellingUnit::Case ? 6 : 12;
 
-            $created->push($upsert->execute(new ProductData(
+            $created->push($upsert->execute(contributeFacts: false, data: new ProductData(
                 id: null,
                 uuid: null,
                 supplier_id: $supplier->id,
@@ -352,7 +352,7 @@ class DemoSeeder extends Seeder
             return;
         }
 
-        (new UpsertProductAction)->execute(new ProductData(
+        (new UpsertProductAction)->execute(contributeFacts: false, data: new ProductData(
             id: null,
             uuid: null,
             supplier_id: $supplier->id,
@@ -401,7 +401,7 @@ class DemoSeeder extends Seeder
         ];
 
         foreach ($bubbles as [$name, $producer, $type, $subType, $price, $country, $region]) {
-            $upsert->execute(new ProductData(
+            $upsert->execute(contributeFacts: false, data: new ProductData(
                 id: null,
                 uuid: null,
                 supplier_id: $supplier->id,

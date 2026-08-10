@@ -20,8 +20,13 @@ test.describe('Supplier document parsing', () => {
     await page.getByRole('link', { name: 'Review' }).first().click();
     await expect(page).toHaveURL(/\/review$/);
 
-    // The proposed wines are listed.
-    await expect(page.getByRole('table').first()).toBeVisible();
+    // The proposed wines are listed. Their names come from whatever the demo
+    // sampled, so take one from the page rather than hard-coding it — the
+    // point is that THIS wine reaches the catalogue.
+    const proposedRows = page.locator('table tbody tr');
+    await expect(proposedRows.first()).toBeVisible();
+    const wineName = (await proposedRows.first().locator('td').first().innerText()).split('\n')[0].trim();
+    expect(wineName.length).toBeGreaterThan(2);
 
     // The type words this merchant uses that CellarOS couldn't place are
     // offered for mapping right here.
@@ -29,5 +34,10 @@ test.describe('Supplier document parsing', () => {
 
     await page.getByRole('button', { name: 'Approve all proposed' }).click();
     await expect(page.getByText(/added to your catalogue/i)).toBeVisible();
+
+    // …and it is now in the (connection-scoped) catalogue.
+    await page.goto('/catalogue');
+    await page.getByPlaceholder('Search wine or producer…').fill(wineName);
+    await expect(page.locator('table').getByText(wineName).first()).toBeVisible();
   });
 });

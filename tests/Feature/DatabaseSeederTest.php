@@ -5,8 +5,11 @@ declare(strict_types=1);
 use Database\Seeders\DemoSeeder;
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\Plan;
+use Domain\Catalogue\Actions\UpsertProductAction;
+use Domain\Catalogue\Data\ProductData;
 use Domain\Catalogue\Enums\PriceState;
 use Domain\Catalogue\Models\Product;
+use Domain\Catalogue\Models\WineFact;
 use Domain\Company\Models\Company;
 use Domain\Inventory\Models\InventoryItem;
 use Domain\Order\Models\Order;
@@ -111,4 +114,27 @@ it('leaves other tenants alone when the demo is reset', function () {
     expect(Company::find($other->id))->not->toBeNull()
         ->and(Supplier::find($theirSupplier->id))->not->toBeNull()
         ->and(Product::find($theirWine->id))->not->toBeNull();
+});
+
+it('never lets invented demo wines teach the shared facts store', function () {
+    // wine_facts is cross-supplier knowledge, shown to real buyers as "another
+    // vendor's information" and exported to golden — so a fabricated producer
+    // must never enter it.
+    $this->seed(DemoSeeder::class);
+
+    $inventedProducers = ['Maison Perrelet', 'Domaine des Ormes', 'Cantina Vecchia Corte', 'Quinta do Ribeiro'];
+
+    expect(WineFact::whereIn('producer', $inventedProducers)->count())->toBe(0);
+
+    // …while a real import still does contribute.
+    $supplier = Supplier::factory()->create();
+    (new UpsertProductAction)->execute(ProductData::from([
+        'id' => null, 'uuid' => null, 'supplier_id' => $supplier->id, 'raw_upload_id' => null,
+        'wine_name' => 'Real Chablis', 'producer' => 'Real Domaine', 'country' => 'France',
+        'region' => null, 'sub_region' => null, 'grape' => ['Chardonnay'], 'colour' => null,
+        'vintage' => 2022, 'format_ml' => 750, 'case_size' => 6, 'unit_price' => '20.00',
+        'price_per_litre' => null, 'stock' => 0, 'latitude' => null, 'longitude' => null,
+    ]));
+
+    expect(WineFact::where('producer', 'Real Domaine')->exists())->toBeTrue();
 });

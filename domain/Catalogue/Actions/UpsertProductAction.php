@@ -15,7 +15,16 @@ use Domain\Shared\Actions\AbstractAction;
  */
 class UpsertProductAction extends AbstractAction
 {
-    public function execute(ProductData $data, ?int $sourceDocumentId = null): ProductData
+    /**
+     * @param  bool  $contributeFacts  whether this wine may teach the shared
+     *                                 cross-supplier facts store. FALSE for
+     *                                 anything invented (the demo dataset):
+     *                                 those facts are shown to real buyers as
+     *                                 "another vendor's information" and ride
+     *                                 golden to production, so fabricated
+     *                                 producers must never enter them.
+     */
+    public function execute(ProductData $data, ?int $sourceDocumentId = null, bool $contributeFacts = true): ProductData
     {
         // Natural identity of a wine within a supplier. Producer is part of it:
         // a bare varietal name ("Chardonnay", "Riesling") is shared by many
@@ -86,7 +95,9 @@ class UpsertProductAction extends AbstractAction
 
         // Every imported wine teaches the shared facts store (attributes only,
         // never prices) so sparser suppliers' lists can be gap-filled.
-        (new ContributeWineFactsAction)->execute($result);
+        if ($contributeFacts) {
+            (new ContributeWineFactsAction)->execute($result);
+        }
 
         return $result;
     }
