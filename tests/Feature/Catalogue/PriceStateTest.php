@@ -191,3 +191,21 @@ it('does not flag a stated POA as a missing price', function () {
     expect($vet->invoke($service, $poa, 0.9)['flag'] ?? null)->toBeNull()
         ->and($vet->invoke($service, $unreadable, 0.9)['flag'] ?? null)->toBe(ParsedWineFlag::MissingPrice->value);
 });
+
+it('keeps a real explanation but drops a note that only repeats the badge', function () {
+    $normalise = new NormaliseService;
+
+    $bare = $normalise->toProductData(
+        ['Wine' => 'Allocation Only', 'Price' => 'TBC'],
+        ['wine_name' => 'Wine', 'unit_price' => 'Price'],
+    );
+    $explained = $normalise->toProductData(
+        ['Wine' => 'Allocation Only', 'Price' => 'POA — tiny allocations, speak to your rep'],
+        ['wine_name' => 'Wine', 'unit_price' => 'Price'],
+    );
+
+    expect($bare->price_state)->toBe(PriceState::Tbc)
+        ->and($bare->price_note)->toBeNull()
+        ->and($explained->price_state)->toBe(PriceState::Poa)
+        ->and($explained->price_note)->toContain('speak to your rep');
+});

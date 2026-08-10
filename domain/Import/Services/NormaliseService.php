@@ -126,7 +126,7 @@ class NormaliseService
                 // Keep the merchant's explanation, not the bare marker: a note
                 // reading "TBC" under a TBC badge tells the buyer nothing.
                 $note = $this->nullableString($value('price_note') ?? $rawUnitPrice);
-                $priceNote = $note !== null && mb_strlen($note) > 15 ? $note : null;
+                $priceNote = $note !== null && ! $this->isBarePriceMarker($note) ? $note : null;
             }
         }
 
@@ -402,6 +402,18 @@ class NormaliseService
         }
 
         return null;
+    }
+
+    /**
+     * Is this note nothing but the marker word itself ("TBC", "P.O.A.",
+     * "on allocation")? Those add nothing next to the badge that already says
+     * so; a real explanation is what's worth keeping.
+     */
+    private function isBarePriceMarker(string $note): bool
+    {
+        $stripped = preg_replace('/[^a-z]/', '', mb_strtolower($note)) ?? '';
+
+        return in_array($stripped, ['tbc', 'poa', 'tba', 'onallocation', 'onrequest', 'onapplication', 'priceonapplication', 'priceonrequest', 'tobeconfirmed', 'tobeadvised'], true);
     }
 
     /**
