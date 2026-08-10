@@ -49,8 +49,12 @@ suppliers.
 
 Change any of this in `database/seeders/DemoSeeder.php` and re-run `demo:reset`.
 
-- The same four wines from two merchants at different prices → cross-merchant
-  price comparison.
+- A FIXED comparison pair — Côtes du Rhône Villages "Les Galets", Domaine de
+  la Fontclaire — listed by Northbank at £14.00 and Ashgrove at £11.60. The
+  sampled wines produce overlaps too, but their names depend on what this
+  environment parsed, so the guide points at this pair instead.
+- The same four sampled wines from two merchants at different prices → more
+  cross-merchant price comparison.
 - One wine held at **POA** with the merchant's own wording.
 - Sparkling in four styles plus port and sherry → Type and Style.
 - Case-quoted and bottle-quoted lines side by side.

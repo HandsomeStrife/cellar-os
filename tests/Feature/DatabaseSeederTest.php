@@ -19,6 +19,7 @@ use Domain\User\Models\User;
 use Domain\Venue\Models\Venue;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 it('seeds the clean default WITHOUT any supplier or catalogue data', function () {
     $this->seed();
@@ -99,6 +100,42 @@ it('resets the demo back to the same state', function () {
 
     expect($after)->toBe($before)
         ->and(User::where('email', 'demo@cellaros.test')->exists())->toBeTrue();
+});
+
+it('resets cleanly after a demo where people actually clicked things', function () {
+    // The point of the command is running it AFTER a demo, so it has to
+    // survive the debris one leaves: a raw upload, a cost-ledger entry, a
+    // basket-driven order, parsed rows.
+    $this->seed(DemoSeeder::class);
+
+    $supplierId = Supplier::whereIn('name', DemoSeeder::SUPPLIERS)->value('id');
+    $userId = User::where('email', 'demo@cellaros.test')->value('id');
+
+    DB::table('raw_uploads')->insert([
+        'uuid' => (string) Str::uuid(),
+        'supplier_id' => $supplierId,
+        'uploaded_by' => $userId,
+        'file_name' => 'demo.csv',
+        'file_type' => 'text/csv',
+        'rows' => json_encode([['Wine' => 'X']]),
+        'status' => 'pending',
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+    DB::table('llm_calls')->insert([
+        'uuid' => (string) Str::uuid(),
+        'purpose' => 'ai_search',
+        'model' => 'claude-haiku-4-5',
+        'input_tokens' => 100, 'output_tokens' => 50, 'cost_usd' => '0.000100',
+        'supplier_id' => $supplierId,
+        'created_at' => now(), 'updated_at' => now(),
+    ]);
+
+    $this->artisan('demo:reset --force')->assertSuccessful();
+
+    expect(User::where('email', 'demo@cellaros.test')->exists())->toBeTrue()
+        // The cost ledger survives the demo being rebuilt — spend history is
+        // ours, not the demo's.
+        ->and(DB::table('llm_calls')->count())->toBe(1);
 });
 
 it('leaves other tenants alone when the demo is reset', function () {

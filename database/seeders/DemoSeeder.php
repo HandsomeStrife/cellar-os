@@ -198,6 +198,7 @@ class DemoSeeder extends Seeder
 
         $this->poaWine($corvina, $wines->get(20));
         $this->sparklingWines($northbank);
+        $this->comparisonPair($northbank, $ashgrove);
 
         // A working cellar, including two lines low enough to raise the
         // dashboard's low-stock alerts.
@@ -338,6 +339,44 @@ class DemoSeeder extends Seeder
         }
 
         return $created;
+    }
+
+    /**
+     * One wine, listed by two merchants at a known difference.
+     *
+     * The sampled wines already produce overlaps, but their NAMES depend on
+     * whatever this environment parsed — so the demo guide couldn't tell
+     * anyone what to search for. This pair is fixed, which is what makes
+     * "search for Fontclaire" a reliable instruction anywhere.
+     */
+    private function comparisonPair(Supplier $dearer, Supplier $cheaper): void
+    {
+        $upsert = new UpsertProductAction;
+
+        foreach ([[$dearer, '14.00'], [$cheaper, '11.60']] as [$supplier, $price]) {
+            $upsert->execute(contributeFacts: false, data: new ProductData(
+                id: null,
+                uuid: null,
+                supplier_id: $supplier->id,
+                raw_upload_id: null,
+                wine_name: 'Côtes du Rhône Villages "Les Galets"',
+                producer: 'Domaine de la Fontclaire',
+                country: 'France',
+                region: 'Rhône',
+                sub_region: null,
+                grape: ['Grenache', 'Syrah'],
+                colour: WineType::Red,
+                sub_type: null,
+                vintage: 2023,
+                format_ml: 750,
+                case_size: 12,
+                unit_price: $price,
+                price_per_litre: null,
+                stock: 0,
+                latitude: null,
+                longitude: null,
+            ));
+        }
     }
 
     /**
