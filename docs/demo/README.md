@@ -146,5 +146,11 @@ search so the price comparison has something to show, the awkward questions with
 answers, and the two data problems in the real catalogue to steer around. It is
 self-contained, so it opens from disk with nothing else to deploy.
 
+It is also served by the app at **`/demo`** — same file, read at request time by
+`DemoRunSheetController`, so the web copy can never drift from the one on disk.
+That page is public (we're pre-launch) but carries a `noindex`, and it names a
+supplier whose prices we currently have wrong, so give out the link rather than
+linking to it from anywhere.
+
 Where `demo-guide.html` shows the staged demo with screenshots, the run-sheet
 covers both accounts and includes the real catalogue.

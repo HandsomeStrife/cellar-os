@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Admin\DownloadSupplierDocumentController;
 use App\Http\Controllers\Admin\ImpersonationController;
+use App\Http\Controllers\DemoRunSheetController;
 use App\Http\Controllers\EnquiryController;
 use App\Http\Controllers\Inventory\DownloadAttachmentController;
 use App\Http\Controllers\Orders\DownloadOrderPdfController;
@@ -97,6 +98,12 @@ Route::middleware('auth:web')->group(function () {
         return redirect()->route('home');
     })->name('logout');
 });
+
+/*
+ * The demo run-sheet: how to show CellarOS, and which wines to search. Public
+ * while we're pre-launch, but carries a noindex so it stays off search.
+ */
+Route::get('/demo', DemoRunSheetController::class)->name('demo');
 
 /*
  * Admin back-office — a fully separate authentication domain (`admin` guard).
