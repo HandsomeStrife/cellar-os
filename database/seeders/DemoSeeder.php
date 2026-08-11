@@ -58,7 +58,7 @@ class DemoSeeder extends Seeder
     use BuildsDemoData;
 
     /** Demo companies, by name — the unit `demo:reset` tears down. */
-    public const COMPANIES = ['Cellar Door Group', 'Anand Restaurant Group'];
+    public const COMPANIES = ['Cellar Door Group', 'Anand Restaurant Group', 'CellarOS Trade Reference'];
 
     /** Fictional merchants. Deliberately not names of real trade suppliers. */
     public const SUPPLIERS = [
@@ -77,7 +77,52 @@ class DemoSeeder extends Seeder
 
         $this->seedPro($stock);
         $this->seedGroup($stock);
+        $this->seedTradeReference();
         $this->seedSupplierPortal();
+    }
+
+    /**
+     * A buyer account connected to every LIVE supplier, for checking what the
+     * parser actually produced.
+     *
+     * The other two demo companies are deliberately walled off from real trade
+     * data — invented merchants, so a scenario can be staged. This one is the
+     * opposite and owns nothing of its own: it connects to every PUBLIC
+     * supplier that has wines, so the real parsed catalogue can be read
+     * through the catalogue's own filters, sorting, search and cross-supplier
+     * comparison, which is a far better way to spot a bad parse than a
+     * database query. Suppliers with no wines are left out; an empty supplier
+     * is a dead end for whoever is checking.
+     *
+     * It connects rather than owns, so nothing here can edit a price or delete
+     * a wine: those are private-supplier-only, which makes this account safe
+     * to hand out. On the Group plan purely so an upgrade gate never
+     * interrupts an inspection — the plan split is shown by demo@ and group@.
+     *
+     * A bare install with nothing parsed yields an account with no suppliers,
+     * which is the honest state rather than a broken one.
+     */
+    private function seedTradeReference(): void
+    {
+        $company = $this->company('CellarOS Trade Reference', Plan::Group);
+        $owner = $this->owner($company, 'trade@cellaros.test', 'Trade Reference');
+        $venue = $this->venue($company, 'Reference Cellar', 'London');
+        $this->assignVenues($owner, [$venue->id]);
+
+        $stocked = Product::query()
+            ->whereNull('archived_at')
+            ->whereNotNull('supplier_id')
+            ->distinct()
+            ->pluck('supplier_id');
+
+        $live = Supplier::query()
+            ->whereNull('created_by_company_id')
+            ->whereIn('id', $stocked)
+            ->get();
+
+        foreach ($live as $supplier) {
+            $this->connectSupplier($company, $supplier, [$venue]);
+        }
     }
 
     /**

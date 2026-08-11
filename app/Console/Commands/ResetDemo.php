@@ -52,6 +52,7 @@ class ResetDemo extends Command
                 ['/login', 'demo@cellaros.test', 'Pro — one venue, three merchants, the full buying journey'],
                 ['/login', 'group@cellaros.test', 'Group — two venues, per-venue merchants, a team'],
                 ['/login', 'group.member@cellaros.test', 'A team member who can only see the Riverside venue'],
+                ['/login', 'trade@cellaros.test', 'Every real supplier we hold a list for — the parsed catalogue at full size'],
                 ['/admin', 'admin@cellaros.test', 'Back office — suppliers, parsing, costs, impersonation'],
             ],
         );

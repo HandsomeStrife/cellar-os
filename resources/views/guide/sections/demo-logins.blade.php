@@ -2,10 +2,11 @@
     $accounts = [
         ['demo@cellaros.test', 'Pro', 'A fully operational single venue: three connected suppliers, a working cellar (including low-stock alerts on the dashboard), and orders at every point of the lifecycle — draft, sent and received.'],
         ['group@cellaros.test', 'Group', 'A multi-venue operation: two venues with their own suppliers, stock and orders — plus group.member@cellaros.test, a team member scoped to just the Riverside venue.'],
+        ['trade@cellaros.test', 'Group', 'Every supplier we hold a list for, connected to one venue: the real catalogue, thousands of wines, for browsing, filtering and searching at full size. No stock or orders of its own.'],
     ];
 @endphp
 
-<p>CellarOS ships with ready-made demo accounts so you can explore from a few different starting points. Every account uses the password <code>password</code>, and they browse the platform's <em>real</em> supplier catalogues — thousands of wines from real trade suppliers.</p>
+<p>CellarOS ships with ready-made demo accounts so you can explore from a few different starting points. Every account uses the password <code>password</code>. The first two trade with a small set of made-up merchants, so the cellar, the orders and the price comparisons all tell a story; <code>trade@cellaros.test</code> is connected to the real supplier catalogues instead, if you want to see the platform at full size.</p>
 
 <div class="callout">
     These are sample accounts for trying out CellarOS. They share demo data, so please don't store anything you want to keep in them.

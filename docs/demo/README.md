@@ -28,6 +28,7 @@ Password is `password` for all of them.
 | `/login`    | `demo@cellaros.test`         | Pro — one venue, three merchants, the whole journey |
 | `/login`    | `group@cellaros.test`        | Group — two venues, per-venue merchants, a team     |
 | `/login`    | `group.member@cellaros.test` | A member scoped to the Riverside venue only         |
+| `/login`    | `trade@cellaros.test`        | Every real supplier we hold a list for — the parsed catalogue at full size |
 | `/admin`    | `admin@cellaros.test`        | Back office: suppliers, parsing, AI costs           |
 | `/supplier` | `supplier@cellaros.test`     | The merchant's own portal                           |
 

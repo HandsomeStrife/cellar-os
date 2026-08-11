@@ -86,6 +86,45 @@ it('arranges the demo so every headline feature has something to show', function
     expect($duplicated)->not->toBeEmpty();
 });
 
+it('connects the trade-reference account to every live supplier, and nothing private', function () {
+    // The catalogue this account is meant to show: a public supplier with a
+    // wine in it. Seeded BEFORE the demo, because that is the real order —
+    // suppliers are parsed long before anyone rebuilds the demo.
+    $listed = Supplier::factory()->create(['name' => 'Real Listed Merchant', 'created_by_company_id' => null]);
+    Product::factory()->create(['supplier_id' => $listed->id, 'archived_at' => null]);
+
+    // A public supplier whose wines have all been archived, and another
+    // tenant's private merchant. Neither belongs in the list.
+    $emptied = Supplier::factory()->create(['name' => 'Delisted Merchant', 'created_by_company_id' => null]);
+    Product::factory()->create(['supplier_id' => $emptied->id, 'archived_at' => now()]);
+
+    $other = Company::factory()->create(['name' => 'Real Customer Ltd']);
+    $theirs = Supplier::factory()->create(['created_by_company_id' => $other->id]);
+    Product::factory()->create(['supplier_id' => $theirs->id, 'archived_at' => null]);
+
+    $this->seed(DemoSeeder::class);
+
+    $trade = User::where('email', 'trade@cellaros.test')->first();
+    expect(Company::find($trade?->company_id)?->plan)->toBe(Plan::Group);
+
+    $connected = DB::table('company_supplier')->where('company_id', $trade->company_id)->pluck('supplier_id');
+
+    expect($connected)->toContain($listed->id)
+        ->and($connected)->not->toContain($emptied->id)
+        ->and($connected)->not->toContain($theirs->id);
+
+    // It owns no merchants of its own, so it can't edit a price or delete a
+    // wine: those are private-supplier-only. Safe to hand out.
+    expect(Supplier::where('created_by_company_id', $trade->company_id)->count())->toBe(0)
+        ->and($connected->intersect(Supplier::whereIn('name', DemoSeeder::SUPPLIERS)->pluck('id'))->count())->toBe(0);
+
+    // And it is torn down with the rest of the demo, connections included.
+    $this->artisan('demo:reset --force')->assertSuccessful();
+
+    expect(Supplier::find($listed->id))->not->toBeNull()
+        ->and(DB::table('company_supplier')->whereIn('company_id', [$trade->company_id])->count())->toBe(0);
+});
+
 it('resets the demo back to the same state', function () {
     $this->seed(DemoSeeder::class);
 
