@@ -100,13 +100,18 @@ class CompanyData extends AbstractData
     }
 
     /**
-     * Would a lapse here actually revoke anything? A trial issued ON the entry
-     * tier confers nothing to lose, so counting it down at the customer only
-     * promises a cliff that never arrives.
+     * Would a lapse here actually revoke anything?
+     *
+     * A trial issued ON the entry tier confers nothing to lose, so counting it
+     * down at the customer only promises a cliff that never arrives. Neither
+     * does a trial on a company we don't bill through Stripe, whose access
+     * never depended on the date in the first place — checked here rather than
+     * left to the caller, so the answer is true wherever it's asked.
      */
     public function trialConfersAnything(): bool
     {
-        return $this->plan !== Plan::default();
+        return $this->plan !== Plan::default()
+            && $this->billing_arrangement->dependsOnStripe();
     }
 
     public function onTrial(): bool

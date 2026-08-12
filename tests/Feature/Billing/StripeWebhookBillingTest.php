@@ -97,6 +97,39 @@ it('does not touch the trial on a trialing subscription', function () {
     expect($company->fresh()->trial_ends_at)->not->toBeNull();
 });
 
+it('does not let a routine event undo an admin-granted trial of a higher tier', function () {
+    // "Try Group for a month while you keep paying for Pro." The next card
+    // update or renewal says `active` on the Pro price, and would otherwise
+    // snap them back to Pro and delete the trial an admin set on purpose.
+    config()->set('billing.prices.pro', 'price_pro');
+
+    $company = Company::factory()->onPlan(Plan::Group)->onTrial(20)->create(['stripe_id' => 'cus_upgrading']);
+
+    fireWebhook('customer.subscription.updated', $company, [
+        'status' => 'active',
+        'items' => ['data' => [['price' => ['id' => 'price_pro']]]],
+    ]);
+
+    $fresh = $company->fresh();
+
+    expect($fresh->plan)->toBe(Plan::Group)
+        ->and($fresh->trial_ends_at)->not->toBeNull();
+});
+
+it('still records an upgrade bought through Stripe', function () {
+    // The mirror image: paying for MORE than the record says must apply.
+    config()->set('billing.prices.pro', 'price_pro');
+
+    $company = Company::factory()->onPlan(Plan::Pro)->onTrial(20)->create(['stripe_id' => 'cus_upgraded']);
+
+    fireWebhook('customer.subscription.updated', $company, [
+        'status' => 'active',
+        'items' => ['data' => [['price' => ['id' => 'price_group']]]],
+    ]);
+
+    expect($company->fresh()->plan)->toBe(Plan::Group);
+});
+
 it('refuses to act at all without a signing secret', function () {
     config()->set('cashier.webhook.secret', null);
 

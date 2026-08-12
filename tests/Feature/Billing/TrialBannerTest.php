@@ -6,6 +6,7 @@ use Domain\Billing\Enums\Plan;
 use Domain\Company\Models\Company;
 use Domain\User\Models\User;
 use Domain\Venue\Models\Venue;
+use Laravel\Cashier\Subscription;
 
 function signInTo(Company $company): User
 {
@@ -54,6 +55,38 @@ it('stays quiet when a lapsed trial cost them nothing', function () {
     $this->get(route('dashboard'))
         ->assertOk()
         ->assertDontSee('has ended');
+});
+
+it('says nothing to a company that has already subscribed', function () {
+    // A leftover trial date must not have a paying customer counting down to
+    // an expiry that will never come.
+    $company = Company::factory()->onPlan(Plan::Group)->onTrial(10)->create();
+
+    Subscription::create([
+        'company_id' => $company->id,
+        'type' => 'default',
+        'stripe_id' => 'sub_'.uniqid(),
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_group',
+        'quantity' => 1,
+    ]);
+
+    signInTo($company);
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertDontSee('days left');
+});
+
+it('does not count down a trial that confers nothing', function () {
+    // A trial ON the entry tier grants nothing to lose, so a countdown would
+    // promise a cliff that never arrives and then vanish unexplained on the
+    // last day. The expired half of this pair is covered below.
+    signInTo(Company::factory()->onPlan(Plan::default())->onTrial(14)->create());
+
+    $this->get(route('dashboard'))
+        ->assertOk()
+        ->assertDontSee('days left');
 });
 
 it('never nags a comped company about its trial dates', function () {

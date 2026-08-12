@@ -113,9 +113,13 @@ class DemoSeeder extends Seeder
             // The trial goes on the GROUP account deliberately: a trial of the
             // entry tier confers nothing, so the buyer-facing banner correctly
             // stays hidden — which would leave it undemonstrable.
+            // 90 days rather than 21: the trial is real, so it really does
+            // lapse, and a short one turns into a red "your trial has ended"
+            // banner across the account you demo the Group plan with. Any
+            // `demo:reset` restarts the clock.
             'Anand Restaurant Group' => new CompanyBillingData(
                 plan: Plan::Group,
-                trial_ends_at: CarbonImmutable::now()->addDays(21)->endOfDay(),
+                trial_ends_at: CarbonImmutable::now()->addDays(90)->endOfDay(),
                 billing_notes: 'Trialling the second venue before committing.',
             ),
             'CellarOS Trade Reference' => new CompanyBillingData(

@@ -73,9 +73,20 @@ class UpdateCompanyPlanFromStripe
         $priceId = $object['items']['data'][0]['price']['id'] ?? null;
         $plan = is_string($priceId) ? Plan::forStripePrice($priceId) : null;
 
-        if ($plan !== null) {
-            (new SetCompanyPlanAction)->execute($company->id, $plan);
+        if ($plan === null) {
+            return;
         }
+
+        // An admin may have put an existing subscriber on a trial of a HIGHER
+        // tier — "try Group for a month while you pay for Pro". Any routine
+        // event afterwards (a card update, a renewal) says `active` on the Pro
+        // price, and would otherwise snap them back to Pro and delete the
+        // trial, silently undoing a decision someone made on purpose.
+        if ($company->onTrial() && $company->plan->rank() > $plan->rank()) {
+            return;
+        }
+
+        (new SetCompanyPlanAction)->execute($company->id, $plan);
 
         // Converting ends the trial. Nothing else clears the date, and leaving
         // it behind arms a trap: months later a declined card flips Cashier's

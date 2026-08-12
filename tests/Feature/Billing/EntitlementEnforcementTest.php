@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Billing\Pricing;
 use App\Livewire\Inventory\Index as InventoryIndex;
 use Carbon\CarbonImmutable;
 use Domain\Billing\Enums\BillingArrangement;
@@ -101,6 +102,19 @@ it('keeps a paying customer on Group after their trial ends', function () {
     attemptSecondVenue()->assertHasNoErrors();
 
     expect(Venue::count())->toBe(2);
+});
+
+it('tells a lapsed company on the pricing page what they are actually on', function () {
+    // A second gating site with an OBSERVABLE difference. The others
+    // (catalogue, import, PDF, middleware) all gate Pro-level features, so
+    // with only one Group-only feature they can't yet be told apart from the
+    // raw column — worth knowing if a third tier ever lands.
+    config()->set('features.pricing', true);
+
+    [$company] = tenantOn(Plan::Group, ['trial_ends_at' => CarbonImmutable::now()->subDay()]);
+
+    Livewire::test(Pricing::class)
+        ->assertViewHas('currentPlan', Plan::default());
 });
 
 it('does not let a company on the entry tier add a second venue, trial or not', function () {

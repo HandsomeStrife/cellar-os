@@ -272,12 +272,72 @@ it('says plainly when a lapsed trial DID take something away', function () {
         ->assertDontSee('they keep full access');
 });
 
+it('refuses a price of nothing, which is a comp wearing a disguise', function () {
+    // £0.00 stored as a "custom price" is an untracked free account: it reads
+    // as a negotiated deal, and because a custom arrangement never depends on
+    // Stripe it is exempt from every downgrade.
+    $company = billingFixture();
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->set('arrangement', BillingArrangement::Custom->value)
+        ->set('customPrice', '0')
+        ->call('saveBilling')
+        ->assertHasErrors('customPrice');
+
+    expect($company->fresh()->custom_price_amount)->toBeNull();
+});
+
+it('can still save a company whose trial already ran out', function () {
+    // The trap the past-date rule set for itself: every lapsed company carries
+    // a date in the past, so refusing all of them made their billing form
+    // unsaveable — and the only way through, blanking the field, reads as
+    // "never had a trial" and hands the plan back free.
+    $company = billingFixture();
+    $company->update([
+        'plan' => Plan::Group->value,
+        'trial_ends_at' => CarbonImmutable::now()->subMonth(),
+    ]);
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->set('billingNotes', 'Chased them on Tuesday.')
+        ->call('saveBilling')
+        ->assertHasNoErrors();
+
+    $data = (new CompanyRepository)->find($company->id);
+
+    // Saved, and still lapsed: the downgrade survives an ordinary edit.
+    expect($data->billing_notes)->toBe('Chased them on Tuesday.')
+        ->and($data->trialLapsed())->toBeTrue()
+        ->and($data->effectivePlan())->toBe(Plan::default());
+});
+
+it('survives an unreadable arrangement rather than 500ing the page', function () {
+    // The whole point of the forgiving cast: a value we can't read must not
+    // take down the admin screen you would go to in order to fix it.
+    $company = billingFixture();
+    DB::table('companies')->where('id', $company->id)->update(['billing_arrangement' => 'gibberish']);
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->assertOk();
+
+    expect((new CompanyRepository)->find($company->id)->billing_arrangement)
+        ->toBe(BillingArrangement::Standard);
+});
+
 it('lets nobody but an admin change the terms', function () {
     $company = Company::factory()->create();
+    $outsider = User::factory()->create(['company_id' => $company->id]);
 
-    $this->actingAs(User::factory()->create(['company_id' => $company->id]))
+    $this->actingAs($outsider)
         ->get(route('admin.companies.show', $company->uuid))
         ->assertRedirect(route('admin.login'));
+
+    // …and the component's own guard, not just the route's.
+    Livewire::actingAs($outsider)
+        ->test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->set('arrangement', BillingArrangement::Comped->value)
+        ->call('saveBilling')
+        ->assertForbidden();
 
     expect($company->fresh()->billing_arrangement)->toBe(BillingArrangement::Standard);
 });

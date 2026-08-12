@@ -47,6 +47,18 @@ class CompanyShow extends Component
     /** Blank means no trial. Held as a date so it survives a page refresh. */
     public string $trialEndsAt = '';
 
+    /**
+     * What the trial date was when the form loaded.
+     *
+     * A lapsed company ALREADY carries a date in the past, so refusing every
+     * past date would make its billing form unsaveable — and the only way
+     * through would be to blank the field, which reads as "never had a trial"
+     * and hands the lapsed plan back for free. The past-date rule therefore
+     * applies only to a date someone has actually changed.
+     */
+    #[Locked]
+    public string $storedTrialEndsAt = '';
+
     #[Validate('required|string|max:255')]
     public string $newUserName = '';
 
@@ -76,6 +88,7 @@ class CompanyShow extends Component
         $this->customInterval = ($company->custom_price_interval ?? BillingInterval::Month)->value;
         $this->billingNotes = (string) $company->billing_notes;
         $this->trialEndsAt = $company->trial_ends_at?->format('Y-m-d') ?? '';
+        $this->storedTrialEndsAt = $this->trialEndsAt;
     }
 
     /**
@@ -92,14 +105,19 @@ class CompanyShow extends Component
         $this->validate(
             [
                 ...$this->billingRules($arrangement),
-                // A date in the past would be a silent entitlement removal:
-                // mistype the year and a Group company drops to Pro with no
-                // confirmation. Cutting one short is what "End it now" is for.
-                'trialEndsAt' => ['nullable', 'date', 'after_or_equal:today'],
+                // A NEW date in the past would be a silent entitlement
+                // removal: mistype the year and a Group company drops to Pro
+                // with no confirmation. Cutting one short is what "End it now"
+                // is for. An UNCHANGED past date has to save, though — every
+                // lapsed company carries one, and blocking it would make their
+                // billing form unusable.
+                'trialEndsAt' => $this->trialEndsAt === $this->storedTrialEndsAt
+                    ? ['nullable', 'date']
+                    : ['nullable', 'date', 'after_or_equal:today'],
             ],
             [
                 ...$this->billingMessages(),
-                'trialEndsAt.after_or_equal' => 'A trial can\'t end in the past. Use "End it now" to cut one short.',
+                'trialEndsAt.after_or_equal' => 'A trial can\'t be set to end in the past. Use "End it now" to cut one short.',
             ],
         );
 

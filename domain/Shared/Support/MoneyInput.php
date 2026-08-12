@@ -33,40 +33,71 @@ class MoneyInput
             return null;
         }
 
-        // Scientific notation would otherwise survive as digits: "1e3" reads
-        // as 13, quietly charging £13 for a typed 1000.
-        if (preg_match('/[eE]/', $input) === 1) {
+        // Take off a currency symbol and any surrounding space, then insist
+        // the REST already looks like an amount. Stripping stray characters
+        // first and asking questions later turns "4 9" into £49, "(50)" into
+        // £50 (an accounting negative, inverted) and "0x1A" into £1.
+        $trimmed = trim(preg_replace('/^\s*[£$€]\s*/u', '', trim($input)) ?? '');
+
+        // Accepted shapes, each of them unambiguous:
+        //   49, 49.50          plain, dot decimal
+        //   1,299, 1,299.50    comma grouping
+        //   49,50              comma decimal
+        //   1.299,50           dot grouping, settled by the comma decimal
+        //   1.234.567          dot grouping, two groups or more
+        //
+        // Deliberately NOT accepted: a bare "1.234", which is either 1234
+        // grouped the European way or an amount with three decimals. Guessing
+        // is wrong half the time and the admin never sees the figure we
+        // guessed at, so refuse it and let them retype.
+        $shapes = [
+            '/^\d+(?:\.\d{1,2})?$/',
+            '/^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$/',
+            '/^\d+,\d{1,2}$/',
+            '/^\d{1,3}(?:\.\d{3})+,\d{1,2}$/',
+            '/^\d{1,3}(?:\.\d{3}){2,}$/',
+        ];
+
+        $recognised = false;
+
+        foreach ($shapes as $shape) {
+            if (preg_match($shape, $trimmed) === 1) {
+                $recognised = true;
+                break;
+            }
+        }
+
+        if (! $recognised) {
             return null;
         }
 
-        $cleaned = preg_replace('/[^0-9.,\-]/', '', $input) ?? '';
+        // A trailing comma with one or two digits is a decimal point; anything
+        // else that's left is grouping, and can go.
+        $cleaned = preg_match('/,\d{1,2}$/', $trimmed) === 1
+            ? str_replace(['.', ','], ['', '.'], $trimmed)
+            : str_replace(',', '', $trimmed);
 
-        if ($cleaned === '') {
-            return null;
-        }
-
-        // A comma is a decimal separator in half of Europe and a thousands
-        // separator in the other half. With at most two digits after it, read
-        // it as a decimal point; otherwise it's grouping and can go.
-        if (preg_match('/,\d{1,2}$/', $cleaned) === 1) {
-            $cleaned = str_replace(['.', ','], ['', '.'], $cleaned);
-        } else {
-            $cleaned = str_replace(',', '', $cleaned);
+        // Dots that survived are grouping too, unless they introduce the
+        // decimal part.
+        if (preg_match('/\.\d{1,2}$/', $cleaned) !== 1) {
+            $cleaned = str_replace('.', '', $cleaned);
         }
 
         if (! is_numeric($cleaned)) {
             return null;
         }
 
-        $minorUnits = (int) round((float) $cleaned * 100);
+        // Bound it as a FLOAT, before any cast. Casting first means PHP warns
+        // that a huge float isn't representable as an int — and Laravel turns
+        // that warning into a thrown exception, so a long pasted number would
+        // 500 the form instead of failing validation politely.
+        $amount = (float) $cleaned;
 
-        // A negative price is never what someone meant, and the column it
-        // lands in is unsigned. A number past the ceiling would overflow it.
-        if ($minorUnits < 0 || $minorUnits > self::MAX_MINOR_UNITS) {
+        if ($amount < 0 || $amount > self::MAX_MINOR_UNITS / 100) {
             return null;
         }
 
-        return $minorUnits;
+        return (int) round($amount * 100);
     }
 
     /**
