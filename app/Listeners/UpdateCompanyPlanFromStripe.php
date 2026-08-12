@@ -57,10 +57,16 @@ class UpdateCompanyPlanFromStripe
         }
 
         if ($type === 'customer.subscription.deleted') {
+            // A live trial outlives the subscription. The usual reason both
+            // exist at once is a retention offer — they cancelled, we gave
+            // them thirty days — and the cancellation Stripe reports at period
+            // end must not delete the offer made after it. The trial expiring
+            // is what demotes them, with no subscription left to carry them.
+            if ($company->onTrial()) {
+                return;
+            }
+
             (new SetCompanyPlanAction)->execute($company->id, Plan::default());
-            // A trial granted on top of that subscription goes with it —
-            // otherwise the company reads as "20 days left" on a tier it has
-            // just been demoted from.
             (new ClearCompanyTrialAction)->execute($company->id);
 
             return;

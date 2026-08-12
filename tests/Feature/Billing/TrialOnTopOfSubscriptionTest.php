@@ -120,7 +120,10 @@ it('does not revive a trial an admin just ended, on the next ordinary save', fun
         ->and($data->effectivePlan())->toBe(Plan::default());
 });
 
-it('ends an admin-granted trial when the subscription is cancelled', function () {
+it('keeps a retention trial when the cancellation finally lands', function () {
+    // They cancel; we offer thirty days of Group to keep them; Stripe reports
+    // the cancellation at period END, AFTER the offer was made. Wiping the
+    // trial then would delete a decision taken after the event that reports it.
     config()->set('cashier.webhook.secret', 'whsec_test');
 
     $company = subscriberOnHigherTrial();
@@ -134,8 +137,66 @@ it('ends an admin-granted trial when the subscription is cancelled', function ()
 
     $fresh = $company->fresh();
 
+    expect($fresh->trial_ends_at)->not->toBeNull()
+        ->and($fresh->plan)->toBe(Plan::Group);
+});
+
+it('drops them when a cancelled company has no trial left', function () {
+    config()->set('cashier.webhook.secret', 'whsec_test');
+
+    $company = subscriberOnHigherTrial();
+    $company->update(['trial_ends_at' => CarbonImmutable::now()->subDay()]);
+
+    (new UpdateCompanyPlanFromStripe)->handle(
+        new WebhookReceived([
+            'type' => 'customer.subscription.deleted',
+            'data' => ['object' => ['customer' => $company->stripe_id]],
+        ]),
+    );
+
+    $fresh = $company->fresh();
+
     expect($fresh->plan)->toBe(Plan::default())
-        // Otherwise the screen reads "20 days left" on a tier they were just
-        // demoted from.
         ->and($fresh->trial_ends_at)->toBeNull();
+});
+
+it('does not fall silent the morning the upgrade ends', function () {
+    // Yesterday: "1 day left". Today the app is smaller. Saying nothing is
+    // the exact failure the banner exists to prevent, and a countdown that
+    // simply vanishes reads as breakage rather than as a trial ending.
+    $company = subscriberOnHigherTrial();
+    $company->update(['trial_ends_at' => CarbonImmutable::now()->subHour()]);
+
+    $user = User::factory()->create(['company_id' => $company->id]);
+    $venue = Venue::factory()->create(['company_id' => $company->id]);
+    DB::table('user_venue')->insert(['user_id' => $user->id, 'venue_id' => $venue->id]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('trial has ended');
+});
+
+it('clears a stale trial for a customer stuck in dunning', function () {
+    // past_due is precisely the state the backfill exists for: Cashier stops
+    // counting them as subscribed, so a leftover trial date is what would
+    // demote them. Skipping those statuses left the bug in place.
+    $company = Company::factory()->onPlan(Plan::Group)->create([
+        'stripe_id' => 'cus_dunning_backfill',
+        'trial_ends_at' => CarbonImmutable::now()->subMonths(5),
+    ]);
+
+    Subscription::create([
+        'company_id' => $company->id,
+        'type' => 'default',
+        'stripe_id' => 'sub_dunning',
+        'stripe_status' => 'past_due',
+        'stripe_price' => 'price_group',
+        'quantity' => 1,
+    ]);
+
+    $migration = require database_path('migrations/2026_08_12_010000_clear_stale_trials_for_subscribers.php');
+    $migration->up();
+
+    expect($company->fresh()->trial_ends_at)->toBeNull();
 });

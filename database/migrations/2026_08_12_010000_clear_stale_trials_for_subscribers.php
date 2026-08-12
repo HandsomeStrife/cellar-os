@@ -30,7 +30,9 @@ return new class extends Migration
             ->where('billing_arrangement', 'standard')
             ->whereIn('id', DB::table('subscriptions')
                 ->select('company_id')
-                ->whereIn('stripe_status', ['active', 'trialing'])
+                // Any subscription that hasn't ended, INCLUDING past_due and
+                // unpaid: a customer mid-dunning is precisely the one a stale
+                // trial date would demote, which is what this exists to stop.
                 ->whereNull('ends_at'))
             ->update(['trial_ends_at' => null]);
     }

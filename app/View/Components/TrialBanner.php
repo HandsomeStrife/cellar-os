@@ -54,7 +54,12 @@ class TrialBanner extends Component
         // they pay for, which is a real trial with a real cliff at the end of
         // it, and losing venues unannounced is exactly what this exists to
         // prevent.
-        if ($company->has_active_subscription === true && ! $company->trialsAboveSubscription()) {
+        // …and it has to keep speaking AFTER that trial ends, or the app
+        // quietly gets smaller the morning the countdown disappears, which
+        // reads as breakage rather than as a trial ending.
+        if ($company->has_active_subscription === true
+            && ! $company->trialsAboveSubscription()
+            && ! $this->downgraded()) {
             return false;
         }
 

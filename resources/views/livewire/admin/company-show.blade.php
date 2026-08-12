@@ -24,7 +24,14 @@
                 </div>
 
                 @if($company->entitlementReduced())
-                    <p class="text-destructive">Getting {{ $company->effectivePlan()->getLabel() }} only. The trial ended with no subscription behind it.</p>
+                    <p class="text-destructive">
+                        Getting {{ $company->effectivePlan()->getLabel() }} only.
+                        @if($company->has_active_subscription)
+                            Their trial of {{ $company->plan->getLabel() }} ended; they're back to what their subscription pays for.
+                        @else
+                            The trial ended with no subscription behind it.
+                        @endif
+                    </p>
                 @elseif($company->trialLapsed())
                     {{-- The honest version of "trial ended": on the entry tier there is
                          nothing below to fall back to, so nothing was actually revoked. --}}

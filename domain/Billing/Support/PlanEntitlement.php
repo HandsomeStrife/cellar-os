@@ -63,7 +63,12 @@ class PlanEntitlement
         // subscription — they keep what they pay for, never less. Without
         // this the upgrade simply never ends, because nothing else revisits
         // the plan until Stripe happens to send another webhook.
-        if ($subscribedPlan !== null && $subscribedPlan->rank() < $plan->rank()) {
+        // `=== true` matters: null means we never established whether they
+        // pay, and this branch REDUCES entitlement. Falling through leaves
+        // them as they are, which is the safe direction.
+        if ($hasActiveSubscription === true
+            && $subscribedPlan !== null
+            && $subscribedPlan->rank() < $plan->rank()) {
             return $subscribedPlan;
         }
 
@@ -102,8 +107,18 @@ class PlanEntitlement
         ?CarbonImmutable $trialEndsAt,
         ?bool $hasActiveSubscription,
         ?CarbonImmutable $now = null,
+        ?Plan $subscribedPlan = null,
     ): bool {
-        return self::resolve($plan, $arrangement, $trialEndsAt, $hasActiveSubscription, $now) !== $plan;
+        // Named arguments, so this can't silently stop asking the same
+        // question as resolve() the next time one gains a parameter.
+        return self::resolve(
+            plan: $plan,
+            arrangement: $arrangement,
+            trialEndsAt: $trialEndsAt,
+            hasActiveSubscription: $hasActiveSubscription,
+            now: $now,
+            subscribedPlan: $subscribedPlan,
+        ) !== $plan;
     }
 
     /**
