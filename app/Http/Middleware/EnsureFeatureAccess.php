@@ -29,7 +29,7 @@ class EnsureFeatureAccess
             abort(500, "Unknown gated feature [{$feature}].");
         }
 
-        $plan = $this->companies->getLoggedInCompany()?->plan ?? Plan::default();
+        $plan = $this->companies->getLoggedInCompany()?->effectivePlan() ?? Plan::default();
 
         if (! $plan->can($featureEnum)) {
             // With self-serve plans hidden there is nowhere to upgrade, so send

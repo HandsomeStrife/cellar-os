@@ -32,9 +32,14 @@ trait WithTenant
         return (new CompanyRepository)->getLoggedInCompany();
     }
 
+    /**
+     * The plan to gate on. This is the EFFECTIVE plan, not the column: a trial
+     * that has run out without a subscription behind it drops the company back
+     * to the entry tier. A company that was never given a trial is unaffected.
+     */
     protected function companyPlan(): Plan
     {
-        return $this->currentCompany()?->plan ?? Plan::default();
+        return $this->currentCompany()?->effectivePlan() ?? Plan::default();
     }
 
     /**

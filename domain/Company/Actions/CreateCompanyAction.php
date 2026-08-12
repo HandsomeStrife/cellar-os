@@ -16,6 +16,12 @@ class CreateCompanyAction extends AbstractAction
             'name' => $data->name,
             'base_currency' => $data->base_currency,
             'plan' => $data->plan,
+            'billing_arrangement' => $data->billing_arrangement,
+            'custom_price_amount' => $data->custom_price_amount,
+            'custom_price_currency' => $data->custom_price_currency,
+            'custom_price_interval' => $data->custom_price_interval,
+            'billing_notes' => $data->billing_notes,
+            'trial_ends_at' => $data->trial_ends_at,
         ]);
 
         return $company->getData();

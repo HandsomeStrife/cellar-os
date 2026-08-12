@@ -11,14 +11,24 @@ use Illuminate\Support\Facades\Auth;
 
 class CompanyRepository
 {
+    /**
+     * Subscriptions are eager-loaded everywhere a CompanyData is built:
+     * {@see CompanyData::fromModel()} asks Cashier whether the company is
+     * subscribed, which is a query per company otherwise.
+     *
+     * @var array<int, string>
+     */
+    private const WITH = ['subscriptions'];
+
     public function find(int $id): ?CompanyData
     {
-        return Company::find($id)?->getData();
+        return Company::with(self::WITH)->find($id)?->getData();
     }
 
     public function paginate(?string $term = null, int $perPage = 20): LengthAwarePaginator
     {
         return Company::query()
+            ->with(self::WITH)
             ->when($term !== null && $term !== '', fn ($q) => $q->where('name', 'like', "%{$term}%"))
             ->orderBy('name')
             ->paginate($perPage)
@@ -27,12 +37,12 @@ class CompanyRepository
 
     public function findByUuid(string $uuid): ?CompanyData
     {
-        return Company::where('uuid', $uuid)->first()?->getData();
+        return Company::with(self::WITH)->where('uuid', $uuid)->first()?->getData();
     }
 
     public function findByStripeId(string $stripeId): ?CompanyData
     {
-        return Company::where('stripe_id', $stripeId)->first()?->getData();
+        return Company::with(self::WITH)->where('stripe_id', $stripeId)->first()?->getData();
     }
 
     public function count(): int
@@ -50,6 +60,6 @@ class CompanyRepository
     {
         $companyId = Auth::user()?->company_id;
 
-        return $companyId ? Company::find($companyId)?->getData() : null;
+        return $companyId ? Company::with(self::WITH)->find($companyId)?->getData() : null;
     }
 }

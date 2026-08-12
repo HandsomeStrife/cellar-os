@@ -89,7 +89,7 @@ class Pricing extends Component
     {
         return view('livewire.billing.pricing', [
             'plans' => Plan::paid(),
-            'currentPlan' => (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::default(),
+            'currentPlan' => (new CompanyRepository)->getLoggedInCompany()?->effectivePlan() ?? Plan::default(),
             'unlockedAt' => fn (Plan $plan) => Feature::unlockedAt($plan),
             'billingConfigured' => $this->billingConfigured(),
             'canManageBilling' => $this->canManageBilling(),

@@ -586,7 +586,7 @@ class Index extends Component
 
     private function plan(): Plan
     {
-        return (new CompanyRepository)->getLoggedInCompany()?->plan ?? Plan::default();
+        return (new CompanyRepository)->getLoggedInCompany()?->effectivePlan() ?? Plan::default();
     }
 
     public function render()

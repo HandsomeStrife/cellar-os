@@ -6,13 +6,57 @@
         <h2 class="mt-2 font-serif text-2xl font-semibold">{{ $company?->name }}</h2>
     </div>
 
-    {{-- Plan --}}
-    <x-card title="Subscription plan">
-        <form wire:submit="setPlan" class="flex flex-wrap items-end gap-3">
-            <div class="w-48">
-                <x-input.select name="plan" label="Plan" wire:model="plan" :options="collect($plans)->mapWithKeys(fn($p) => [$p->value => $p->getLabel()])->all()" />
+    {{-- Plan & commercial terms --}}
+    <x-card title="Plan & billing" subtitle="What they can do, and what we charge for it. Saved together.">
+
+        @if($company)
+            <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+                <x-badge color="wine">{{ $company->plan->getLabel() }}</x-badge>
+                <x-badge :color="$company->billing_arrangement->getColour()">{{ $company->billing_arrangement->getLabel() }}</x-badge>
+                <span class="font-mono text-muted-foreground">{{ $company->billingLabel() }}</span>
+
+                @if($company->onTrial())
+                    <x-badge color="amber">Trial &middot; {{ $company->trialDaysRemaining() }} {{ $company->trialDaysRemaining() === 1 ? 'day' : 'days' }} left</x-badge>
+                @elseif($company->trialExpired())
+                    <x-badge color="red">Trial ended {{ $company->trial_ends_at->format('j M Y') }}</x-badge>
+                @endif
+
+                @if($company->effectivePlan() !== $company->plan)
+                    <span class="text-destructive">Currently entitled to {{ $company->effectivePlan()->getLabel() }} only — the trial ended with no subscription behind it.</span>
+                @endif
             </div>
-            <x-button type="submit">Save plan</x-button>
+        @endif
+
+        <form wire:submit="saveBilling" class="space-y-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+                <x-input.select name="plan" label="Plan" hint="What the company can do." wire:model="plan" :options="collect($plans)->mapWithKeys(fn($p) => [$p->value => $p->getLabel()])->all()" />
+                <x-input.select name="arrangement" label="Arrangement" hint="What we charge for it." wire:model.live="arrangement" :options="$arrangements" />
+            </div>
+
+            @if($arrangement === 'custom')
+                <div class="grid gap-4 sm:grid-cols-3">
+                    <x-input.text name="customPrice" label="Agreed price" placeholder="49.50" wire:model="customPrice" inputmode="decimal" />
+                    <x-input.select name="customCurrency" label="Currency" wire:model="customCurrency" :options="$currencies" />
+                    <x-input.select name="customInterval" label="Billed" wire:model="customInterval" :options="$intervals" />
+                </div>
+            @endif
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <x-input.text name="trialEndsAt" label="Trial ends" type="date" wire:model="trialEndsAt" hint="Leave blank for no trial." />
+                    <div class="mt-2 flex flex-wrap gap-2">
+                        <x-button type="button" size="sm" variant="outline" wire:click="grantTrial(14)">14 days</x-button>
+                        <x-button type="button" size="sm" variant="outline" wire:click="grantTrial(30)">30 days</x-button>
+                        <x-button type="button" size="sm" variant="outline" wire:click="grantTrial(90)">3 months</x-button>
+                        @if($trialEndsAt !== '')
+                            <x-button type="button" size="sm" variant="ghost" wire:click="endTrial">Clear</x-button>
+                        @endif
+                    </div>
+                </div>
+                <x-input.textarea name="billingNotes" label="Notes" rows="4" wire:model="billingNotes" hint="Why these terms, and who agreed them." />
+            </div>
+
+            <x-button type="submit">Save billing</x-button>
         </form>
     </x-card>
 

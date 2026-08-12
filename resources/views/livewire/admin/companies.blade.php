@@ -1,9 +1,16 @@
 <div class="space-y-6">
-    <div class="relative w-full max-w-xs">
-        <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-            <x-icon.search class="size-4" />
-        </span>
-        <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search companies…" class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40" />
+    @if(session('success'))
+        <x-alert variant="success">{{ session('success') }}</x-alert>
+    @endif
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="relative w-full max-w-xs">
+            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
+                <x-icon.search class="size-4" />
+            </span>
+            <input type="search" wire:model.live.debounce.300ms="search" placeholder="Search companies…" class="block w-full rounded-md border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40" />
+        </div>
+        <x-button :href="route('admin.companies.create')" wire:navigate>New company</x-button>
     </div>
 
     @if($companies->total() === 0)
@@ -15,6 +22,7 @@
                     <tr>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Company</th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Plan</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Billing</th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Users</th>
                         <th class="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Venues</th>
                         <th class="px-3 py-2"></th>
@@ -25,6 +33,16 @@
                         <tr wire:key="company-{{ $company->id }}" class="hover:bg-accent/40">
                             <td class="px-3 py-2.5 font-medium">{{ $company->name }}</td>
                             <td class="px-3 py-2.5"><x-badge color="wine">{{ $company->plan->getLabel() }}</x-badge></td>
+                            <td class="px-3 py-2.5">
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <x-badge :color="$company->billing_arrangement->getColour()">{{ $company->billing_arrangement->getLabel() }}</x-badge>
+                                    @if($company->onTrial())
+                                        <x-badge color="amber">{{ $company->trialDaysRemaining() }}d trial</x-badge>
+                                    @elseif($company->trialExpired())
+                                        <x-badge color="red">Trial ended</x-badge>
+                                    @endif
+                                </div>
+                            </td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $counts[$company->id]['users'] ?? 0 }}</td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $counts[$company->id]['venues'] ?? 0 }}</td>
                             <td class="px-3 py-2.5 text-right">

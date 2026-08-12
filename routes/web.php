@@ -12,6 +12,7 @@ use App\Http\Controllers\SupplierPortal\DownloadDocumentController as SupplierDo
 use App\Http\Controllers\Suppliers\DownloadDocumentController as SupplierDocumentDownloadController;
 use App\Livewire\Admin\Auth\Login as AdminLogin;
 use App\Livewire\Admin\Companies as AdminCompanies;
+use App\Livewire\Admin\CompanyCreate as AdminCompanyCreate;
 use App\Livewire\Admin\CompanyShow as AdminCompanyShow;
 use App\Livewire\Admin\Costs as AdminCosts;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
@@ -116,6 +117,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::middleware('auth:admin')->group(function () {
         Route::get('/', AdminDashboard::class)->name('dashboard');
         Route::get('companies', AdminCompanies::class)->name('companies');
+        // Before the wildcard, or 'create' resolves as a company uuid.
+        Route::get('companies/create', AdminCompanyCreate::class)->name('companies.create');
         Route::get('companies/{uuid}', AdminCompanyShow::class)->name('companies.show');
         Route::get('users', AdminUsers::class)->name('users');
         Route::get('suppliers', AdminSuppliers::class)->name('suppliers');

@@ -28,7 +28,7 @@ it('changes a company plan', function () {
 
     Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
         ->set('plan', Plan::Group->value)
-        ->call('setPlan')
+        ->call('saveBilling')
         ->assertHasNoErrors();
 
     expect($company->fresh()->plan)->toBe(Plan::Group);
@@ -89,6 +89,6 @@ it('forbids a non-admin from company management actions', function () {
 
     Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
         ->set('plan', Plan::Group->value)
-        ->call('setPlan')
+        ->call('saveBilling')
         ->assertForbidden();
 });
