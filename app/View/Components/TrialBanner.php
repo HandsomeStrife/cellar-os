@@ -50,8 +50,11 @@ class TrialBanner extends Component
         }
 
         // Someone who has already subscribed is not on a trial, whatever a
-        // leftover date says.
-        if ($company->has_active_subscription === true) {
+        // leftover date says — UNLESS they're trialling a tier above the one
+        // they pay for, which is a real trial with a real cliff at the end of
+        // it, and losing venues unannounced is exactly what this exists to
+        // prevent.
+        if ($company->has_active_subscription === true && ! $company->trialsAboveSubscription()) {
             return false;
         }
 

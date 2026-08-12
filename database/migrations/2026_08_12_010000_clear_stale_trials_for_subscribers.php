@@ -16,13 +16,18 @@ return new class extends Migration
      * the first time Stripe marks their card `past_due` — which is exactly the
      * dunning downgrade the listener was changed to prevent.
      *
-     * Only touches companies with a genuinely live subscription, so a trial
-     * still running is left exactly as it is.
+     * Strictly EXPIRED dates on companies we bill through Stripe. A trial
+     * still running is left alone — including the deliberate case of an
+     * existing subscriber an admin has put on a trial of a higher tier, which
+     * the listener goes out of its way to protect and which clearing here
+     * would turn into a permanent, untracked free upgrade.
      */
     public function up(): void
     {
         DB::table('companies')
             ->whereNotNull('trial_ends_at')
+            ->where('trial_ends_at', '<', now())
+            ->where('billing_arrangement', 'standard')
             ->whereIn('id', DB::table('subscriptions')
                 ->select('company_id')
                 ->whereIn('stripe_status', ['active', 'trialing'])

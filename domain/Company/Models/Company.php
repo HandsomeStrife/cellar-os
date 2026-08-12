@@ -8,11 +8,13 @@ use Database\Factories\CompanyFactory;
 use Domain\Billing\Casts\BillingArrangementCast;
 use Domain\Billing\Casts\BillingIntervalCast;
 use Domain\Billing\Casts\PlanCast;
+use Domain\Billing\Enums\Plan;
 use Domain\Company\Data\CompanyData;
 use Domain\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Laravel\Cashier\Billable;
+use Laravel\Cashier\Subscription;
 
 /**
  * The Company is the tenant/account. It owns users (seats), venues and supplier
@@ -47,6 +49,25 @@ class Company extends Model
             'custom_price_amount' => 'integer',
             'trial_ends_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The plan their live subscription actually pays for, as opposed to the
+     * tier written on the record.
+     *
+     * Those differ whenever an admin puts an existing subscriber on a trial of
+     * a higher tier: the record says Group, Stripe is billing Pro. When the
+     * trial ends, this is what they fall back to — otherwise nothing ever
+     * corrects it and they keep the upgrade for free until Stripe happens to
+     * send another webhook.
+     */
+    public function subscribedPlan(): ?Plan
+    {
+        $price = $this->subscriptions
+            ->first(fn (Subscription $subscription) => $subscription->valid())
+            ?->stripe_price;
+
+        return is_string($price) ? Plan::forStripePrice($price) : null;
     }
 
     public function getData(): CompanyData

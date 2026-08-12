@@ -58,6 +58,10 @@ class UpdateCompanyPlanFromStripe
 
         if ($type === 'customer.subscription.deleted') {
             (new SetCompanyPlanAction)->execute($company->id, Plan::default());
+            // A trial granted on top of that subscription goes with it —
+            // otherwise the company reads as "20 days left" on a tier it has
+            // just been demoted from.
+            (new ClearCompanyTrialAction)->execute($company->id);
 
             return;
         }

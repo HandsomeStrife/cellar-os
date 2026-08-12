@@ -28,12 +28,19 @@ class PlanEntitlement
      * @param  bool|null  $hasActiveSubscription  Null means "not established".
      *                                            Treated as no reason to downgrade.
      */
+    /**
+     * @param  bool|null  $hasActiveSubscription  Null means "not established".
+     *                                            Treated as no reason to downgrade.
+     * @param  Plan|null  $subscribedPlan  What their live subscription actually
+     *                                     pays for, where we can read it.
+     */
     public static function resolve(
         Plan $plan,
         BillingArrangement $arrangement = BillingArrangement::Standard,
         ?CarbonImmutable $trialEndsAt = null,
         ?bool $hasActiveSubscription = null,
         ?CarbonImmutable $now = null,
+        ?Plan $subscribedPlan = null,
     ): Plan {
         // Comped and custom-price companies don't hang off a Stripe record.
         if (! $arrangement->dependsOnStripe()) {
@@ -45,10 +52,23 @@ class PlanEntitlement
             return $plan;
         }
 
-        // The trial is over. A real subscription carries them; so does not
-        // knowing either way. Otherwise they fall back to the entry tier
+        // The trial is over with nothing behind it: back to the entry tier
         // rather than losing the app entirely.
-        return $hasActiveSubscription === false ? Plan::default() : $plan;
+        if ($hasActiveSubscription === false) {
+            return Plan::default();
+        }
+
+        // They pay for something. If we can see WHAT — the case that matters
+        // is an admin trialling a higher tier on top of an existing
+        // subscription — they keep what they pay for, never less. Without
+        // this the upgrade simply never ends, because nothing else revisits
+        // the plan until Stripe happens to send another webhook.
+        if ($subscribedPlan !== null && $subscribedPlan->rank() < $plan->rank()) {
+            return $subscribedPlan;
+        }
+
+        // Paying, or not established either way: keep what they have.
+        return $plan;
     }
 
     /**

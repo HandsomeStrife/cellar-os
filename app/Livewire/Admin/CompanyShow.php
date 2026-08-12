@@ -59,6 +59,14 @@ class CompanyShow extends Component
     #[Locked]
     public string $storedTrialEndsAt = '';
 
+    /**
+     * The stored date to the SECOND. The form field only carries a day, so
+     * re-parsing an untouched value would round it back up to end-of-day —
+     * quietly reviving a trial that "End it now" cut short an hour ago.
+     */
+    #[Locked]
+    public ?string $storedTrialEndsAtExact = null;
+
     #[Validate('required|string|max:255')]
     public string $newUserName = '';
 
@@ -89,6 +97,7 @@ class CompanyShow extends Component
         $this->billingNotes = (string) $company->billing_notes;
         $this->trialEndsAt = $company->trial_ends_at?->format('Y-m-d') ?? '';
         $this->storedTrialEndsAt = $this->trialEndsAt;
+        $this->storedTrialEndsAtExact = $company->trial_ends_at?->toIso8601String();
     }
 
     /**
@@ -112,8 +121,8 @@ class CompanyShow extends Component
                 // lapsed company carries one, and blocking it would make their
                 // billing form unusable.
                 'trialEndsAt' => $this->trialEndsAt === $this->storedTrialEndsAt
-                    ? ['nullable', 'date']
-                    : ['nullable', 'date', 'after_or_equal:today'],
+                    ? ['nullable', 'date_format:Y-m-d']
+                    : ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
             ],
             [
                 ...$this->billingMessages(),
@@ -199,6 +208,13 @@ class CompanyShow extends Component
     {
         if ($this->trialEndsAt === '') {
             return null;
+        }
+
+        // Untouched? Keep what's stored, to the second. Re-deriving it from
+        // the day would push an already-expired trial back to end-of-day and
+        // bring it back to life for the rest of today.
+        if ($this->trialEndsAt === $this->storedTrialEndsAt && $this->storedTrialEndsAtExact !== null) {
+            return CarbonImmutable::parse($this->storedTrialEndsAtExact);
         }
 
         // End of the chosen day, so a trial "until the 30th" includes the 30th.

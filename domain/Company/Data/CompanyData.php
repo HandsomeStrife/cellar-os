@@ -40,6 +40,8 @@ class CompanyData extends AbstractData
          * rather than assert a customer isn't paying.
          */
         public ?bool $has_active_subscription = null,
+        /** What their live subscription actually pays for, if we can read it. */
+        public ?Plan $subscribed_plan = null,
     ) {}
 
     public static function fromModel(Company $model): self
@@ -60,6 +62,7 @@ class CompanyData extends AbstractData
             // Cashier's own check. This is the ONLY place that can establish
             // it, which is why the property is null-by-default everywhere else.
             has_active_subscription: $model->subscribed(),
+            subscribed_plan: $model->subscribedPlan(),
         );
     }
 
@@ -74,6 +77,7 @@ class CompanyData extends AbstractData
             arrangement: $this->billing_arrangement,
             trialEndsAt: $this->trial_ends_at,
             hasActiveSubscription: $this->has_active_subscription,
+            subscribedPlan: $this->subscribed_plan,
         );
     }
 
@@ -112,6 +116,17 @@ class CompanyData extends AbstractData
     {
         return $this->plan !== Plan::default()
             && $this->billing_arrangement->dependsOnStripe();
+    }
+
+    /**
+     * Are they trialling a tier ABOVE the one their subscription pays for?
+     * The upgrade really does end, so it's worth saying so.
+     */
+    public function trialsAboveSubscription(): bool
+    {
+        return $this->onTrial()
+            && $this->subscribed_plan !== null
+            && $this->subscribed_plan->rank() < $this->plan->rank();
     }
 
     public function onTrial(): bool
