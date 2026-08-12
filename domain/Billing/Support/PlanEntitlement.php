@@ -17,19 +17,26 @@ use Domain\Billing\Enums\Plan;
  * given a trial keeps its plan exactly as before, which is what makes this safe
  * to introduce over live data.
  *
- * A comped company is never downgraded: we are not going to bill it, so there
- * is nothing for it to fail to pay.
+ * Everything here fails SAFE: where we are unsure, the company keeps what it
+ * has. Wrongly downgrading someone who is paying us is a far worse failure than
+ * carrying a lapsed trial for another day, and the second is visible in the
+ * back office while the first shows up as an angry email.
  */
 class PlanEntitlement
 {
+    /**
+     * @param  bool|null  $hasActiveSubscription  Null means "not established".
+     *                                            Treated as no reason to downgrade.
+     */
     public static function resolve(
         Plan $plan,
         BillingArrangement $arrangement = BillingArrangement::Standard,
         ?CarbonImmutable $trialEndsAt = null,
-        bool $hasActiveSubscription = false,
+        ?bool $hasActiveSubscription = null,
         ?CarbonImmutable $now = null,
     ): Plan {
-        if ($arrangement->isFree()) {
+        // Comped and custom-price companies don't hang off a Stripe record.
+        if (! $arrangement->dependsOnStripe()) {
             return $plan;
         }
 
@@ -38,9 +45,45 @@ class PlanEntitlement
             return $plan;
         }
 
-        // The trial is over. A real subscription carries them; otherwise they
-        // fall back to the entry tier rather than losing the app entirely.
-        return $hasActiveSubscription ? $plan : Plan::default();
+        // The trial is over. A real subscription carries them; so does not
+        // knowing either way. Otherwise they fall back to the entry tier
+        // rather than losing the app entirely.
+        return $hasActiveSubscription === false ? Plan::default() : $plan;
+    }
+
+    /**
+     * Has a trial been given, run out, and nothing taken its place?
+     *
+     * This is the commercial signal — "they had a go and never started paying"
+     * — and it is TRUE whether or not the lapse actually cost them anything.
+     * A trial of the entry tier revokes nothing (there is nothing below it),
+     * so {@see self::reducesEntitlement()} is what says whether access changed;
+     * this says whether we should be talking to them.
+     */
+    public static function hasLapsed(
+        BillingArrangement $arrangement,
+        ?CarbonImmutable $trialEndsAt,
+        ?bool $hasActiveSubscription,
+        ?CarbonImmutable $now = null,
+    ): bool {
+        return $arrangement->dependsOnStripe()
+            && $trialEndsAt !== null
+            && self::hasExpired($trialEndsAt, $now)
+            && $hasActiveSubscription === false;
+    }
+
+    /**
+     * Did the lapse actually take something away? False for a trial issued on
+     * the entry tier, where there is nothing to fall back to.
+     */
+    public static function reducesEntitlement(
+        Plan $plan,
+        BillingArrangement $arrangement,
+        ?CarbonImmutable $trialEndsAt,
+        ?bool $hasActiveSubscription,
+        ?CarbonImmutable $now = null,
+    ): bool {
+        return self::resolve($plan, $arrangement, $trialEndsAt, $hasActiveSubscription, $now) !== $plan;
     }
 
     /**

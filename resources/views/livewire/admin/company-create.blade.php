@@ -25,7 +25,7 @@
                     <x-input.select name="arrangement" label="Arrangement" wire:model.live="arrangement" :options="$arrangements" />
                 </div>
 
-                @if($arrangement === 'custom')
+                @if($arrangement === \Domain\Billing\Enums\BillingArrangement::Custom->value)
                     <div class="grid gap-4 sm:grid-cols-3">
                         <x-input.text name="customPrice" label="Agreed price" placeholder="49.50" wire:model="customPrice" inputmode="decimal" />
                         <x-input.select name="customCurrency" label="Currency" wire:model="customCurrency" :options="$currencies" />
@@ -35,7 +35,7 @@
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <x-input.text name="trialDays" label="Trial length (days)" type="number" min="0" max="730" wire:model="trialDays"
-                                  hint="Leave blank for no trial. 30 is a month, 90 a quarter." />
+                                  hint="Leave blank for no trial. When it ends they drop to the entry tier unless they subscribe." />
                     <x-input.textarea name="billingNotes" label="Notes" rows="3" wire:model="billingNotes"
                                       hint="Why these terms, and who agreed them." />
                 </div>

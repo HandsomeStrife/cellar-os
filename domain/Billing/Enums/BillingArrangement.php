@@ -66,6 +66,21 @@ enum BillingArrangement: string
     }
 
     /**
+     * Is this company's access contingent on a live Stripe subscription?
+     *
+     * Only companies on list price are. A comped company has nothing to pay,
+     * and a NEGOTIATED price is by definition not in the Stripe catalogue —
+     * the checkout only ever offers a plan's list price — so a custom-price
+     * customer could never satisfy a subscription check however diligently
+     * they paid us. Downgrading either of them for want of a Stripe record
+     * would punish them for how we chose to invoice.
+     */
+    public function dependsOnStripe(): bool
+    {
+        return $this === self::Standard;
+    }
+
+    /**
      * @return array<string, string> value => label, for select options
      */
     public static function options(): array

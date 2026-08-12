@@ -14,52 +14,83 @@ use Illuminate\View\Component;
  * run out why the app got smaller.
  *
  * A trial that expires in silence is how you lose a customer who thought
- * something had broken. Only shown where there is something to say: a company
- * that has never had a trial sees nothing at all.
+ * something had broken. It stays quiet in every other case, which is nearly
+ * all of them, and the tenant lookup is deferred until we know there is
+ * something to say — this sits in the authenticated layout, so it runs on
+ * every page of the app.
  */
 class TrialBanner extends Component
 {
-    public ?CompanyData $company = null;
+    private bool $resolved = false;
 
-    public function __construct()
+    private ?CompanyData $company = null;
+
+    public function company(): ?CompanyData
     {
-        $this->company = (new CompanyRepository)->getLoggedInCompany();
+        if (! $this->resolved) {
+            $this->company = (new CompanyRepository)->getLoggedInCompany();
+            $this->resolved = true;
+        }
+
+        return $this->company;
     }
 
     public function shouldRender(): bool
     {
-        if ($this->company === null) {
+        $company = $this->company();
+
+        if ($company === null) {
             return false;
         }
 
-        // A comped company's trial dates are irrelevant — they're not paying
-        // either way, so there is nothing to warn them about.
-        if ($this->company->billing_arrangement->isFree()) {
+        // Nothing to warn a comped or agreed-price company about: their access
+        // doesn't hang off a subscription, so their trial dates are inert.
+        if (! $company->billing_arrangement->dependsOnStripe()) {
             return false;
         }
 
-        return $this->company->onTrial() || $this->downgraded();
+        // Someone who has already subscribed is not on a trial, whatever a
+        // leftover date says.
+        if ($company->has_active_subscription === true) {
+            return false;
+        }
+
+        return $this->countingDown() || $this->downgraded();
     }
 
     /**
-     * Has an expired trial actually cost them something? If the trial was on
-     * the entry tier there is nothing to have lost, and saying so would only
-     * confuse.
+     * A live trial worth mentioning. A trial issued ON the entry tier confers
+     * nothing to lose, so counting it down would promise a cliff that never
+     * arrives and then vanish without explanation.
+     */
+    public function countingDown(): bool
+    {
+        $company = $this->company();
+
+        return $company !== null
+            && $company->onTrial()
+            && $company->trialConfersAnything();
+    }
+
+    /**
+     * Has an expired trial actually cost them something?
      */
     public function downgraded(): bool
     {
-        return $this->company !== null
-            && $this->company->trialExpired()
-            && $this->company->effectivePlan() !== $this->company->plan;
+        $company = $this->company();
+
+        return $company !== null
+            && $company->trialExpired()
+            && $company->entitlementReduced();
     }
 
     public function daysLeft(): int
     {
-        return $this->company?->trialDaysRemaining() ?? 0;
+        return $this->company()?->trialDaysRemaining() ?? 0;
     }
 
     public function render(): View
     {
-        return view('components.trial-banner');
+        return view('components.trial-banner', ['company' => $this->company()]);
     }
 }

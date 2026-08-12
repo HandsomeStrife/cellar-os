@@ -33,7 +33,13 @@ class CompanyData extends AbstractData
         public ?BillingInterval $custom_price_interval = null,
         public ?string $billing_notes = null,
         public ?CarbonImmutable $trial_ends_at = null,
-        public bool $has_active_subscription = false,
+        /**
+         * Null means "not established" — NOT "no subscription". Only
+         * {@see self::fromModel()} can answer this, and a false here is a
+         * downgrade switch, so anything built by hand must leave it unknown
+         * rather than assert a customer isn't paying.
+         */
+        public ?bool $has_active_subscription = null,
     ) {}
 
     public static function fromModel(Company $model): self
@@ -51,8 +57,8 @@ class CompanyData extends AbstractData
             custom_price_interval: $model->custom_price_interval,
             billing_notes: $model->billing_notes,
             trial_ends_at: $model->trial_ends_at?->toImmutable(),
-            // Cashier's own check, so a company that genuinely pays is never
-            // downgraded by an expired trial flag left lying around.
+            // Cashier's own check. This is the ONLY place that can establish
+            // it, which is why the property is null-by-default everywhere else.
             has_active_subscription: $model->subscribed(),
         );
     }
@@ -69,6 +75,38 @@ class CompanyData extends AbstractData
             trialEndsAt: $this->trial_ends_at,
             hasActiveSubscription: $this->has_active_subscription,
         );
+    }
+
+    /**
+     * They had a trial, it ran out, and they never started paying. True even
+     * when the lapse cost them nothing — this is the commercial signal, and
+     * the back office needs it whether or not access changed.
+     */
+    public function trialLapsed(): bool
+    {
+        return PlanEntitlement::hasLapsed(
+            $this->billing_arrangement,
+            $this->trial_ends_at,
+            $this->has_active_subscription,
+        );
+    }
+
+    /**
+     * Is this company currently getting less than the tier on its record?
+     */
+    public function entitlementReduced(): bool
+    {
+        return $this->effectivePlan() !== $this->plan;
+    }
+
+    /**
+     * Would a lapse here actually revoke anything? A trial issued ON the entry
+     * tier confers nothing to lose, so counting it down at the customer only
+     * promises a cliff that never arrives.
+     */
+    public function trialConfersAnything(): bool
+    {
+        return $this->plan !== Plan::default();
     }
 
     public function onTrial(): bool
@@ -115,9 +153,13 @@ class CompanyData extends AbstractData
     public function billingLabel(): string
     {
         return match ($this->billing_arrangement) {
-            BillingArrangement::Comped => 'Free',
+            BillingArrangement::Comped => 'No charge',
             BillingArrangement::Custom => $this->customPriceLabel() ?? 'Custom price (not set)',
-            BillingArrangement::Standard => $this->plan->monthlyPrice().' a month',
+            // The list price is quoted in sterling. Repeating it at a company
+            // that trades in euros would state a figure we don't charge.
+            BillingArrangement::Standard => $this->base_currency === 'GBP'
+                ? $this->plan->monthlyPrice().' a month'
+                : 'List price',
         };
     }
 

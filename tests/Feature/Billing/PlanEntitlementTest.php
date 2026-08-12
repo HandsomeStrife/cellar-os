@@ -25,7 +25,20 @@ it('drops to the entry tier when a trial ends with nothing behind it', function 
     expect(PlanEntitlement::resolve(
         plan: Plan::Group,
         trialEndsAt: CarbonImmutable::now()->subSecond(),
+        hasActiveSubscription: false,
     ))->toBe(Plan::default());
+});
+
+it('does NOT downgrade when we cannot establish whether they are paying', function () {
+    // Null means "not established", not "no subscription". Only fromModel()
+    // can answer it, so a hand-built DTO must never be a downgrade switch:
+    // wrongly demoting a paying customer is far worse than carrying a lapsed
+    // trial one more day, and only one of the two arrives as an angry email.
+    expect(PlanEntitlement::resolve(
+        plan: Plan::Group,
+        trialEndsAt: CarbonImmutable::now()->subMonth(),
+        hasActiveSubscription: null,
+    ))->toBe(Plan::Group);
 });
 
 it('keeps the plan when a paid subscription took over from the trial', function () {
@@ -46,13 +59,36 @@ it('never downgrades a comped company, whatever its trial says', function () {
     ))->toBe(Plan::Group);
 });
 
-it('treats a custom price as an ordinary paying arrangement', function () {
-    // A discount is not a comp: an expired trial still bites.
+it('never downgrades a company on an agreed price either', function () {
+    // A negotiated price is not in the Stripe catalogue — the checkout only
+    // ever offers a plan's list price — so a custom-price customer could NEVER
+    // satisfy a subscription check however diligently they paid us.
+    // Downgrading them would punish them for how we chose to invoice.
     expect(PlanEntitlement::resolve(
         plan: Plan::Group,
         arrangement: BillingArrangement::Custom,
         trialEndsAt: CarbonImmutable::now()->subDay(),
-    ))->toBe(Plan::default());
+        hasActiveSubscription: false,
+    ))->toBe(Plan::Group);
+});
+
+it('separates "they never paid" from "they lost something"', function () {
+    $lapsed = CarbonImmutable::now()->subDay();
+
+    // On Group, a lapse costs them the tier.
+    expect(PlanEntitlement::hasLapsed(BillingArrangement::Standard, $lapsed, false))->toBeTrue()
+        ->and(PlanEntitlement::reducesEntitlement(Plan::Group, BillingArrangement::Standard, $lapsed, false))->toBeTrue();
+
+    // On the ENTRY tier it costs them nothing — there is nothing below it —
+    // but they are still someone who trialled and never paid, which is the
+    // fact the back office needs.
+    expect(PlanEntitlement::hasLapsed(BillingArrangement::Standard, $lapsed, false))->toBeTrue()
+        ->and(PlanEntitlement::reducesEntitlement(Plan::default(), BillingArrangement::Standard, $lapsed, false))->toBeFalse();
+
+    // Comped and paying companies haven't lapsed at all.
+    expect(PlanEntitlement::hasLapsed(BillingArrangement::Comped, $lapsed, false))->toBeFalse()
+        ->and(PlanEntitlement::hasLapsed(BillingArrangement::Standard, $lapsed, true))->toBeFalse()
+        ->and(PlanEntitlement::hasLapsed(BillingArrangement::Standard, null, false))->toBeFalse();
 });
 
 it('expires a trial at the moment it ends, not a day later', function () {

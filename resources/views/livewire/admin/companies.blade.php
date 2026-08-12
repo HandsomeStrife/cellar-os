@@ -38,10 +38,17 @@
                                     <x-badge :color="$company->billing_arrangement->getColour()">{{ $company->billing_arrangement->getLabel() }}</x-badge>
                                     @if($company->onTrial())
                                         <x-badge color="amber">{{ $company->trialDaysRemaining() }}d trial</x-badge>
-                                    @elseif($company->trialExpired())
-                                        <x-badge color="red">Trial ended</x-badge>
+                                    @elseif($company->trialLapsed())
+                                        {{-- "Lapsed" is the commercial fact. Whether it cost them
+                                             anything is a separate badge, because on the entry tier
+                                             it doesn't. --}}
+                                        <x-badge color="red">Lapsed</x-badge>
+                                        @if($company->entitlementReduced())
+                                            <x-badge color="gray">on {{ $company->effectivePlan()->getLabel() }}</x-badge>
+                                        @endif
                                     @endif
                                 </div>
+                                <div class="mt-0.5 font-mono text-xs text-muted-foreground">{{ $company->billingLabel() }}</div>
                             </td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $counts[$company->id]['users'] ?? 0 }}</td>
                             <td class="px-3 py-2.5 text-muted-foreground">{{ $counts[$company->id]['venues'] ?? 0 }}</td>

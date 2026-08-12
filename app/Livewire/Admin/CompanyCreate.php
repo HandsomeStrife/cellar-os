@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\EditsCompanyBilling;
 use Carbon\CarbonImmutable;
 use Domain\Billing\Enums\BillingArrangement;
-use Domain\Billing\Enums\BillingInterval;
 use Domain\Billing\Enums\Plan;
 use Domain\Company\Actions\ProvisionCompanyAction;
-use Domain\Company\Data\CompanyBillingData;
 use Domain\Company\Data\ProvisionCompanyData;
 use Domain\Shared\Support\Currency;
-use Domain\Shared\Support\MoneyInput;
 use Domain\User\Actions\SendUserInviteAction;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -32,6 +30,8 @@ use Livewire\Component;
 #[Title('New company')]
 class CompanyCreate extends Component
 {
+    use EditsCompanyBilling;
+
     public string $name = '';
 
     public string $baseCurrency = 'GBP';
@@ -39,16 +39,6 @@ class CompanyCreate extends Component
     public string $venueName = '';
 
     public string $plan = Plan::Pro->value;
-
-    public string $arrangement = BillingArrangement::Standard->value;
-
-    public string $customPrice = '';
-
-    public string $customCurrency = 'GBP';
-
-    public string $customInterval = BillingInterval::Month->value;
-
-    public string $billingNotes = '';
 
     /** Days from today. Blank or 0 means no trial. */
     public string $trialDays = '';
@@ -63,8 +53,7 @@ class CompanyCreate extends Component
     {
         abort_unless(Auth::guard('admin')->check(), 403);
 
-        $arrangement = BillingArrangement::tryFrom($this->arrangement);
-        abort_if($arrangement === null, 422);
+        $arrangement = $this->currentArrangement();
 
         $this->validate($this->rules($arrangement), $this->messages());
 
@@ -73,14 +62,10 @@ class CompanyCreate extends Component
         $provisioned = (new ProvisionCompanyAction)->execute(new ProvisionCompanyData(
             name: $this->name,
             base_currency: strtoupper($this->baseCurrency),
-            billing: new CompanyBillingData(
-                plan: Plan::from($this->plan),
-                billing_arrangement: $arrangement,
-                custom_price_amount: $arrangement->needsPrice() ? MoneyInput::toMinorUnits($this->customPrice) : null,
-                custom_price_currency: $arrangement->needsPrice() ? strtoupper($this->customCurrency) : null,
-                custom_price_interval: $arrangement->needsPrice() ? BillingInterval::tryFrom($this->customInterval) : null,
-                billing_notes: $this->billingNotes === '' ? null : $this->billingNotes,
-                trial_ends_at: $trialDays > 0 ? CarbonImmutable::now()->addDays($trialDays)->endOfDay() : null,
+            billing: $this->billingTerms(
+                Plan::from($this->plan),
+                $arrangement,
+                $trialDays > 0 ? CarbonImmutable::now()->addDays($trialDays)->endOfDay() : null,
             ),
             venue_name: $this->venueName === '' ? null : $this->venueName,
             owner_name: $this->ownerName === '' ? null : $this->ownerName,
@@ -106,21 +91,10 @@ class CompanyCreate extends Component
     private function rules(BillingArrangement $arrangement): array
     {
         return [
+            ...$this->billingRules($arrangement),
             'name' => ['required', 'string', 'max:255'],
             'baseCurrency' => ['required', Rule::in(array_keys(Currency::SYMBOLS))],
             'venueName' => ['nullable', 'string', 'max:255'],
-            'plan' => ['required', Rule::in(array_column(Plan::cases(), 'value'))],
-            'arrangement' => ['required', Rule::in(array_column(BillingArrangement::cases(), 'value'))],
-            'customPrice' => $arrangement->needsPrice()
-                ? ['required', 'regex:/^\d{1,7}([.,]\d{1,2})?$/']
-                : ['nullable'],
-            'customCurrency' => $arrangement->needsPrice()
-                ? ['required', Rule::in(array_keys(Currency::SYMBOLS))]
-                : ['nullable'],
-            'customInterval' => $arrangement->needsPrice()
-                ? ['required', Rule::in(array_column(BillingInterval::cases(), 'value'))]
-                : ['nullable'],
-            'billingNotes' => ['nullable', 'string', 'max:2000'],
             'trialDays' => ['nullable', 'integer', 'min:0', 'max:730'],
             // An owner is optional, but a name without an address (or the
             // reverse) is a half-filled form, not a decision.
@@ -135,8 +109,7 @@ class CompanyCreate extends Component
     private function messages(): array
     {
         return [
-            'customPrice.required' => 'Give the agreed amount, or choose a different arrangement.',
-            'customPrice.regex' => 'Write the amount in pounds and pence, like 49.50.',
+            ...$this->billingMessages(),
             'ownerEmail.unique' => 'Someone already has an account with that address.',
             'ownerName.required_with' => 'Give the owner a name as well as an address.',
             'ownerEmail.required_with' => 'Give the owner an address as well as a name.',
@@ -145,12 +118,6 @@ class CompanyCreate extends Component
 
     public function render()
     {
-        return view('livewire.admin.company-create', [
-            'plans' => collect(Plan::cases())->mapWithKeys(fn (Plan $p) => [$p->value => $p->getLabel()])->all(),
-            'arrangements' => BillingArrangement::options(),
-            'intervals' => BillingInterval::options(),
-            'currencies' => collect(array_keys(Currency::SYMBOLS))->mapWithKeys(fn (string $c) => [$c => $c])->all(),
-            'roles' => [],
-        ]);
+        return view('livewire.admin.company-create', $this->billingOptions());
     }
 }

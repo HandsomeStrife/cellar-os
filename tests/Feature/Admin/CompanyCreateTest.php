@@ -3,16 +3,21 @@
 declare(strict_types=1);
 
 use App\Livewire\Admin\CompanyCreate;
+use App\Livewire\Admin\CompanyShow;
 use Domain\Admin\Models\Admin;
 use Domain\Billing\Enums\BillingArrangement;
 use Domain\Billing\Enums\BillingInterval;
 use Domain\Billing\Enums\Plan;
+use Domain\Company\Actions\ProvisionCompanyAction;
+use Domain\Company\Data\CompanyBillingData;
+use Domain\Company\Data\ProvisionCompanyData;
 use Domain\Company\Models\Company;
 use Domain\Company\Repositories\CompanyRepository;
 use Domain\User\Enums\Role;
 use Domain\User\Models\User;
 use Domain\User\Notifications\UserInviteNotification;
 use Domain\Venue\Models\Venue;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
 
@@ -167,6 +172,65 @@ it('skips the invite when asked to', function () {
     expect(User::where('email', 'pat@quiet.test')->exists())->toBeTrue();
 
     Notification::assertNothingSent();
+});
+
+it('rolls the whole tenant back if any part of provisioning fails', function () {
+    // The unique-email rule normally catches a clash before the action runs,
+    // so the rollback path is never entered by the form. Go at the action
+    // directly, which is what a CLI or API caller would do.
+    signInAdmin();
+    User::factory()->create(['email' => 'clash@wine.test']);
+
+    $attempt = fn () => (new ProvisionCompanyAction)->execute(
+        new ProvisionCompanyData(
+            name: 'Rollback Ltd',
+            base_currency: 'GBP',
+            billing: new CompanyBillingData(plan: Plan::Pro),
+            owner_name: 'Clashing Owner',
+            owner_email: 'clash@wine.test',
+        ),
+    );
+
+    expect($attempt)->toThrow(QueryException::class);
+
+    // Nothing half-made: no company, and no orphan venue pointing at one.
+    expect(Company::where('name', 'Rollback Ltd')->exists())->toBeFalse()
+        ->and(Venue::where('name', 'Rollback Ltd')->exists())->toBeFalse();
+});
+
+it('gives an admin-added member access to the company venues', function () {
+    // A member with no venue sees nothing at all. The create flow assigns
+    // them; the "add people later" form on the company page must too, or the
+    // seat it makes is inert.
+    signInAdmin();
+    $company = Company::factory()->create();
+    $venue = Venue::factory()->create(['company_id' => $company->id]);
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->set('newUserName', 'New Member')
+        ->set('newUserEmail', 'member@later.test')
+        ->set('newUserRole', Role::Member->value)
+        ->call('addUser')
+        ->assertHasNoErrors();
+
+    $member = User::firstWhere('email', 'member@later.test');
+
+    expect(DB::table('user_venue')->where('user_id', $member->id)->where('venue_id', $venue->id)->exists())
+        ->toBeTrue();
+});
+
+it('refuses a role that is not a real role', function () {
+    signInAdmin();
+    $company = Company::factory()->create();
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->set('newUserName', 'Sneaky')
+        ->set('newUserEmail', 'sneaky@wine.test')
+        ->set('newUserRole', 'superuser')
+        ->call('addUser')
+        ->assertHasErrors('newUserRole');
+
+    expect(User::where('email', 'sneaky@wine.test')->exists())->toBeFalse();
 });
 
 it('keeps non-admins out', function () {

@@ -39,6 +39,20 @@ it('keeps "nothing" distinct from "zero"', function () {
         ->and(MoneyInput::toMinorUnits('0'))->toBe(0);
 });
 
+it('refuses amounts that are not real prices', function () {
+    // The safety belongs to the money type, not to whichever form calls it.
+    expect(MoneyInput::toMinorUnits('-5'))->toBeNull()
+        // "1e3" would otherwise have its 'e' stripped and read as 13.
+        ->and(MoneyInput::toMinorUnits('1e3'))->toBeNull()
+        // Past the ceiling it would overflow the unsignedInteger column.
+        ->and(MoneyInput::toMinorUnits('99999999999999'))->toBeNull()
+        ->and(MoneyInput::toMinorUnits('10000000.01'))->toBeNull();
+});
+
+it('accepts the largest price we allow', function () {
+    expect(MoneyInput::toMinorUnits('10000000'))->toBe(MoneyInput::MAX_MINOR_UNITS);
+});
+
 it('round-trips back to an editable string', function () {
     expect(MoneyInput::toDecimalString(4950))->toBe('49.50')
         ->and(MoneyInput::toDecimalString(129900))->toBe('1299.00')

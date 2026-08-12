@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Admin\Companies;
 use App\Livewire\Admin\CompanyShow;
 use Carbon\CarbonImmutable;
 use Domain\Admin\Models\Admin;
@@ -12,6 +13,7 @@ use Domain\Billing\Enums\Plan;
 use Domain\Company\Models\Company;
 use Domain\Company\Repositories\CompanyRepository;
 use Domain\User\Models\User;
+use Laravel\Cashier\Subscription;
 use Livewire\Livewire;
 
 /**
@@ -97,7 +99,7 @@ it('comps a company so it pays nothing', function () {
     $data = (new CompanyRepository)->find($company->id);
 
     expect($data->billing_arrangement->isFree())->toBeTrue()
-        ->and($data->billingLabel())->toBe('Free')
+        ->and($data->billingLabel())->toBe('No charge')
         ->and($data->effectivePlan())->toBe(Plan::Group);
 });
 
@@ -116,13 +118,13 @@ it('grants a trial of a given length from today', function () {
         ->and($data->effectivePlan())->toBe(Plan::Group);
 });
 
-it('ends a trial on demand without taking the plan away', function () {
+it('removes a trial without taking the plan away', function () {
     $company = billingFixture();
 
     Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
         ->set('plan', Plan::Group->value)
         ->call('grantTrial', 30)
-        ->call('endTrial')
+        ->call('removeTrial')
         ->assertHasNoErrors();
 
     $data = (new CompanyRepository)->find($company->id);
@@ -178,6 +180,96 @@ it('leaves a company that never had a trial exactly as it was', function () {
 
     expect($data->trial_ends_at)->toBeNull()
         ->and($data->effectivePlan())->toBe(Plan::Group);
+});
+
+it('will not silently backdate a trial into the past', function () {
+    // A mistyped year would otherwise be a silent entitlement removal: save
+    // "2020-01-01" and a Group company drops to Pro with no confirmation.
+    // Cutting a trial short is what "End it now" is for.
+    $company = billingFixture();
+    $company->update(['plan' => Plan::Group->value]);
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->set('plan', Plan::Group->value)
+        ->set('trialEndsAt', '2020-01-01')
+        ->call('saveBilling')
+        ->assertHasErrors('trialEndsAt');
+
+    expect($company->fresh()->trial_ends_at)->toBeNull();
+});
+
+it('ends a trial now, which is different from removing it', function () {
+    $company = billingFixture();
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->set('plan', Plan::Group->value)
+        ->call('grantTrial', 30)
+        ->call('endTrialNow')
+        ->assertHasNoErrors();
+
+    $data = (new CompanyRepository)->find($company->id);
+
+    expect($data->onTrial())->toBeFalse()
+        ->and($data->trialLapsed())->toBeTrue()
+        ->and($data->effectivePlan())->toBe(Plan::default());
+});
+
+it('shows the arrangement, the amount and the trial state on the companies list', function () {
+    test()->actingAs(Admin::factory()->create(), 'admin');
+
+    Company::factory()->onPlan(Plan::Group)->customPrice(14950)->create(['name' => 'Agreed Terms Ltd']);
+    Company::factory()->onPlan(Plan::Group)->comped()->create(['name' => 'Partner Ltd']);
+    Company::factory()->onPlan(Plan::Group)->trialExpired()->create(['name' => 'Lapsed Ltd']);
+
+    Livewire::test(Companies::class)
+        ->assertSee('Custom price')
+        ->assertSee('£149.50 a month')
+        ->assertSee('Free')
+        ->assertSee('Lapsed');
+});
+
+it('warns when agreed terms are contradicted by a live Stripe subscription', function () {
+    // Marking a company Free while Stripe keeps charging it makes the badge a
+    // lie. Say so on the screen rather than letting the invoice say it.
+    $company = billingFixture();
+    $company->update(['billing_arrangement' => BillingArrangement::Comped->value]);
+
+    Subscription::create([
+        'company_id' => $company->id,
+        'type' => 'default',
+        'stripe_id' => 'sub_'.uniqid(),
+        'stripe_status' => 'active',
+        'stripe_price' => 'price_group',
+        'quantity' => 1,
+    ]);
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->assertSee('Stripe is still billing this company');
+});
+
+it('does not claim access was cut when a lapsed trial took nothing away', function () {
+    // The revenue leak the review caught: a trial on the ENTRY tier expires
+    // and revokes nothing, because there is nothing below it. Stamping a red
+    // "trial ended" made three screens agree on something that never happened.
+    test()->actingAs(Admin::factory()->create(), 'admin');
+    $company = Company::factory()->onPlan(Plan::default())->trialExpired()->create();
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->assertSee('they keep full access')
+        ->assertDontSee('Getting Pro only');
+
+    expect((new CompanyRepository)->find($company->id))
+        ->trialLapsed()->toBeTrue()
+        ->entitlementReduced()->toBeFalse();
+});
+
+it('says plainly when a lapsed trial DID take something away', function () {
+    test()->actingAs(Admin::factory()->create(), 'admin');
+    $company = Company::factory()->onPlan(Plan::Group)->trialExpired()->create();
+
+    Livewire::test(CompanyShow::class, ['uuid' => $company->uuid])
+        ->assertSee('Getting Pro only')
+        ->assertDontSee('they keep full access');
 });
 
 it('lets nobody but an admin change the terms', function () {

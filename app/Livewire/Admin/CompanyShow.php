@@ -4,27 +4,27 @@ declare(strict_types=1);
 
 namespace App\Livewire\Admin;
 
+use App\Livewire\Concerns\EditsCompanyBilling;
 use Carbon\CarbonImmutable;
 use Domain\Billing\Enums\BillingArrangement;
 use Domain\Billing\Enums\BillingInterval;
 use Domain\Billing\Enums\Plan;
 use Domain\Company\Actions\DeleteCompanyAction;
 use Domain\Company\Actions\SetCompanyBillingAction;
-use Domain\Company\Data\CompanyBillingData;
 use Domain\Company\Data\CompanyData;
 use Domain\Company\Repositories\CompanyRepository;
-use Domain\Shared\Support\Currency;
-use Domain\Shared\Support\MoneyInput;
 use Domain\User\Actions\CreateCompanyUserAction;
 use Domain\User\Actions\DeleteUserAction;
 use Domain\User\Actions\SendUserInviteAction;
 use Domain\User\Data\UserData;
 use Domain\User\Enums\Role;
 use Domain\User\Repositories\UserRepository;
+use Domain\Venue\Actions\SyncUserVenuesAction;
 use Domain\Venue\Repositories\VenueRepository;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -33,22 +33,16 @@ use Livewire\Component;
 #[Title('Company')]
 class CompanyShow extends Component
 {
+    use EditsCompanyBilling;
+
+    /** Locked: these choose which company gets written to. */
+    #[Locked]
     public string $uuid = '';
 
+    #[Locked]
     public ?int $companyId = null;
 
     public string $plan = Plan::Pro->value;
-
-    public string $arrangement = BillingArrangement::Standard->value;
-
-    /** Entered in whole currency units ("49.50"), stored in minor units. */
-    public string $customPrice = '';
-
-    public string $customCurrency = 'GBP';
-
-    public string $customInterval = BillingInterval::Month->value;
-
-    public string $billingNotes = '';
 
     /** Blank means no trial. Held as a date so it survives a page refresh. */
     public string $trialEndsAt = '';
@@ -93,23 +87,39 @@ class CompanyShow extends Component
     {
         $this->ensureAdmin();
 
-        $arrangement = BillingArrangement::tryFrom($this->arrangement);
-        abort_if($arrangement === null, 422);
+        $arrangement = $this->currentArrangement();
 
-        $this->validate($this->billingRules($arrangement), $this->billingMessages());
+        $this->validate(
+            [
+                ...$this->billingRules($arrangement),
+                // A date in the past would be a silent entitlement removal:
+                // mistype the year and a Group company drops to Pro with no
+                // confirmation. Cutting one short is what "End it now" is for.
+                'trialEndsAt' => ['nullable', 'date', 'after_or_equal:today'],
+            ],
+            [
+                ...$this->billingMessages(),
+                'trialEndsAt.after_or_equal' => 'A trial can\'t end in the past. Use "End it now" to cut one short.',
+            ],
+        );
 
+        $this->persistBilling($arrangement, $this->trialEndsAtValue());
+    }
+
+    /**
+     * Write the terms. Separate from {@see self::saveBilling()} so the trial
+     * buttons can set a date the form itself would refuse — "end it now" means
+     * a date in the past, which is exactly what the form guards against.
+     */
+    private function persistBilling(BillingArrangement $arrangement, ?CarbonImmutable $trialEndsAt): void
+    {
         $plan = Plan::tryFrom($this->plan);
         abort_if($plan === null, 422);
 
-        (new SetCompanyBillingAction)->execute($this->companyId, new CompanyBillingData(
-            plan: $plan,
-            billing_arrangement: $arrangement,
-            custom_price_amount: $arrangement->needsPrice() ? MoneyInput::toMinorUnits($this->customPrice) : null,
-            custom_price_currency: $arrangement->needsPrice() ? strtoupper($this->customCurrency) : null,
-            custom_price_interval: $arrangement->needsPrice() ? BillingInterval::tryFrom($this->customInterval) : null,
-            billing_notes: $this->billingNotes === '' ? null : $this->billingNotes,
-            trial_ends_at: $this->trialEndsAtValue(),
-        ));
+        (new SetCompanyBillingAction)->execute(
+            $this->companyId,
+            $this->billingTerms($plan, $arrangement, $trialEndsAt),
+        );
 
         $company = (new CompanyRepository)->find($this->companyId);
 
@@ -124,55 +134,47 @@ class CompanyShow extends Component
      * Give (or extend) a trial by a number of days from today. Extending from
      * TODAY rather than from the existing end date is deliberate: "give them
      * another 30 days" said out loud means 30 days from now.
+     *
+     * Validation runs before the date is touched, so a form that fails to save
+     * never leaves a trial date on screen that was never stored.
      */
     public function grantTrial(int $days): void
     {
         $this->ensureAdmin();
         abort_unless($days > 0 && $days <= 730, 422);
 
-        $this->trialEndsAt = CarbonImmutable::now()->addDays($days)->format('Y-m-d');
-        $this->saveBilling();
+        $arrangement = $this->currentArrangement();
+        $this->validate($this->billingRules($arrangement), $this->billingMessages());
+
+        $this->persistBilling($arrangement, CarbonImmutable::now()->addDays($days)->endOfDay());
     }
 
-    public function endTrial(): void
+    /**
+     * Forget the trial ever happened, keeping the plan. For correcting a
+     * mistake — NOT for cutting a trial short, which is {@see self::endTrialNow()}.
+     */
+    public function removeTrial(): void
     {
         $this->ensureAdmin();
 
-        $this->trialEndsAt = '';
-        $this->saveBilling();
+        $arrangement = $this->currentArrangement();
+        $this->validate($this->billingRules($arrangement), $this->billingMessages());
+
+        $this->persistBilling($arrangement, null);
     }
 
     /**
-     * @return array<string, mixed>
+     * Expire the trial now, which is what "end the trial" means out loud: the
+     * company drops to whatever it is entitled to without one.
      */
-    private function billingRules(BillingArrangement $arrangement): array
+    public function endTrialNow(): void
     {
-        return [
-            'plan' => ['required', Rule::in(array_column(Plan::cases(), 'value'))],
-            'arrangement' => ['required', Rule::in(array_column(BillingArrangement::cases(), 'value'))],
-            'customPrice' => $arrangement->needsPrice()
-                ? ['required', 'regex:/^\d{1,7}([.,]\d{1,2})?$/']
-                : ['nullable'],
-            'customCurrency' => $arrangement->needsPrice()
-                ? ['required', Rule::in(array_keys(Currency::SYMBOLS))]
-                : ['nullable'],
-            'customInterval' => $arrangement->needsPrice()
-                ? ['required', Rule::in(array_column(BillingInterval::cases(), 'value'))]
-                : ['nullable'],
-            'billingNotes' => ['nullable', 'string', 'max:2000'],
-            'trialEndsAt' => ['nullable', 'date'],
-        ];
-    }
+        $this->ensureAdmin();
 
-    /**
-     * @return array<string, string>
-     */
-    private function billingMessages(): array
-    {
-        return [
-            'customPrice.required' => 'Give the agreed amount, or choose a different arrangement.',
-            'customPrice.regex' => 'Write the amount in pounds and pence, like 49.50.',
-        ];
+        $arrangement = $this->currentArrangement();
+        $this->validate($this->billingRules($arrangement), $this->billingMessages());
+
+        $this->persistBilling($arrangement, CarbonImmutable::now()->subSecond());
     }
 
     private function trialEndsAtValue(): ?CarbonImmutable
@@ -191,13 +193,22 @@ class CompanyShow extends Component
         $this->validate([
             'newUserName' => 'required|string|max:255',
             'newUserEmail' => 'required|email|max:255|unique:users,email',
-            'newUserRole' => 'required|string',
+            'newUserRole' => ['required', Rule::in(array_column(Role::cases(), 'value'))],
         ]);
 
         $role = Role::from($this->newUserRole);
         $company = (new CompanyRepository)->find($this->companyId);
 
         $user = (new CreateCompanyUserAction)->execute($this->companyId, $this->newUserName, $this->newUserEmail, $role);
+
+        // A member with no venue can see nothing at all, so give every new
+        // seat access to the company's venues. Owners and managers see them
+        // all by role anyway; this is what makes a MEMBER usable.
+        (new SyncUserVenuesAction)->execute(
+            $user->id,
+            (new VenueRepository)->getForCompany($this->companyId)->pluck('id')->all(),
+        );
+
         (new SendUserInviteAction)->execute($user->id, $company?->name ?? 'CellarOS');
 
         $this->reset(['newUserName', 'newUserEmail']);
@@ -269,11 +280,8 @@ class CompanyShow extends Component
             'company' => (new CompanyRepository)->find($this->companyId),
             'users' => (new UserRepository)->forCompany($this->companyId),
             'venues' => (new VenueRepository)->getForCompany($this->companyId),
-            'plans' => Plan::cases(),
             'roles' => Role::options(),
-            'arrangements' => BillingArrangement::options(),
-            'intervals' => BillingInterval::options(),
-            'currencies' => collect(array_keys(Currency::SYMBOLS))->mapWithKeys(fn (string $c) => [$c => $c])->all(),
+            ...$this->billingOptions(),
         ]);
     }
 }

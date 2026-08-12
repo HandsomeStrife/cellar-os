@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Domain\Company\Models;
 
 use Database\Factories\CompanyFactory;
+use Domain\Billing\Casts\BillingArrangementCast;
+use Domain\Billing\Casts\BillingIntervalCast;
 use Domain\Billing\Casts\PlanCast;
-use Domain\Billing\Enums\BillingArrangement;
-use Domain\Billing\Enums\BillingInterval;
 use Domain\Company\Data\CompanyData;
 use Domain\Shared\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,8 +40,10 @@ class Company extends Model
     {
         return [
             'plan' => PlanCast::class,
-            'billing_arrangement' => BillingArrangement::class,
-            'custom_price_interval' => BillingInterval::class,
+            // Forgiving casts, like `plan`: an unreadable value must never
+            // 500 the page you'd go to in order to fix it.
+            'billing_arrangement' => BillingArrangementCast::class,
+            'custom_price_interval' => BillingIntervalCast::class,
             'custom_price_amount' => 'integer',
             'trial_ends_at' => 'datetime',
         ];

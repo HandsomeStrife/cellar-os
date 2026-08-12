@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Listeners;
 
 use Domain\Billing\Enums\Plan;
+use Domain\Company\Actions\ClearCompanyTrialAction;
 use Domain\Company\Actions\SetCompanyPlanAction;
 use Domain\Company\Repositories\CompanyRepository;
 use Laravel\Cashier\Events\WebhookReceived;
@@ -44,6 +45,17 @@ class UpdateCompanyPlanFromStripe
             return;
         }
 
+        // A company on agreed terms doesn't take its tier from Stripe.
+        //
+        // Comping a paying customer MEANS cancelling their subscription, which
+        // fires `subscription.deleted` — so without this, the act of comping
+        // someone quietly demotes them, while the back office goes on showing
+        // a cheerful "Free" badge. Same for a negotiated price, which is
+        // invoiced outside the app and has no Stripe plan to read.
+        if (! $company->billing_arrangement->dependsOnStripe()) {
+            return;
+        }
+
         if ($type === 'customer.subscription.deleted') {
             (new SetCompanyPlanAction)->execute($company->id, Plan::default());
 
@@ -63,6 +75,15 @@ class UpdateCompanyPlanFromStripe
 
         if ($plan !== null) {
             (new SetCompanyPlanAction)->execute($company->id, $plan);
+        }
+
+        // Converting ends the trial. Nothing else clears the date, and leaving
+        // it behind arms a trap: months later a declined card flips Cashier's
+        // `subscribed()` to false, the long-past trial date is suddenly load
+        // bearing again, and a paying customer is demoted mid-dunning — the
+        // very thing the status check above refuses to do.
+        if ($status === 'active') {
+            (new ClearCompanyTrialAction)->execute($company->id);
         }
     }
 }

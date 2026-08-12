@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use Carbon\CarbonImmutable;
 use Database\Seeders\Concerns\BuildsDemoData;
+use Domain\Billing\Enums\BillingArrangement;
+use Domain\Billing\Enums\BillingInterval;
 use Domain\Billing\Enums\Plan;
 use Domain\Catalogue\Actions\UpsertProductAction;
 use Domain\Catalogue\Data\ProductData;
@@ -13,6 +16,8 @@ use Domain\Catalogue\Enums\SellingUnit;
 use Domain\Catalogue\Enums\WineSubType;
 use Domain\Catalogue\Enums\WineType;
 use Domain\Catalogue\Models\Product;
+use Domain\Company\Actions\SetCompanyBillingAction;
+use Domain\Company\Data\CompanyBillingData;
 use Domain\Company\Models\Company;
 use Domain\Order\Enums\OrderStatus;
 use Domain\Supplier\Actions\RecordUnmappedTypeLabelsAction;
@@ -78,7 +83,55 @@ class DemoSeeder extends Seeder
         $this->seedPro($stock);
         $this->seedGroup($stock);
         $this->seedTradeReference();
+        $this->seedBillingArrangements();
         $this->seedSupplierPortal();
+    }
+
+    /**
+     * Put the demo companies on commercial terms worth showing.
+     *
+     * Without this, every demo tenant is on list price with no trial, so the
+     * whole billing side — comps, agreed prices, trial countdowns — is
+     * invisible in a demo and silently undemonstrable if it breaks.
+     *
+     * The Pro account keeps a live trial (that's the buyer-facing banner), the
+     * Group account is on an agreed price (the discount case), and the
+     * reference account is comped, which is what it actually is.
+     */
+    private function seedBillingArrangements(): void
+    {
+        $terms = [
+            // A negotiated discount on the entry tier.
+            'Cellar Door Group' => new CompanyBillingData(
+                plan: Plan::Pro,
+                billing_arrangement: BillingArrangement::Custom,
+                custom_price_amount: 5900,
+                custom_price_currency: 'GBP',
+                custom_price_interval: BillingInterval::Month,
+                billing_notes: 'Agreed at the tasting in March, first year only.',
+            ),
+            // The trial goes on the GROUP account deliberately: a trial of the
+            // entry tier confers nothing, so the buyer-facing banner correctly
+            // stays hidden — which would leave it undemonstrable.
+            'Anand Restaurant Group' => new CompanyBillingData(
+                plan: Plan::Group,
+                trial_ends_at: CarbonImmutable::now()->addDays(21)->endOfDay(),
+                billing_notes: 'Trialling the second venue before committing.',
+            ),
+            'CellarOS Trade Reference' => new CompanyBillingData(
+                plan: Plan::Group,
+                billing_arrangement: BillingArrangement::Comped,
+                billing_notes: 'Our own account. Never bill it.',
+            ),
+        ];
+
+        foreach ($terms as $name => $billing) {
+            $company = Company::firstWhere('name', $name);
+
+            if ($company !== null) {
+                (new SetCompanyBillingAction)->execute($company->id, $billing);
+            }
+        }
     }
 
     /**

@@ -10,30 +10,40 @@
     <x-card title="Plan & billing" subtitle="What they can do, and what we charge for it. Saved together.">
 
         @if($company)
-            <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
-                <x-badge color="wine">{{ $company->plan->getLabel() }}</x-badge>
-                <x-badge :color="$company->billing_arrangement->getColour()">{{ $company->billing_arrangement->getLabel() }}</x-badge>
-                <span class="font-mono text-muted-foreground">{{ $company->billingLabel() }}</span>
+            <div class="mb-5 space-y-2 text-sm">
+                <div class="flex flex-wrap items-center gap-2">
+                    <x-badge color="wine">{{ $company->plan->getLabel() }}</x-badge>
+                    <x-badge :color="$company->billing_arrangement->getColour()">{{ $company->billing_arrangement->getLabel() }}</x-badge>
+                    <span class="font-mono text-muted-foreground">{{ $company->billingLabel() }}</span>
 
-                @if($company->onTrial())
-                    <x-badge color="amber">Trial &middot; {{ $company->trialDaysRemaining() }} {{ $company->trialDaysRemaining() === 1 ? 'day' : 'days' }} left</x-badge>
-                @elseif($company->trialExpired())
-                    <x-badge color="red">Trial ended {{ $company->trial_ends_at->format('j M Y') }}</x-badge>
+                    @if($company->onTrial())
+                        <x-badge color="amber">Trial &middot; {{ $company->trialDaysRemaining() }} {{ $company->trialDaysRemaining() === 1 ? 'day' : 'days' }} left</x-badge>
+                    @elseif($company->trialLapsed())
+                        <x-badge color="red">Trial ended {{ $company->trial_ends_at->format('j M Y') }}, not subscribed</x-badge>
+                    @endif
+                </div>
+
+                @if($company->entitlementReduced())
+                    <p class="text-destructive">Getting {{ $company->effectivePlan()->getLabel() }} only. The trial ended with no subscription behind it.</p>
+                @elseif($company->trialLapsed())
+                    {{-- The honest version of "trial ended": on the entry tier there is
+                         nothing below to fall back to, so nothing was actually revoked. --}}
+                    <p class="text-muted-foreground">Their trial has ended and they never subscribed, but {{ $company->plan->getLabel() }} is the entry tier so they keep full access. Worth a conversation.</p>
                 @endif
 
-                @if($company->effectivePlan() !== $company->plan)
-                    <span class="text-destructive">Currently entitled to {{ $company->effectivePlan()->getLabel() }} only — the trial ended with no subscription behind it.</span>
+                @if(! $company->billing_arrangement->dependsOnStripe() && $company->has_active_subscription)
+                    <p class="text-destructive">Stripe is still billing this company. Cancel the subscription in Stripe, or these terms are only true on this screen.</p>
                 @endif
             </div>
         @endif
 
         <form wire:submit="saveBilling" class="space-y-4">
             <div class="grid gap-4 sm:grid-cols-2">
-                <x-input.select name="plan" label="Plan" hint="What the company can do." wire:model="plan" :options="collect($plans)->mapWithKeys(fn($p) => [$p->value => $p->getLabel()])->all()" />
+                <x-input.select name="plan" label="Plan" hint="What the company can do." wire:model="plan" :options="$plans" />
                 <x-input.select name="arrangement" label="Arrangement" hint="What we charge for it." wire:model.live="arrangement" :options="$arrangements" />
             </div>
 
-            @if($arrangement === 'custom')
+            @if($arrangement === \Domain\Billing\Enums\BillingArrangement::Custom->value)
                 <div class="grid gap-4 sm:grid-cols-3">
                     <x-input.text name="customPrice" label="Agreed price" placeholder="49.50" wire:model="customPrice" inputmode="decimal" />
                     <x-input.select name="customCurrency" label="Currency" wire:model="customCurrency" :options="$currencies" />
@@ -44,12 +54,19 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
                     <x-input.text name="trialEndsAt" label="Trial ends" type="date" wire:model="trialEndsAt" hint="Leave blank for no trial." />
+                    <p class="mt-1.5 text-xs text-muted-foreground">
+                        When it ends, they drop to {{ \Domain\Billing\Enums\Plan::default()->getLabel() }} unless they subscribe
+                        @if($plan === \Domain\Billing\Enums\Plan::default()->value)
+                            &mdash; which is what they're already on, so this trial won't change what they can do.
+                        @endif
+                    </p>
                     <div class="mt-2 flex flex-wrap gap-2">
                         <x-button type="button" size="sm" variant="outline" wire:click="grantTrial(14)">14 days</x-button>
                         <x-button type="button" size="sm" variant="outline" wire:click="grantTrial(30)">30 days</x-button>
                         <x-button type="button" size="sm" variant="outline" wire:click="grantTrial(90)">3 months</x-button>
                         @if($trialEndsAt !== '')
-                            <x-button type="button" size="sm" variant="ghost" wire:click="endTrial">Clear</x-button>
+                            <x-button type="button" size="sm" variant="ghost" wire:click="endTrialNow">End it now</x-button>
+                            <x-button type="button" size="sm" variant="ghost" wire:click="removeTrial">Remove trial</x-button>
                         @endif
                     </div>
                 </div>

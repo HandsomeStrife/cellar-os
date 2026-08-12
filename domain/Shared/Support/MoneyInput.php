@@ -15,12 +15,27 @@ namespace Domain\Shared\Support;
 class MoneyInput
 {
     /**
+     * Ceiling in minor units (£10,000,000). Well inside the unsignedInteger
+     * column it lands in, and far beyond any real wine-trade subscription —
+     * a number above this is a typo, not a deal.
+     */
+    public const MAX_MINOR_UNITS = 1_000_000_000;
+
+    /**
      * @return int|null Null for an empty input, so "no price" stays distinct
-     *                  from "zero".
+     *                  from "zero"; also null for anything that isn't a
+     *                  plausible amount. The safety belongs to the money type,
+     *                  not to whichever form happens to call it.
      */
     public static function toMinorUnits(?string $input): ?int
     {
         if ($input === null) {
+            return null;
+        }
+
+        // Scientific notation would otherwise survive as digits: "1e3" reads
+        // as 13, quietly charging £13 for a typed 1000.
+        if (preg_match('/[eE]/', $input) === 1) {
             return null;
         }
 
@@ -43,7 +58,15 @@ class MoneyInput
             return null;
         }
 
-        return (int) round((float) $cleaned * 100);
+        $minorUnits = (int) round((float) $cleaned * 100);
+
+        // A negative price is never what someone meant, and the column it
+        // lands in is unsigned. A number past the ceiling would overflow it.
+        if ($minorUnits < 0 || $minorUnits > self::MAX_MINOR_UNITS) {
+            return null;
+        }
+
+        return $minorUnits;
     }
 
     /**

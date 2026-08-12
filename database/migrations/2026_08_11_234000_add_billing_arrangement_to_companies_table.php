@@ -19,7 +19,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('companies', function (Blueprint $table) {
-            $table->string('billing_arrangement')->default('standard')->after('plan')->index();
+            $table->string('billing_arrangement')->default('standard')->after('plan');
             // Minor units, so a price is never a float. Nullable: only a
             // custom arrangement has one.
             $table->unsignedInteger('custom_price_amount')->nullable()->after('billing_arrangement');
@@ -33,7 +33,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('companies', function (Blueprint $table) {
-            $table->dropIndex(['billing_arrangement']);
             $table->dropColumn([
                 'billing_arrangement',
                 'custom_price_amount',
